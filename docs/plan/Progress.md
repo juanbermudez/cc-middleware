@@ -31,7 +31,7 @@
 - [x] Task 4.4: HTTP hook server
 
 ## Phase 5: Permission Handling
-- [ ] Task 5.1: Permission policy engine
+- [x] Task 5.1: Permission policy engine
 - [ ] Task 5.2: canUseTool implementation
 - [ ] Task 5.3: AskUserQuestion handling
 
@@ -90,3 +90,4 @@
 | 2026-04-04 | Task 3.2 | Passed | Orchestrator | Orchestrator | streaming.ts with SessionStreamEvent types, event normalization, abort control; 1 E2E test passes |
 | 2026-04-04 | Task 3.3 | Passed | Orchestrator | Orchestrator | Resume via resumeSession(); E2E test verifies context preservation across sessions |
 | 2026-04-04 | Task 3.4 | Passed | Orchestrator | Orchestrator | manager.ts with SessionManager tracking, lifecycle events, abort; 2 E2E tests pass |
+| 2026-04-04 | Task 5.1 | Passed | Orchestrator | Orchestrator | policy.ts with PolicyEngine, glob/alternation patterns, Bash(pattern) conditions, priority ordering; 11 unit tests pass |
