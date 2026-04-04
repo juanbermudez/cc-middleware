@@ -1,0 +1,113 @@
+{
+  "description": "CC-Middleware hook integration - dispatches events to middleware",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/PreToolUse",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/PostToolUse",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/SessionStart",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/SessionEnd",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/Stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/SubagentStart",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/SubagentStop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/TaskCreated",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/TaskCompleted",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

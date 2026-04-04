@@ -1,0 +1,6 @@
+{
+  "env": {
+    "CC_MIDDLEWARE_PORT": "3000",
+    "CC_MIDDLEWARE_HOOK_PORT": "3001"
+  }
+}

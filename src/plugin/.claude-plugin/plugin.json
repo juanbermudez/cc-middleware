@@ -1,0 +1,10 @@
+{
+  "name": "cc-middleware",
+  "version": "0.1.0",
+  "description": "Middleware for managing and observing Claude Code sessions",
+  "author": {
+    "name": "cc-middleware"
+  },
+  "hooks": "../hooks/hooks.json",
+  "skills": "../skills/"
+}
