@@ -26,7 +26,7 @@
 
 ## Phase 4: Event System
 - [x] Task 4.1: Event bus core
-- [ ] Task 4.2: Blocking hook stubs
+- [x] Task 4.2: Blocking hook stubs
 - [ ] Task 4.3: SDK hook integration
 - [ ] Task 4.4: HTTP hook server
 
@@ -83,3 +83,4 @@
 | 2026-04-04 | Task 2.2 | Passed | Orchestrator | Orchestrator | messages.ts wraps getSessionMessages(); text/tool extraction helpers; 4 E2E tests pass |
 | 2026-04-04 | Task 2.3 | Passed | Orchestrator | Orchestrator | info.ts wraps getSessionInfo/renameSession/tagSession; 3 E2E tests pass |
 | 2026-04-04 | Task 4.1 | Passed | Orchestrator | Orchestrator | event-bus.ts with typed EventEmitter, wildcard support, dispatch; 11 unit tests pass |
+| 2026-04-04 | Task 4.2 | Passed | Orchestrator | Orchestrator | blocking.ts with default stubs, matcher support, register/unregister; 9 unit tests pass |
