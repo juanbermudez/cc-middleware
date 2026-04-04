@@ -22,7 +22,8 @@ Build a Node/TypeScript middleware that wraps Claude Code to provide a clean, un
 | 4 | [Event System](phases/04-event-system.md) | Phase 1 | Hook event bus, dispatch, and registration |
 | 5 | [Permission Handling](phases/05-permissions.md) | Phase 3 | canUseTool, AskUserQuestion, policy engine |
 | 6 | [Agent & Team Management](phases/06-agents-teams.md) | Phase 3, 4 | Sub-agent definitions, team orchestration |
-| 7 | [API Layer](phases/07-api-layer.md) | Phase 2-6 | REST/WebSocket HTTP API |
+| **6.5** | **[Integration Tests](phases/06.5-integration-tests.md)** | **Phase 3-6** | **Wire systems together, prove they work end-to-end** |
+| 7 | [API Layer](phases/07-api-layer.md) | Phase 6.5 | REST/WebSocket HTTP API |
 | 8 | [Plugin Integration](phases/08-plugin.md) | Phase 4, 7 | Claude Code plugin packaging |
 | 9 | [Search & Indexing](phases/09-search-index.md) | Phase 2, 7 | SQLite full-text search for sessions |
 | 10 | [Configuration Management](phases/10-configuration.md) | Phase 1, 7 | Read/manage CC settings, plugins, skills, agents, MCP, memory |
@@ -41,7 +42,8 @@ Phase 1 (Foundation)
   │     └── Phase 8 (Plugin) ←── also depends on Phase 7
   └── Phase 10 (Configuration) ←── also depends on Phase 7
 
-Phase 7 (API Layer) depends on Phases 2-6
+Phase 6.5 (Integration Tests) depends on Phases 3-6
+Phase 7 (API Layer) depends on Phase 6.5
 ```
 
 ---
@@ -244,6 +246,56 @@ Phase 7 (API Layer) depends on Phases 2-6
 - Track agent sessions in the session manager
 
 **Verify**: E2E test that defines a simple agent programmatically and launches a session using it
+
+---
+
+## Phase 6.5: Integration Tests (PRIORITY)
+**File**: [phases/06.5-integration-tests.md](phases/06.5-integration-tests.md)
+
+These tests wire the separately-built systems together and prove the middleware works end-to-end. Uses the local `claude` CLI (already authenticated) for tests that need the Claude Code runtime.
+
+### Task 6.5.1: Hooks + Session integration
+- Launch a session with SDK hooks registered via `createSDKHooks()`
+- Verify PreToolUse and PostToolUse events fire on the event bus during real tool usage
+- Verify blocking hook can deny a tool and Claude respects the denial
+
+**Verify**: E2E test that launches `query()` with hooks, prompts Claude to read a file, and asserts both PreToolUse("Read") and PostToolUse("Read") events arrived on the bus
+
+### Task 6.5.2: Permissions + Session integration
+- Launch a session with `canUseTool` from `createCanUseTool()` connected to a real PolicyEngine
+- Verify policy allow lets tools through, policy deny blocks tools
+- Verify pending permission flow works with async resolution
+
+**Verify**: E2E test with policy denying Bash but allowing Read, launches a session asking to "run echo hello and read package.json", verifies Bash was denied and Read succeeded
+
+### Task 6.5.3: HTTP hook server + Claude CLI integration
+- Start the hook HTTP server
+- Run `claude -p` with `--settings` pointing to a hook config that routes to our server
+- Verify the hook server receives real events from a real Claude Code session
+
+**Verify**: E2E test that starts hook server, runs `claude -p "Read package.json" --allowedTools "Read" --settings '{"hooks":{"PostToolUse":[{"matcher":"Read","hooks":[{"type":"http","url":"http://127.0.0.1:<port>/hooks/PostToolUse"}]}]}}'` and verifies the server received the PostToolUse event
+
+### Task 6.5.4: Session rename/tag roundtrip
+- Launch a test session, capture session ID
+- Rename it, tag it, verify changes persist via getSessionInfo()
+- Clean up by removing the tag
+
+**Verify**: E2E test that launches a session, renames it to "integration-test-<timestamp>", tags it "test", reads back info and asserts both fields match, then clears the tag
+
+### Task 6.5.5: Streaming abort
+- Launch a long-running streaming session
+- Abort it mid-stream via SessionManager.abort()
+- Verify abort event fires and session is removed from active list
+
+**Verify**: E2E test that launches streaming session with "count from 1 to 1000", aborts after receiving first events, verifies session:aborted fires
+
+### Task 6.5.6: Full middleware smoke test
+- Create SessionManager, HookEventBus, BlockingHookRegistry, PolicyEngine, AgentRegistry, PermissionManager
+- Wire them all together as the middleware server would
+- Launch a session through the manager with hooks, permissions, and agent definitions active
+- Verify the full event flow: session started → hooks fire → permissions evaluated → result returned
+
+**Verify**: E2E test that creates the full middleware stack, launches a session asking "What is 2+2?", and asserts: session:started event, at least one hook event, result contains "4", session:completed event
 
 ---
 

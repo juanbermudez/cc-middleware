@@ -41,6 +41,14 @@
 - [x] Task 6.3: Team management
 - [x] Task 6.4: Programmatic agent launching
 
+## Phase 6.5: Integration Tests (PRIORITY)
+- [ ] Task 6.5.1: Hooks + Session integration
+- [ ] Task 6.5.2: Permissions + Session integration
+- [ ] Task 6.5.3: HTTP hook server + Claude CLI integration
+- [ ] Task 6.5.4: Session rename/tag roundtrip
+- [ ] Task 6.5.5: Streaming abort
+- [ ] Task 6.5.6: Full middleware smoke test
+
 ## Phase 7: API Layer
 - [ ] Task 7.1: Fastify server setup
 - [ ] Task 7.2: Session REST endpoints

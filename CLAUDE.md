@@ -58,6 +58,22 @@ See [docs/architecture/README.md](docs/architecture/README.md) for full architec
 - Keep modules small and focused - one responsibility per file
 - No classes unless truly needed - prefer functions and plain objects
 
+## Local Environment
+
+The `claude` CLI is installed and authenticated at `/Users/zef/.local/bin/claude` (v2.1.92). Integration tests can use:
+- **Agent SDK** (`query()`) - inherits auth from the environment
+- **Claude CLI** (`claude -p`) - already authenticated, useful for testing plugin/hook integration paths
+- Use `claude -p "prompt" --allowedTools "Read" --output-format json` for headless CLI tests
+- Use `--settings '<json>'` to pass inline settings (hook configs, permissions) for CLI tests
+
+## Test Structure
+
+- `tests/unit/` - Unit tests with synthetic data (no API calls)
+- `tests/e2e/` - E2E tests that may hit real API or filesystem
+- `tests/integration/` - Integration tests that wire multiple systems together with real API calls
+- Run all: `npm test`
+- Run integration only: `npx vitest run tests/integration`
+
 ## Session Storage
 
 Sessions are stored by Claude Code at:
