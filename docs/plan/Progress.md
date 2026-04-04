@@ -50,7 +50,7 @@
 - [x] Task 6.5.6: Full middleware smoke test
 
 ## Phase 7: API Layer
-- [ ] Task 7.1: Fastify server setup
+- [x] Task 7.1: Fastify server setup
 - [ ] Task 7.2: Session REST endpoints
 - [ ] Task 7.3: WebSocket streaming
 - [ ] Task 7.4: Hook and event endpoints
@@ -111,3 +111,4 @@
 | 2026-04-04 | Task 6.5.4 | Passed | Orchestrator | Orchestrator | session-metadata.test.ts: launch, rename, tag, read-back, clear-tag roundtrip works; 1 test passes |
 | 2026-04-04 | Task 6.5.5 | Passed | Orchestrator | Orchestrator | streaming-abort.test.ts: streaming session receives events then aborts mid-stream; AbortController verified; 1 test passes |
 | 2026-04-04 | Task 6.5.6 | Passed | Orchestrator | Orchestrator | smoke.test.ts: full stack (hooks+permissions+agents+session) wired together; result correct ("4"); hook events fire; agent registry works; 1 test passes |
+| 2026-04-04 | Task 7.1 | Passed | Orchestrator | Orchestrator | server.ts: Fastify API server with health check, status endpoint, error handling, 404 handler, context decoration; 3 E2E tests pass |
