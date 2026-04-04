@@ -117,12 +117,12 @@ npm install && npx tsc --noEmit
 
 **`src/types/sessions.ts`**:
 Types aligned with Agent SDK's `SDKSessionInfo` and `SessionMessage`:
-- `SessionInfo` - ID, summary, project, cwd, timestamps, tags, status
-- `SessionMessage` - type (user/assistant), uuid, content, tool calls
+- `SessionInfo` - Maps from `SDKSessionInfo`: sessionId, summary, lastModified, fileSize?, customTitle?, firstPrompt?, gitBranch?, cwd?, tag?, createdAt?
+- `SessionMessage` - Maps from SDK `SessionMessage`: type ("user"|"assistant"), uuid, session_id, message (unknown raw payload), parent_tool_use_id (null)
 - `SessionFilter` - Filters for listing (project, dateRange, tags, status)
-- `ActiveSession` - Running session with stream, abortController
-- `SessionLaunchOptions` - Options for launching headless sessions
-- `SessionResult` - Result of a completed session
+- `ActiveSession` - Running session with query (Query object), abortController, stream reference
+- `SessionLaunchOptions` - Options for launching headless sessions (see Phase 3 LaunchOptions for full field list)
+- `SessionResult` - Result of a completed session. Maps from `SDKResultMessage`: subtype (success|error_max_turns|error_during_execution|error_max_budget_usd|error_max_structured_output_retries), sessionId, result?, errors?, durationMs, durationApiMs, totalCostUsd, numTurns, stopReason, usage (NonNullableUsage), modelUsage, permissionDenials, structuredOutput?
 
 **`src/types/hooks.ts`**:
 Types matching Claude Code's hook system. NOTE: There are two distinct type systems:
@@ -141,8 +141,8 @@ Types to define:
 - `AsyncHookJSONOutput` - `{ async: true, asyncTimeout?: number }` for fire-and-forget hooks
 
 **`src/types/agents.ts`**:
-- `AgentDefinition` - Name, description, model, tools, prompt, etc.
-- `AgentInfo` - Light metadata about an agent
+- `AgentDefinition` - Re-export from SDK. Fields: description (required), prompt (required), tools?, disallowedTools?, model? ("sonnet"|"opus"|"haiku"|"inherit"), mcpServers? (AgentMcpServerSpec[]), skills?, maxTurns?, criticalSystemReminder_EXPERIMENTAL?
+- `AgentInfo` - Light metadata from SDK: name, description, model?
 - `TeamConfig` - Team name, members, task list path
 - `TeamMember` - Name, agent ID, agent type, status
 - `TeamTask` - ID, description, status, assignee, dependencies

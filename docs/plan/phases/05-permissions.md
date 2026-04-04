@@ -8,7 +8,7 @@
 
 Implement a permission policy engine and canUseTool handler that enables programmatic control over tool approvals and AskUserQuestion responses.
 
-## SDK Permission Context
+## SDK Permission Context (Authoritative)
 
 The Agent SDK provides `canUseTool` callback:
 ```typescript
@@ -26,11 +26,34 @@ type CanUseTool = (
 ) => Promise<PermissionResult>;
 
 type PermissionResult =
-  | { behavior: "allow"; updatedInput?: Record<string, unknown>; updatedPermissions?: PermissionUpdate[] }
-  | { behavior: "deny"; message: string; interrupt?: boolean };
+  | {
+      behavior: "allow";
+      updatedInput?: Record<string, unknown>;
+      updatedPermissions?: PermissionUpdate[];
+      toolUseID?: string;
+    }
+  | {
+      behavior: "deny";
+      message: string;
+      interrupt?: boolean;
+      toolUseID?: string;
+    };
+
+type PermissionMode =
+  | "default"            // Standard permission behavior
+  | "acceptEdits"        // Auto-accept file edits
+  | "bypassPermissions"  // Bypass all permission checks (requires allowDangerouslySkipPermissions)
+  | "plan"               // Planning mode - no execution
+  | "dontAsk"            // Don't prompt, deny if not pre-approved
+  | "auto";              // Model classifier approves or denies each tool call
 ```
 
-For `AskUserQuestion`, the tool appears as `toolName: "AskUserQuestion"` with input containing `questions` array.
+**Important SDK details**:
+- `canUseTool` fires for tools NOT auto-approved by permission rules. `allowedTools` auto-approves; `disallowedTools` auto-denies (checked first, overrides everything including `bypassPermissions`)
+- Hooks (`PreToolUse`, `PermissionRequest`) execute BEFORE `canUseTool` and can allow/deny/modify requests
+- `PermissionUpdate` supports operations: `addRules`, `replaceRules`, `removeRules`, `setMode`, `addDirectories`, `removeDirectories` with destinations: `userSettings`, `projectSettings`, `localSettings`, `session`, `cliArg`
+
+For `AskUserQuestion`, the tool appears as `toolName: "AskUserQuestion"` with input containing `questions` array. If you specify a `tools` array, you must include `"AskUserQuestion"` in it for Claude to be able to ask clarifying questions.
 
 ---
 
@@ -186,15 +209,23 @@ export interface QuestionHandler {
   (question: AskUserQuestionInput): Promise<AskUserQuestionResponse>;
 }
 
+// NOTE: The SDK's AskUserQuestionInput type has ALL fields required (not optional):
 export interface AskUserQuestionInput {
   questions: Array<{
-    question: string;
-    header?: string;
-    options?: Array<{ label: string; description?: string }>;
-    multiSelect?: boolean;
+    question: string;       // Full question text
+    header: string;         // Short label (max 12 characters) - REQUIRED
+    options: Array<{        // 2-4 choices - REQUIRED
+      label: string;
+      description: string;  // REQUIRED
+      preview?: string;     // Only present if toolConfig.askUserQuestion.previewFormat is set
+    }>;
+    multiSelect: boolean;   // REQUIRED (not optional)
   }>;
-  toolUseID: string;
-  sessionId: string;
+  // NOTE: toolUseID and sessionId are NOT part of AskUserQuestionInput per the SDK.
+  // They come from the canUseTool callback's options parameter.
+  // We add them to our wrapper for convenience:
+  toolUseID: string;        // From canUseTool options
+  sessionId: string;        // From message context
 }
 
 export interface AskUserQuestionResponse {
