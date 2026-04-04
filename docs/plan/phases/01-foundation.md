@@ -1,0 +1,188 @@
+# Phase 1: Foundation
+
+**Status**: Not Started
+**Depends On**: None
+**Blocks**: All other phases
+
+## Goal
+
+Set up the TypeScript project scaffold with build system, test harness, and core type definitions that all other phases build on.
+
+## Task 1.1: Initialize Project Scaffold
+
+### What to Create
+
+**`package.json`**:
+```json
+{
+  "name": "cc-middleware",
+  "version": "0.1.0",
+  "description": "Middleware for managing and observing Claude Code sessions",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "vitest run tests/e2e",
+    "test:watch": "vitest",
+    "lint": "eslint src/ tests/",
+    "start": "node dist/api/server.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
+```
+
+**Dependencies** (install exact versions):
+- `@anthropic-ai/claude-agent-sdk` - Core SDK
+- `better-sqlite3` - SQLite for session indexing
+- `fastify` - HTTP server
+- `@fastify/cors` - CORS support
+- `@fastify/websocket` - WebSocket support
+- `ws` - WebSocket client (for tests)
+- `zod` - Schema validation
+- `gray-matter` - Markdown frontmatter parsing (for agent definitions)
+- `eventemitter3` - Typed event emitter
+
+**Dev dependencies**:
+- `typescript` (^5.5)
+- `vitest` (^3.0)
+- `@types/better-sqlite3`
+- `@types/ws`
+- `eslint`
+- `@typescript-eslint/eslint-plugin`
+- `@typescript-eslint/parser`
+
+**`tsconfig.json`**:
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "tests"]
+}
+```
+
+**`vitest.config.ts`**:
+```typescript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    testTimeout: 60000, // E2E tests may take time
+    hookTimeout: 30000,
+  },
+});
+```
+
+**`.gitignore`**:
+```
+node_modules/
+dist/
+*.db
+*.db-journal
+.env
+```
+
+### Verification
+```bash
+npm install && npx tsc --noEmit
+# Exit code 0 = pass
+```
+
+---
+
+## Task 1.2: Define Core Types
+
+### What to Create
+
+**`src/types/sessions.ts`**:
+Types aligned with Agent SDK's `SDKSessionInfo` and `SessionMessage`:
+- `SessionInfo` - ID, summary, project, cwd, timestamps, tags, status
+- `SessionMessage` - type (user/assistant), uuid, content, tool calls
+- `SessionFilter` - Filters for listing (project, dateRange, tags, status)
+- `ActiveSession` - Running session with stream, abortController
+- `SessionLaunchOptions` - Options for launching headless sessions
+- `SessionResult` - Result of a completed session
+
+**`src/types/hooks.ts`**:
+Types matching Claude Code's hook system:
+- `HookEventType` - Union of all event type strings
+- `HookInput` - Union of all hook input types (matching SDK's `HookInput`)
+- `HookOutput` - Response types for each event
+- `HookHandler<T>` - Typed handler function `(input: T) => Promise<HookOutput>`
+- `HookSubscription` - Registration record (id, event, handler, matcher)
+- `BlockingHookResult` - Allow/deny/defer result for blocking hooks
+
+**`src/types/agents.ts`**:
+- `AgentDefinition` - Name, description, model, tools, prompt, etc.
+- `AgentInfo` - Light metadata about an agent
+- `TeamConfig` - Team name, members, task list path
+- `TeamMember` - Name, agent ID, agent type, status
+- `TeamTask` - ID, description, status, assignee, dependencies
+
+**`src/types/errors.ts`**:
+- `MiddlewareError` - Base error class with code and details
+- `SessionNotFoundError`
+- `SessionAlreadyActiveError`
+- `PermissionDeniedError`
+- `AgentNotFoundError`
+- `HookTimeoutError`
+
+**`src/types/index.ts`**:
+Re-export everything from the above files.
+
+### Verification
+```bash
+npx tsc --noEmit
+# Exit code 0 = pass
+```
+
+---
+
+## Task 1.3: Create Test Harness
+
+### What to Create
+
+**`tests/helpers/fixtures.ts`**:
+- Mock session data generators
+- Mock hook event payloads
+- Test project directory paths
+
+**`tests/helpers/setup.ts`**:
+- Global test setup (ensure test temp directory exists)
+- Cleanup hooks
+
+**`tests/unit/types.test.ts`**:
+- Simple test that imports all types and verifies they're defined
+- Test error class inheritance
+
+**`tests/e2e/sdk-available.test.ts`**:
+- Verify `@anthropic-ai/claude-agent-sdk` is importable
+- Verify `listSessions` function exists
+- Verify `query` function exists
+
+### Verification
+```bash
+npm test
+# All tests pass, exit code 0
+```
