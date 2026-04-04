@@ -22,6 +22,10 @@ import { registerEventRoutes } from "./routes/events.js";
 import { registerAgentRoutes } from "./routes/agents.js";
 import { registerPermissionRoutes } from "./routes/permissions.js";
 import { registerWebSocketRoutes } from "./websocket.js";
+import { registerSearchRoutes } from "./routes/search.js";
+import type { SearchContext } from "./routes/search.js";
+import type { SessionStore } from "../store/db.js";
+import type { SessionIndexer } from "../store/indexer.js";
 
 /** Options for creating the middleware API server */
 export interface MiddlewareServerOptions {
@@ -35,6 +39,10 @@ export interface MiddlewareServerOptions {
   teamManager: TeamManager;
   permissionManager: PermissionManager;
   askUserManager: AskUserQuestionManager;
+  /** Optional: session store for search (Phase 9) */
+  sessionStore?: SessionStore;
+  /** Optional: session indexer for search (Phase 9) */
+  sessionIndexer?: SessionIndexer;
 }
 
 /** Context shared with all route handlers */
@@ -128,6 +136,15 @@ export async function createMiddlewareServer(
   registerAgentRoutes(app, ctx);
   registerPermissionRoutes(app, ctx);
   registerWebSocketRoutes(app, ctx);
+
+  // Register search routes if store and indexer are available
+  if (options.sessionStore && options.sessionIndexer) {
+    const searchCtx: SearchContext = {
+      store: options.sessionStore,
+      indexer: options.sessionIndexer,
+    };
+    registerSearchRoutes(app, searchCtx);
+  }
 
   // Status endpoint
   app.get("/api/v1/status", async () => {
