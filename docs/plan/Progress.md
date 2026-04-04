@@ -42,7 +42,7 @@
 - [x] Task 6.4: Programmatic agent launching
 
 ## Phase 6.5: Integration Tests (PRIORITY)
-- [ ] Task 6.5.1: Hooks + Session integration
+- [x] Task 6.5.1: Hooks + Session integration
 - [ ] Task 6.5.2: Permissions + Session integration
 - [ ] Task 6.5.3: HTTP hook server + Claude CLI integration
 - [ ] Task 6.5.4: Session rename/tag roundtrip
@@ -105,3 +105,4 @@
 | 2026-04-04 | Task 6.2 | Passed | Orchestrator | Orchestrator | registry.ts with AgentRegistry, filesystem loading, runtime override, SDK conversion; 8 unit tests pass |
 | 2026-04-04 | Task 6.3 | Passed | Orchestrator | Orchestrator | teams.ts with TeamManager, team discovery, task reading from filesystem; 6 unit tests pass |
 | 2026-04-04 | Task 6.4 | Passed | Orchestrator | Orchestrator | launcher.ts with AgentLauncher using registry + session manager; 2 tests pass (1 real API call) |
+| 2026-04-04 | Task 6.5.1 | Passed | Orchestrator | Orchestrator | hooks-session.test.ts: PreToolUse/PostToolUse events fire during real session; blocking deny prevents Bash execution; 2 tests pass |
