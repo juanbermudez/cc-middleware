@@ -58,25 +58,25 @@
 - [x] Task 7.6: Permission endpoints
 
 ## Phase 8: Plugin Integration
-- [ ] Task 8.1: Plugin manifest
-- [ ] Task 8.2: Plugin hooks configuration
-- [ ] Task 8.3: Plugin skill
-- [ ] Task 8.4: Plugin MCP server (optional)
+- [x] Task 8.1: Plugin manifest
+- [x] Task 8.2: Plugin hooks configuration
+- [x] Task 8.3: Plugin skill
+- [x] Task 8.4: Plugin MCP server (optional)
 
 ## Phase 9: Search & Indexing
-- [ ] Task 9.1: SQLite session store
-- [ ] Task 9.2: Session indexer
-- [ ] Task 9.3: Full-text search
-- [ ] Task 9.4: Search API endpoints
+- [x] Task 9.1: SQLite session store
+- [x] Task 9.2: Session indexer
+- [x] Task 9.3: Full-text search
+- [x] Task 9.4: Search API endpoints
 
 ## Phase 10: Configuration Management
-- [ ] Task 10.1: Settings reader
-- [ ] Task 10.2: Settings writer
-- [ ] Task 10.3: Plugin reader and management
-- [ ] Task 10.4: Skills, agents, and rules reader
-- [ ] Task 10.5: MCP server reader
-- [ ] Task 10.6: Memory reader
-- [ ] Task 10.7: Configuration API endpoints
+- [x] Task 10.1: Settings reader
+- [x] Task 10.2: Settings writer
+- [x] Task 10.3: Plugin reader and management
+- [x] Task 10.4: Skills, agents, and rules reader
+- [x] Task 10.5: MCP server reader
+- [x] Task 10.6: Memory reader
+- [x] Task 10.7: Configuration API endpoints
 
 ---
 
@@ -117,3 +117,18 @@
 | 2026-04-04 | Task 7.4 | Passed | Orchestrator | Orchestrator | routes/events.ts: event type listing, webhook subscription CRUD, webhook delivery with event filtering; 8 E2E tests pass |
 | 2026-04-04 | Task 7.5 | Passed | Orchestrator | Orchestrator | routes/agents.ts: agent CRUD (list, get, register, delete) + team endpoints (list, get, tasks); 8 E2E tests pass |
 | 2026-04-04 | Task 7.6 | Passed | Orchestrator | Orchestrator | routes/permissions.ts: policy CRUD, pending permission resolution, question answering, Zod validation; 10 E2E tests pass |
+| 2026-04-04 | Task 8.1 | Passed | Orchestrator | Orchestrator | plugin.json manifest, settings.json with env vars; loads cleanly with claude --plugin-dir |
+| 2026-04-04 | Task 8.2 | Passed | Orchestrator | Orchestrator | hooks.json with HTTP hooks for 9 lifecycle events; wildcard matchers for tool events; 3 E2E tests pass |
+| 2026-04-04 | Task 8.3 | Passed | Orchestrator | Orchestrator | SKILL.md with frontmatter, 8 API endpoint references, $ARGUMENTS support; 2 E2E tests pass |
+| 2026-04-04 | Task 8.4 | Passed | Orchestrator | Orchestrator | MCP server with createSdkMcpServer, 4 tools (sessions, status, search, agents); 1 unit test passes |
+| 2026-04-04 | Task 9.1 | Passed | Orchestrator | Orchestrator | SQLite store with FTS5, triggers, WAL mode, prepared statements; 19 unit tests pass |
+| 2026-04-04 | Task 9.2 | Passed | Orchestrator | Orchestrator | SessionIndexer with full/incremental modes, message extraction, stats; 4 E2E tests pass |
+| 2026-04-04 | Task 9.3 | Passed | Orchestrator | Orchestrator | FTS5 search with relevance scoring, highlights, filters, pagination; 14 unit tests pass |
+| 2026-04-04 | Task 9.4 | Passed | Orchestrator | Orchestrator | Search API (GET /search, POST /reindex, GET /stats); server updated with store/indexer; 7 E2E tests pass |
+| 2026-04-04 | Task 10.1 | Passed | Orchestrator | Orchestrator | Settings reader for all scopes, merge with precedence, provenance tracking; 11 unit tests pass |
+| 2026-04-04 | Task 10.2 | Passed | Orchestrator | Orchestrator | Atomic settings writer, permission rule helpers, dot-notation keys; 13 unit tests pass |
+| 2026-04-04 | Task 10.3 | Passed | Orchestrator | Orchestrator | Plugin reader from installed_plugins.json, manifest parsing, enable/disable; 4 E2E tests pass |
+| 2026-04-04 | Task 10.4 | Passed | Orchestrator | Orchestrator | Skills/agents/rules/CLAUDE.md discovery with gray-matter, agent CRUD; 8 E2E tests pass |
+| 2026-04-04 | Task 10.5 | Passed | Orchestrator | Orchestrator | MCP server discovery from ~/.claude.json, .mcp.json, managed paths; 3 E2E tests pass |
+| 2026-04-04 | Task 10.6 | Passed | Orchestrator | Orchestrator | Memory reader with project key encoding, index/topic files; 5 E2E tests pass |
+| 2026-04-04 | Task 10.7 | Passed | Orchestrator | Orchestrator | 30+ config API routes for settings, plugins, agents, skills, rules, MCP, memory, CLAUDE.md; 21 E2E tests pass |

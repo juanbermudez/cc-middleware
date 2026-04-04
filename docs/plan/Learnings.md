@@ -129,3 +129,33 @@ Each entry should include:
 - **Context**: Task 6.5.1 Hooks + Session integration
 - **Learning**: `createSDKHooks()` inspects the event bus and blocking registry at the moment it's called to determine which events to bridge. If you register listeners AFTER calling createSDKHooks (without the wildcard `*` listener), those events won't have callbacks in the hooks object. Register listeners before calling createSDKHooks, or use the wildcard listener to force all events to be bridged.
 - **Impact**: Integration tests must register event bus listeners before calling createSDKHooks. Alternatively, use `createFullSDKHooks()` to bridge all events regardless.
+
+### 2026-04-04 - Plugin structure: components go at root, NOT inside .claude-plugin/
+- **Context**: Phase 8 Plugin Integration
+- **Learning**: Plugin components (hooks/, skills/, agents/, .mcp.json) must be at the plugin ROOT directory, not inside `.claude-plugin/`. Only `plugin.json` goes inside `.claude-plugin/`. The manifest's path references (hooks, skills) are relative to the plugin root.
+- **Impact**: Plugin directory structure must follow the convention exactly for Claude Code to discover components.
+
+### 2026-04-04 - FTS5 content tables need sync triggers for upsert operations
+- **Context**: Phase 9 Task 9.1 SQLite store
+- **Learning**: FTS5 content tables (`content=sessions`) don't automatically sync when the source table changes. You MUST create AFTER INSERT/UPDATE/DELETE triggers that maintain the FTS index. For UPDATE, the trigger must first DELETE the old FTS row then INSERT the new one. Without these triggers, FTS results become stale after any upsert.
+- **Impact**: All FTS-backed tables need three triggers each (insert, update, delete). The update trigger is a two-step delete-then-insert.
+
+### 2026-04-04 - FTS5 MATCH queries need careful sanitization
+- **Context**: Phase 9 Task 9.3 Full-text search
+- **Learning**: FTS5 MATCH syntax has special operators (AND, OR, NOT, NEAR, quotes, etc.) that can cause syntax errors if user input is passed directly. Our approach: strip special chars, wrap each word in quotes, append `*` for prefix matching. This ensures all user input produces valid FTS5 queries. A fallback to LIKE search handles any remaining edge cases.
+- **Impact**: Always sanitize user search queries before passing to FTS5 MATCH.
+
+### 2026-04-04 - Settings array merging: concatenate and deduplicate, not replace
+- **Context**: Phase 10 Task 10.1 Settings reader
+- **Learning**: Claude Code's settings system concatenates array values (like `permissions.allow`) across all scopes and deduplicates them. Lower-priority scopes can ADD entries but cannot REMOVE entries added by higher-priority scopes. Scalar values use simple override (higher precedence wins). This is critical for correct permission rule merging.
+- **Impact**: The mergeSettings function must iterate scopes from lowest to highest precedence, collecting unique array entries.
+
+### 2026-04-04 - installed_plugins.json uses "name@marketplace" keys with array values
+- **Context**: Phase 10 Task 10.3 Plugin reader
+- **Learning**: The plugin registry at `~/.claude/plugins/installed_plugins.json` uses keys like `"plugin-name@marketplace-name"` with array values (one entry per scope/project). Each entry has `scope`, `installPath`, `version`, `installedAt`, etc. A single plugin can have multiple installs (different scopes or projects). The `enabledPlugins` map in settings.json uses the same key format.
+- **Impact**: Plugin listing must parse the compound key format and cross-reference with enabledPlugins from all settings scopes.
+
+### 2026-04-04 - Memory project key derived from git root, not cwd
+- **Context**: Phase 10 Task 10.6 Memory reader
+- **Learning**: Claude Code's auto-memory directory uses the git repository root (not the working directory) to generate the project key. This means all worktrees and subdirectories of the same repo share one memory directory. The encoding replaces `/` with `-` and prepends `-`. Outside a git repo, the project root path is used directly.
+- **Impact**: The memory reader must try `git rev-parse --show-toplevel` first, falling back to the provided directory if not in a git repo.
