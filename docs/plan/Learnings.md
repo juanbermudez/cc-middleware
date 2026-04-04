@@ -109,3 +109,8 @@ Each entry should include:
 - **Context**: Phase 3 session lifecycle management
 - **Learning**: There are three ways to stop a session: (1) `AbortController` passed via `options.abortController` - signals abort via AbortSignal; (2) `Query.interrupt()` - interrupts the query, only available in streaming input mode; (3) `Query.close()` - forcefully closes the query and terminates the underlying process, cleans up all resources. Our SessionManager should expose all three appropriately.
 - **Impact**: Updated SessionManager to expose abort, interrupt, and close methods distinctly.
+
+### 2026-04-04 - SessionMessage.type includes "system" not just "user"|"assistant"
+- **Context**: Task 2.2 Session message reading implementation
+- **Learning**: The SDK's `SessionMessage.type` field includes `"system"` as a third variant, not just `"user" | "assistant"` as documented in the phase plan. TypeScript caught this during compilation. Our SessionMessage type must include all three variants.
+- **Impact**: Updated SessionMessage type to include `"system"`. Future message processing logic should handle system messages.

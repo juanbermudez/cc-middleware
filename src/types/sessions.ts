@@ -20,7 +20,7 @@ export interface SessionInfo {
 
 /** Session message, mapped from SDK SessionMessage */
 export interface SessionMessage {
-  type: "user" | "assistant";
+  type: "user" | "assistant" | "system";
   uuid: string;
   session_id: string;
   /** Raw message payload from the transcript (opaque, must be parsed) */
