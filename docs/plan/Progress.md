@@ -28,7 +28,7 @@
 - [x] Task 4.1: Event bus core
 - [x] Task 4.2: Blocking hook stubs
 - [x] Task 4.3: SDK hook integration
-- [ ] Task 4.4: HTTP hook server
+- [x] Task 4.4: HTTP hook server
 
 ## Phase 5: Permission Handling
 - [ ] Task 5.1: Permission policy engine
@@ -85,3 +85,4 @@
 | 2026-04-04 | Task 4.1 | Passed | Orchestrator | Orchestrator | event-bus.ts with typed EventEmitter, wildcard support, dispatch; 11 unit tests pass |
 | 2026-04-04 | Task 4.2 | Passed | Orchestrator | Orchestrator | blocking.ts with default stubs, matcher support, register/unregister; 9 unit tests pass |
 | 2026-04-04 | Task 4.3 | Passed | Orchestrator | Orchestrator | sdk-bridge.ts bridges event bus + blocking registry to SDK hooks format; 8 unit tests pass |
+| 2026-04-04 | Task 4.4 | Passed | Orchestrator | Orchestrator | server.ts HTTP hook server with Fastify; always 200, JSON body for decisions; 7 E2E tests pass |
