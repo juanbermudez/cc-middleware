@@ -55,7 +55,7 @@
 - [x] Task 7.3: WebSocket streaming
 - [x] Task 7.4: Hook and event endpoints
 - [x] Task 7.5: Agent endpoints
-- [ ] Task 7.6: Permission endpoints
+- [x] Task 7.6: Permission endpoints
 
 ## Phase 8: Plugin Integration
 - [ ] Task 8.1: Plugin manifest
@@ -116,3 +116,4 @@
 | 2026-04-04 | Task 7.3 | Passed | Orchestrator | Orchestrator | websocket.ts: WS endpoint with subscribe/unsubscribe, ping/pong, hook event broadcast, session lifecycle broadcast; 6 E2E tests pass |
 | 2026-04-04 | Task 7.4 | Passed | Orchestrator | Orchestrator | routes/events.ts: event type listing, webhook subscription CRUD, webhook delivery with event filtering; 8 E2E tests pass |
 | 2026-04-04 | Task 7.5 | Passed | Orchestrator | Orchestrator | routes/agents.ts: agent CRUD (list, get, register, delete) + team endpoints (list, get, tasks); 8 E2E tests pass |
+| 2026-04-04 | Task 7.6 | Passed | Orchestrator | Orchestrator | routes/permissions.ts: policy CRUD, pending permission resolution, question answering, Zod validation; 10 E2E tests pass |

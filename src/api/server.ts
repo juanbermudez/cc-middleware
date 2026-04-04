@@ -20,6 +20,7 @@ import type { AskUserQuestionManager } from "../permissions/ask-user.js";
 import { registerSessionRoutes } from "./routes/sessions.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerAgentRoutes } from "./routes/agents.js";
+import { registerPermissionRoutes } from "./routes/permissions.js";
 import { registerWebSocketRoutes } from "./websocket.js";
 
 /** Options for creating the middleware API server */
@@ -125,6 +126,7 @@ export async function createMiddlewareServer(
   registerSessionRoutes(app, ctx);
   registerEventRoutes(app, ctx);
   registerAgentRoutes(app, ctx);
+  registerPermissionRoutes(app, ctx);
   registerWebSocketRoutes(app, ctx);
 
   // Status endpoint
