@@ -25,7 +25,7 @@
 - [ ] Task 3.4: Session lifecycle management
 
 ## Phase 4: Event System
-- [ ] Task 4.1: Event bus core
+- [x] Task 4.1: Event bus core
 - [ ] Task 4.2: Blocking hook stubs
 - [ ] Task 4.3: SDK hook integration
 - [ ] Task 4.4: HTTP hook server
@@ -82,3 +82,4 @@
 | 2026-04-04 | Task 2.1 | Passed | Orchestrator | Orchestrator | discovery.ts wraps listSessions(); 7 E2E tests pass against real filesystem |
 | 2026-04-04 | Task 2.2 | Passed | Orchestrator | Orchestrator | messages.ts wraps getSessionMessages(); text/tool extraction helpers; 4 E2E tests pass |
 | 2026-04-04 | Task 2.3 | Passed | Orchestrator | Orchestrator | info.ts wraps getSessionInfo/renameSession/tagSession; 3 E2E tests pass |
+| 2026-04-04 | Task 4.1 | Passed | Orchestrator | Orchestrator | event-bus.ts with typed EventEmitter, wildcard support, dispatch; 11 unit tests pass |
