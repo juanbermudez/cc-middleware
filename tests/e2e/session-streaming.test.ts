@@ -10,8 +10,8 @@ import type { SessionStreamEvent } from "../../src/sessions/streaming.js";
 describe("Session Streaming (E2E)", () => {
   it("should receive streaming events including text_delta and result", async () => {
     const session = await launchStreamingSession({
-      prompt: "Count from 1 to 5, one number per line.",
-      maxTurns: 1,
+      prompt: "What is 2+2? Reply with just the number.",
+      maxTurns: 3,
       permissionMode: "plan",
       persistSession: false,
     });

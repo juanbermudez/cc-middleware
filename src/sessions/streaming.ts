@@ -139,8 +139,30 @@ export async function launchStreamingSession(
         }
       }
     } catch (error) {
-      rejectResult!(error instanceof Error ? error : new Error(String(error)));
-      throw error;
+      // SDK throws for error results (e.g., max_turns reached).
+      // Convert to a result event rather than propagating the exception.
+      const err = error instanceof Error ? error : new Error(String(error));
+      const errorResult: LaunchResult = {
+        sessionId,
+        subtype: "error_during_execution",
+        isError: true,
+        errors: [err.message],
+        durationMs: 0,
+        durationApiMs: 0,
+        totalCostUsd: 0,
+        numTurns: 0,
+        stopReason: null,
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+        modelUsage: {},
+        permissionDenials: [],
+      };
+      resolveResult!(errorResult);
+      yield { type: "result", data: errorResult };
     }
   }
 
