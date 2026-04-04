@@ -119,3 +119,13 @@ Each entry should include:
 - **Context**: Task 3.2 Streaming session implementation
 - **Learning**: When the SDK's `query()` AsyncGenerator encounters an error result (e.g., `error_max_turns`), it throws an exception during `for await` iteration rather than yielding a result message. This means the consumer's `for await` loop crashes unless the error is caught. Our streaming wrapper must catch these errors and convert them to result events for consumers.
 - **Impact**: Updated streaming.ts to catch iteration errors and convert them to error result events. Tests must use sufficient maxTurns to avoid non-deterministic failures.
+
+### 2026-04-04 - StreamingSession.result Promise may never resolve on abort+break
+- **Context**: Task 6.5.5 Streaming abort integration test
+- **Learning**: When a streaming session is aborted and the consumer `break`s out of the `for await` loop, the async generator's `return()` method is called (normal cleanup). But the generator's try/catch block that would resolve the result promise never runs because the generator was already closed by the break. This means `await stream.result` can hang forever after abort+break. Use `stream.abort()` directly and don't depend on the result promise in abort scenarios.
+- **Impact**: Integration tests should not await `stream.result` after abort. The SessionManager's internal tracking may also leave sessions in "running" state briefly after abort because the result promise doesn't resolve.
+
+### 2026-04-04 - createSDKHooks detects active events at call time
+- **Context**: Task 6.5.1 Hooks + Session integration
+- **Learning**: `createSDKHooks()` inspects the event bus and blocking registry at the moment it's called to determine which events to bridge. If you register listeners AFTER calling createSDKHooks (without the wildcard `*` listener), those events won't have callbacks in the hooks object. Register listeners before calling createSDKHooks, or use the wildcard listener to force all events to be bridged.
+- **Impact**: Integration tests must register event bus listeners before calling createSDKHooks. Alternatively, use `createFullSDKHooks()` to bridge all events regardless.
