@@ -114,3 +114,8 @@ Each entry should include:
 - **Context**: Task 2.2 Session message reading implementation
 - **Learning**: The SDK's `SessionMessage.type` field includes `"system"` as a third variant, not just `"user" | "assistant"` as documented in the phase plan. TypeScript caught this during compilation. Our SessionMessage type must include all three variants.
 - **Impact**: Updated SessionMessage type to include `"system"`. Future message processing logic should handle system messages.
+
+### 2026-04-04 - SDK throws on error result subtypes during iteration
+- **Context**: Task 3.2 Streaming session implementation
+- **Learning**: When the SDK's `query()` AsyncGenerator encounters an error result (e.g., `error_max_turns`), it throws an exception during `for await` iteration rather than yielding a result message. This means the consumer's `for await` loop crashes unless the error is caught. Our streaming wrapper must catch these errors and convert them to result events for consumers.
+- **Impact**: Updated streaming.ts to catch iteration errors and convert them to error result events. Tests must use sufficient maxTurns to avoid non-deterministic failures.
