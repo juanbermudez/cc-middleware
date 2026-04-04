@@ -9,7 +9,7 @@
 ---
 
 ## Phase 1: Foundation
-- [ ] Task 1.1: Initialize project scaffold
+- [x] Task 1.1: Initialize project scaffold
 - [ ] Task 1.2: Define core types
 - [ ] Task 1.3: Create test harness
 
@@ -76,4 +76,4 @@
 
 | Date | Task | Status | Implemented By | Verified By | Notes |
 |------|------|--------|----------------|-------------|-------|
-| | | | | | |
+| 2026-04-04 | Task 1.1 | Passed | Orchestrator | Orchestrator | package.json, tsconfig.json, vitest.config.ts, .gitignore created; all deps installed; tsc --noEmit passes |
