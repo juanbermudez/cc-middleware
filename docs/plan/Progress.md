@@ -47,7 +47,7 @@
 - [x] Task 6.5.3: HTTP hook server + Claude CLI integration
 - [x] Task 6.5.4: Session rename/tag roundtrip
 - [x] Task 6.5.5: Streaming abort
-- [ ] Task 6.5.6: Full middleware smoke test
+- [x] Task 6.5.6: Full middleware smoke test
 
 ## Phase 7: API Layer
 - [ ] Task 7.1: Fastify server setup
@@ -110,3 +110,4 @@
 | 2026-04-04 | Task 6.5.3 | Passed | Orchestrator | Orchestrator | hookserver-cli.test.ts: HTTP hook server receives PostToolUse from real claude -p session via --settings; 1 test passes |
 | 2026-04-04 | Task 6.5.4 | Passed | Orchestrator | Orchestrator | session-metadata.test.ts: launch, rename, tag, read-back, clear-tag roundtrip works; 1 test passes |
 | 2026-04-04 | Task 6.5.5 | Passed | Orchestrator | Orchestrator | streaming-abort.test.ts: streaming session receives events then aborts mid-stream; AbortController verified; 1 test passes |
+| 2026-04-04 | Task 6.5.6 | Passed | Orchestrator | Orchestrator | smoke.test.ts: full stack (hooks+permissions+agents+session) wired together; result correct ("4"); hook events fire; agent registry works; 1 test passes |
