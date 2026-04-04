@@ -11,7 +11,7 @@
 ## Phase 1: Foundation
 - [x] Task 1.1: Initialize project scaffold
 - [x] Task 1.2: Define core types
-- [ ] Task 1.3: Create test harness
+- [x] Task 1.3: Create test harness
 
 ## Phase 2: Session Discovery
 - [ ] Task 2.1: Session discovery from filesystem
@@ -78,3 +78,4 @@
 |------|------|--------|----------------|-------------|-------|
 | 2026-04-04 | Task 1.1 | Passed | Orchestrator | Orchestrator | package.json, tsconfig.json, vitest.config.ts, .gitignore created; all deps installed; tsc --noEmit passes |
 | 2026-04-04 | Task 1.2 | Passed | Orchestrator | Orchestrator | sessions.ts, hooks.ts, agents.ts, errors.ts, index.ts created; all types compile cleanly |
+| 2026-04-04 | Task 1.3 | Passed | Orchestrator | Orchestrator | Test harness with fixtures, setup helpers, unit tests (13), E2E tests (4); all 17 tests pass |
