@@ -23,7 +23,9 @@ import { registerAgentRoutes } from "./routes/agents.js";
 import { registerPermissionRoutes } from "./routes/permissions.js";
 import { registerWebSocketRoutes } from "./websocket.js";
 import { registerSearchRoutes } from "./routes/search.js";
+import { registerConfigRoutes } from "./routes/config.js";
 import type { SearchContext } from "./routes/search.js";
+import type { ConfigContext } from "./routes/config.js";
 import type { SessionStore } from "../store/db.js";
 import type { SessionIndexer } from "../store/indexer.js";
 
@@ -43,6 +45,8 @@ export interface MiddlewareServerOptions {
   sessionStore?: SessionStore;
   /** Optional: session indexer for search (Phase 9) */
   sessionIndexer?: SessionIndexer;
+  /** Optional: project directory for config (Phase 10) */
+  projectDir?: string;
 }
 
 /** Context shared with all route handlers */
@@ -145,6 +149,12 @@ export async function createMiddlewareServer(
     };
     registerSearchRoutes(app, searchCtx);
   }
+
+  // Register configuration routes
+  const configCtx: ConfigContext = {
+    projectDir: options.projectDir,
+  };
+  registerConfigRoutes(app, configCtx);
 
   // Status endpoint
   app.get("/api/v1/status", async () => {
