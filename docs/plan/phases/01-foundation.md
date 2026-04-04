@@ -125,13 +125,20 @@ Types aligned with Agent SDK's `SDKSessionInfo` and `SessionMessage`:
 - `SessionResult` - Result of a completed session
 
 **`src/types/hooks.ts`**:
-Types matching Claude Code's hook system:
-- `HookEventType` - Union of all event type strings
-- `HookInput` - Union of all hook input types (matching SDK's `HookInput`)
-- `HookOutput` - Response types for each event
-- `HookHandler<T>` - Typed handler function `(input: T) => Promise<HookOutput>`
+Types matching Claude Code's hook system. NOTE: There are two distinct type systems:
+1. **HookJSONOutput** - What hook callbacks (Phase 4) return
+2. **PermissionResult** - What canUseTool (Phase 5) returns
+
+Types to define:
+- `HookEventType` - Union of all event type strings (including `Setup`)
+- `BlockingEventType` - Subset of events that can block/deny
+- `HookInput` - Union of all hook input types (re-export from SDK's `HookInput`)
+- `HookJSONOutput` - Re-export from SDK: `{ systemMessage?, continue?, decision?, hookSpecificOutput? }`
+- `HookCallback` - Re-export from SDK: `(input, toolUseID, { signal }) => Promise<HookJSONOutput>`
+- `HookCallbackMatcher` - Re-export from SDK: `{ matcher?, hooks, timeout? }`
+- `HookHandler<T>` - Our handler type: `(input: T) => Promise<HookJSONOutput>`
 - `HookSubscription` - Registration record (id, event, handler, matcher)
-- `BlockingHookResult` - Allow/deny/defer result for blocking hooks
+- `AsyncHookJSONOutput` - `{ async: true, asyncTimeout?: number }` for fire-and-forget hooks
 
 **`src/types/agents.ts`**:
 - `AgentDefinition` - Name, description, model, tools, prompt, etc.

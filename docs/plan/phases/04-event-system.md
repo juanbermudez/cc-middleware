@@ -22,20 +22,40 @@ PermissionRequest, PermissionDenied,
 Notification, ConfigChange, CwdChanged, FileChanged,
 WorktreeCreate, WorktreeRemove,
 PreCompact, PostCompact,
-Elicitation, ElicitationResult
+Elicitation, ElicitationResult,
+Setup
 ```
 
-### Blocking Events (can prevent action)
+### Blocking Events (can prevent action via HookJSONOutput)
+
+These events can control behavior. The blocking mechanism varies by event type:
+
+**Via `hookSpecificOutput.permissionDecision: "deny"`:**
 - PreToolUse - deny tool call
 - PermissionRequest - deny permission
-- UserPromptSubmit - block prompt
+
+**Via top-level `decision: "block"`:**
 - Stop - prevent stop (continue conversation)
 - SubagentStop - prevent subagent stop
-- TeammateIdle - prevent idle
-- TaskCreated - prevent creation
-- TaskCompleted - prevent completion
+- TeammateIdle - prevent idle (keep working)
+- TaskCreated - prevent task creation
+- TaskCompleted - prevent task completion
+
+**Via top-level `decision: "block"` or specific output:**
+- UserPromptSubmit - block prompt processing
 - ConfigChange - block config change
 - Elicitation, ElicitationResult - control MCP elicitation
+- WorktreeCreate - fail worktree creation
+
+### Non-Blocking Events (observation only, return {} or { async: true })
+- PostToolUse, PostToolUseFailure
+- SessionStart, SessionEnd
+- SubagentStart
+- Notification, PermissionDenied
+- CwdChanged, FileChanged
+- PreCompact, PostCompact
+- WorktreeRemove, StopFailure
+- Setup
 
 ---
 
@@ -112,25 +132,56 @@ export interface BlockingHookRegistry {
   ): Promise<OutputFor<E>>;
 }
 
-// Default stubs:
+// IMPORTANT: Hook callbacks return HookJSONOutput, not PermissionResult.
+// Returning {} (empty object) = "proceed with no changes" for ALL events.
+// This is distinct from canUseTool (Phase 5) which returns PermissionResult.
+//
+// HookJSONOutput shape:
+// {
+//   systemMessage?: string;       // Inject message visible to model
+//   continue?: boolean;           // Control if agent keeps running
+//   suppressOutput?: boolean;
+//   stopReason?: string;
+//   decision?: "approve" | "block"; // For Stop/TaskCompleted/TeammateIdle
+//   reason?: string;
+//   hookSpecificOutput?: {
+//     hookEventName: string;      // REQUIRED - must match the event type
+//     permissionDecision?: "allow" | "deny" | "ask" | "defer"; // PreToolUse/PermissionRequest
+//     permissionDecisionReason?: string;
+//     updatedInput?: Record<string, unknown>; // PreToolUse only (requires permissionDecision: "allow")
+//     additionalContext?: string;
+//     decision?: { behavior: "allow" | "deny" }; // PermissionRequest only
+//   }
+// }
+
+// Default stubs - all return {} which means "proceed normally":
 const DEFAULT_STUBS = {
-  PreToolUse: async () => ({ permissionDecision: 'allow' as const }),
-  PermissionRequest: async () => ({ decision: { behavior: 'allow' as const } }),
-  UserPromptSubmit: async (input) => ({}), // pass through
-  Stop: async () => ({}), // allow stop
-  TaskCreated: async () => ({}), // allow creation
-  TaskCompleted: async () => ({}), // allow completion
-  TeammateIdle: async () => ({}), // allow idle
-  // ... etc
+  PreToolUse: async () => ({}),          // {} = don't interfere (falls through to normal permission flow)
+  PermissionRequest: async () => ({}),   // {} = don't interfere (shows permission dialog as normal)
+  UserPromptSubmit: async () => ({}),    // {} = pass through
+  Stop: async () => ({}),                // {} = allow stop. Use { decision: "block" } to prevent stop
+  TaskCreated: async () => ({}),         // {} = allow. Use { decision: "block", reason: "..." } to prevent
+  TaskCompleted: async () => ({}),       // {} = allow. Use { decision: "block", reason: "..." } to prevent
+  TeammateIdle: async () => ({}),        // {} = allow idle. Use { decision: "block", reason: "..." } to keep working
+  SubagentStop: async () => ({}),        // {} = allow stop
+  ConfigChange: async () => ({}),        // {} = allow change
+  Elicitation: async () => ({}),         // {} = allow
+  ElicitationResult: async () => ({}),   // {} = allow
+  WorktreeCreate: async () => ({}),      // {} = allow
 };
 ```
 
 **Behavior**:
-- Every blocking event has a default stub that returns a positive (allow) response
+- Every blocking event has a default stub that returns `{}` (proceed/allow)
 - `register()` replaces the default stub for an event
 - Support matcher patterns (regex on tool name for tool events)
-- `execute()` runs the handler chain and returns the result
+- `execute()` runs the handler chain and returns the result as `HookJSONOutput`
 - Unregister returns to default stub
+- For **deny/block** responses, registered handlers must return the correct format per event type:
+  - PreToolUse: `{ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "..." } }`
+  - PermissionRequest: `{ hookSpecificOutput: { hookEventName: "PermissionRequest", decision: { behavior: "deny" } } }`
+  - Stop/TaskCompleted/TeammateIdle: `{ decision: "block", reason: "..." }`
+- Support `{ async: true, asyncTimeout?: number }` for fire-and-forget observation hooks
 
 ### Verification (Unit)
 
@@ -160,9 +211,16 @@ export function createSDKHooks(
 // This generates the `hooks` option for query():
 // For each registered event:
 //   - Creates a HookCallbackMatcher with the right matcher pattern
-//   - The HookCallback dispatches to the event bus AND
-//     for blocking events, executes the blocking handler
-//   - Returns the blocking handler's result as HookJSONOutput
+//   - The HookCallback receives (input: HookInput, toolUseID: string | undefined, { signal: AbortSignal })
+//   - Dispatches to the event bus for all listeners
+//   - For blocking events, executes the blocking handler and returns its HookJSONOutput
+//   - For non-blocking events, returns {} (proceed)
+//   - For observation-only handlers, returns { async: true } (fire-and-forget)
+//
+// IMPORTANT: Hook callbacks and canUseTool are SEPARATE systems.
+// - Hook callbacks return HookJSONOutput (this bridge)
+// - canUseTool returns PermissionResult { behavior: "allow"|"deny" } (Phase 5)
+// Both can coexist. Hooks fire first, then canUseTool if no hook decided.
 ```
 
 **Behavior**:
@@ -206,31 +264,39 @@ export async function createHookServer(options: HookServerOptions): Promise<{
 
 **Behavior**:
 - Accepts POST requests at `POST /hooks/:eventType`
-- Parses Claude Code hook input JSON from request body
+- Parses Claude Code hook input JSON from request body (delivered via stdin in command hooks, via POST body in HTTP hooks)
 - Dispatches to event bus
-- For blocking events, executes blocking handler and returns result
+- For blocking events, executes blocking handler and returns result as JSON body
 - For non-blocking events, returns 200 with empty body
-- Returns proper exit-code-equivalent HTTP responses:
-  - 200 = success (exit 0)
-  - 422 = block (exit 2) with error message in body
-- Handles timeouts gracefully
+- **IMPORTANT**: Always returns HTTP 200. The JSON body determines allow/deny, NOT the status code.
+  Claude Code's HTTP hook protocol:
+  - 2xx + empty body = proceed (equivalent to exit 0)
+  - 2xx + JSON body = proceed with structured response (parsed as HookJSONOutput)
+  - Non-2xx / timeout = non-blocking error (Claude continues anyway, logged in verbose mode)
+  - You CANNOT block via HTTP status code. Blocking is done via JSON body content:
+    - PreToolUse deny: `{ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "..." } }`
+    - Stop block: `{ decision: "block", reason: "..." }`
+- Handles timeouts gracefully (returns empty 200 on timeout so Claude isn't blocked)
 
 ### Verification (E2E)
 
 **`tests/e2e/hook-server.test.ts`**:
 ```typescript
-// Test: Receive and dispatch hook event
+// Test: Receive and dispatch hook event (allow by default)
 // 1. Start hook server
-// 2. POST to /hooks/PreToolUse with mock payload
+// 2. POST to /hooks/PreToolUse with mock payload: { tool_name: "Read", tool_input: {}, session_id: "test", cwd: "/tmp", hook_event_name: "PreToolUse" }
 // 3. Verify event bus received the event
-// 4. Verify response is 200 with allow decision
+// 4. Verify response is HTTP 200 with empty JSON body {} (= proceed)
 
-// Test: Blocking hook returns deny
+// Test: Blocking hook returns deny via JSON body
 // 1. Register a deny handler for PreToolUse matching "Bash"
+//    Handler returns: { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "Blocked by policy" } }
 // 2. POST to /hooks/PreToolUse with tool_name "Bash"
-// 3. Verify response is 200 with deny decision
+// 3. Verify response is HTTP 200 with JSON body containing permissionDecision: "deny"
+// 4. NOTE: HTTP status is ALWAYS 200. The JSON body determines the decision.
 
-// Test: Non-blocking event returns 200
-// 1. POST to /hooks/SessionStart
-// 2. Verify response is 200 with empty body
+// Test: Non-blocking event returns empty 200
+// 1. POST to /hooks/SessionStart with mock payload
+// 2. Verify response is HTTP 200 with empty body
+// 3. Verify event bus received the SessionStart event
 ```

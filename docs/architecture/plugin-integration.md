@@ -38,12 +38,20 @@ When the plugin is installed and the middleware server is running:
 
 1. Claude Code fires a hook event (e.g., PreToolUse)
 2. Plugin's `hooks.json` routes it as HTTP POST to `http://127.0.0.1:3001/hooks/PreToolUse`
-3. Middleware's hook server receives the payload
+3. Middleware's hook server receives the JSON payload (same format as command hook stdin)
 4. Event is dispatched to the event bus
-5. Blocking handler (if any) returns a decision
-6. Response flows back to Claude Code
+5. Blocking handler (if any) returns a `HookJSONOutput` decision
+6. Server returns HTTP 200 with the `HookJSONOutput` JSON body
+7. Claude Code parses the JSON and applies the decision
 
-**Graceful degradation**: If the middleware server is not running, HTTP hooks timeout. Since the timeout produces a non-blocking error (exit code != 0, != 2), Claude Code continues normally. The plugin does not break Claude Code when the server is down.
+**HTTP hook response protocol**:
+- Always return HTTP 200 with JSON body
+- Empty body or `{}` = proceed (equivalent to command hook exit 0)
+- JSON with `hookSpecificOutput.permissionDecision: "deny"` = block tool (equivalent to exit 2)
+- JSON with `decision: "block"` = block Stop/TaskCompleted/etc.
+- Non-2xx or timeout = non-blocking error (Claude continues anyway)
+
+**Graceful degradation**: If the middleware server is not running, HTTP hooks timeout or return non-2xx. Since this produces a non-blocking error, Claude Code continues normally. The plugin does not break Claude Code when the server is down.
 
 ## Plugin Installation
 

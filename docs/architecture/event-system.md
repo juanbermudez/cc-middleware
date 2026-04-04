@@ -84,8 +84,29 @@ All hook inputs extend a base shape:
 }
 ```
 
-Blocking hook outputs follow Claude Code's JSON output format:
-- **PreToolUse**: `{ hookSpecificOutput: { permissionDecision: "allow"|"deny", ... } }`
-- **PermissionRequest**: `{ hookSpecificOutput: { decision: { behavior: "allow"|"deny" } } }`
-- **Stop**: `{ decision: "block"|undefined }` (block = continue conversation)
-- **TaskCompleted**: exit 2 to prevent completion
+Blocking hook outputs follow the `HookJSONOutput` format from the Agent SDK:
+
+**All hooks return `HookJSONOutput`** (or `{}` to proceed with no changes):
+```typescript
+{
+  systemMessage?: string;              // Inject message visible to model
+  continue?: boolean;                  // Control if agent keeps running
+  decision?: "approve" | "block";      // For Stop/TaskCompleted/TeammateIdle
+  reason?: string;                     // Explanation for decision
+  hookSpecificOutput?: {
+    hookEventName: string;             // REQUIRED - must match event type
+    // ... event-specific fields
+  }
+}
+```
+
+**Per-event blocking format:**
+- **PreToolUse**: `{ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "..." } }`
+- **PermissionRequest**: `{ hookSpecificOutput: { hookEventName: "PermissionRequest", decision: { behavior: "deny" } } }`
+- **Stop**: `{ decision: "block", reason: "..." }` (block = continue conversation)
+- **TaskCompleted/TeammateIdle**: `{ decision: "block", reason: "..." }`
+- **Default (all events)**: `{}` = proceed with no changes
+
+**Important**: `HookJSONOutput` (hook callbacks) is a DIFFERENT type from `PermissionResult` (canUseTool callback). Don't confuse them:
+- Hook callbacks → `HookJSONOutput` (`{}` or `{ hookSpecificOutput: ... }`)
+- `canUseTool` → `PermissionResult` (`{ behavior: "allow" }` or `{ behavior: "deny", message: "..." }`)
