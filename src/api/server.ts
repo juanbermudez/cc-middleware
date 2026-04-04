@@ -16,6 +16,7 @@ import type { AgentRegistry } from "../agents/registry.js";
 import type { TeamManager } from "../agents/teams.js";
 import type { PermissionManager } from "../permissions/handler.js";
 import type { AskUserQuestionManager } from "../permissions/ask-user.js";
+import { registerSessionRoutes } from "./routes/sessions.js";
 
 /** Options for creating the middleware API server */
 export interface MiddlewareServerOptions {
@@ -112,6 +113,9 @@ export async function createMiddlewareServer(
       uptime: Math.floor((Date.now() - startTime) / 1000),
     };
   });
+
+  // Register route modules
+  registerSessionRoutes(app, ctx);
 
   // Status endpoint
   app.get("/api/v1/status", async () => {
