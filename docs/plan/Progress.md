@@ -38,7 +38,7 @@
 ## Phase 6: Agent & Team Management
 - [x] Task 6.1: Agent definition reader
 - [x] Task 6.2: Agent definition registry
-- [ ] Task 6.3: Team management
+- [x] Task 6.3: Team management
 - [ ] Task 6.4: Programmatic agent launching
 
 ## Phase 7: API Layer
@@ -95,3 +95,4 @@
 | 2026-04-04 | Task 5.3 | Passed | Orchestrator | Orchestrator | ask-user.ts with AskUserQuestionManager, handler registration, default answers, pending questions; 6 unit tests pass |
 | 2026-04-04 | Task 6.1 | Passed | Orchestrator | Orchestrator | definitions.ts reads agent markdown with gray-matter, parses frontmatter; 7 unit tests pass |
 | 2026-04-04 | Task 6.2 | Passed | Orchestrator | Orchestrator | registry.ts with AgentRegistry, filesystem loading, runtime override, SDK conversion; 8 unit tests pass |
+| 2026-04-04 | Task 6.3 | Passed | Orchestrator | Orchestrator | teams.ts with TeamManager, team discovery, task reading from filesystem; 6 unit tests pass |
