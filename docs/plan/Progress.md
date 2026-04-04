@@ -22,7 +22,7 @@
 - [x] Task 3.1: Launch headless session (single-turn)
 - [x] Task 3.2: Launch streaming session
 - [x] Task 3.3: Resume and continue sessions
-- [ ] Task 3.4: Session lifecycle management
+- [x] Task 3.4: Session lifecycle management
 
 ## Phase 4: Event System
 - [x] Task 4.1: Event bus core
@@ -89,3 +89,4 @@
 | 2026-04-04 | Task 3.1 | Passed | Orchestrator | Orchestrator | launcher.ts wraps query(); launchSession/resumeSession/continueSession/forkSession; 1 E2E test passes (real API call) |
 | 2026-04-04 | Task 3.2 | Passed | Orchestrator | Orchestrator | streaming.ts with SessionStreamEvent types, event normalization, abort control; 1 E2E test passes |
 | 2026-04-04 | Task 3.3 | Passed | Orchestrator | Orchestrator | Resume via resumeSession(); E2E test verifies context preservation across sessions |
+| 2026-04-04 | Task 3.4 | Passed | Orchestrator | Orchestrator | manager.ts with SessionManager tracking, lifecycle events, abort; 2 E2E tests pass |
