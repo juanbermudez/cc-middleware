@@ -39,7 +39,7 @@
 - [x] Task 6.1: Agent definition reader
 - [x] Task 6.2: Agent definition registry
 - [x] Task 6.3: Team management
-- [ ] Task 6.4: Programmatic agent launching
+- [x] Task 6.4: Programmatic agent launching
 
 ## Phase 7: API Layer
 - [ ] Task 7.1: Fastify server setup
@@ -96,3 +96,4 @@
 | 2026-04-04 | Task 6.1 | Passed | Orchestrator | Orchestrator | definitions.ts reads agent markdown with gray-matter, parses frontmatter; 7 unit tests pass |
 | 2026-04-04 | Task 6.2 | Passed | Orchestrator | Orchestrator | registry.ts with AgentRegistry, filesystem loading, runtime override, SDK conversion; 8 unit tests pass |
 | 2026-04-04 | Task 6.3 | Passed | Orchestrator | Orchestrator | teams.ts with TeamManager, team discovery, task reading from filesystem; 6 unit tests pass |
+| 2026-04-04 | Task 6.4 | Passed | Orchestrator | Orchestrator | launcher.ts with AgentLauncher using registry + session manager; 2 tests pass (1 real API call) |
