@@ -52,7 +52,7 @@
 ## Phase 7: API Layer
 - [x] Task 7.1: Fastify server setup
 - [x] Task 7.2: Session REST endpoints
-- [ ] Task 7.3: WebSocket streaming
+- [x] Task 7.3: WebSocket streaming
 - [ ] Task 7.4: Hook and event endpoints
 - [ ] Task 7.5: Agent endpoints
 - [ ] Task 7.6: Permission endpoints
@@ -113,3 +113,4 @@
 | 2026-04-04 | Task 6.5.6 | Passed | Orchestrator | Orchestrator | smoke.test.ts: full stack (hooks+permissions+agents+session) wired together; result correct ("4"); hook events fire; agent registry works; 1 test passes |
 | 2026-04-04 | Task 7.1 | Passed | Orchestrator | Orchestrator | server.ts: Fastify API server with health check, status endpoint, error handling, 404 handler, context decoration; 3 E2E tests pass |
 | 2026-04-04 | Task 7.2 | Passed | Orchestrator | Orchestrator | routes/sessions.ts: List, get, messages, launch, resume, abort, update endpoints with Zod validation; 9 E2E tests pass |
+| 2026-04-04 | Task 7.3 | Passed | Orchestrator | Orchestrator | websocket.ts: WS endpoint with subscribe/unsubscribe, ping/pong, hook event broadcast, session lifecycle broadcast; 6 E2E tests pass |

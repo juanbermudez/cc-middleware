@@ -7,6 +7,7 @@
  */
 
 import Fastify from "fastify";
+import fastifyWebsocket from "@fastify/websocket";
 import type { FastifyInstance } from "fastify";
 import type { SessionManager } from "../sessions/manager.js";
 import type { HookEventBus } from "../hooks/event-bus.js";
@@ -17,6 +18,7 @@ import type { TeamManager } from "../agents/teams.js";
 import type { PermissionManager } from "../permissions/handler.js";
 import type { AskUserQuestionManager } from "../permissions/ask-user.js";
 import { registerSessionRoutes } from "./routes/sessions.js";
+import { registerWebSocketRoutes } from "./websocket.js";
 
 /** Options for creating the middleware API server */
 export interface MiddlewareServerOptions {
@@ -114,8 +116,12 @@ export async function createMiddlewareServer(
     };
   });
 
+  // Register WebSocket plugin
+  await app.register(fastifyWebsocket);
+
   // Register route modules
   registerSessionRoutes(app, ctx);
+  registerWebSocketRoutes(app, ctx);
 
   // Status endpoint
   app.get("/api/v1/status", async () => {
