@@ -61,6 +61,15 @@
 - [ ] Task 9.3: Full-text search
 - [ ] Task 9.4: Search API endpoints
 
+## Phase 10: Configuration Management
+- [ ] Task 10.1: Settings reader
+- [ ] Task 10.2: Settings writer
+- [ ] Task 10.3: Plugin reader and management
+- [ ] Task 10.4: Skills, agents, and rules reader
+- [ ] Task 10.5: MCP server reader
+- [ ] Task 10.6: Memory reader
+- [ ] Task 10.7: Configuration API endpoints
+
 ---
 
 ## Completion Log

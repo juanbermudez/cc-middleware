@@ -25,6 +25,7 @@ Build a Node/TypeScript middleware that wraps Claude Code to provide a clean, un
 | 7 | [API Layer](phases/07-api-layer.md) | Phase 2-6 | REST/WebSocket HTTP API |
 | 8 | [Plugin Integration](phases/08-plugin.md) | Phase 4, 7 | Claude Code plugin packaging |
 | 9 | [Search & Indexing](phases/09-search-index.md) | Phase 2, 7 | SQLite full-text search for sessions |
+| 10 | [Configuration Management](phases/10-configuration.md) | Phase 1, 7 | Read/manage CC settings, plugins, skills, agents, MCP, memory |
 
 ## Dependency Graph
 
@@ -35,9 +36,10 @@ Phase 1 (Foundation)
   │     │     ├── Phase 5 (Permissions)
   │     │     └── Phase 6 (Agents & Teams) ←── also depends on Phase 4
   │     └── Phase 9 (Search & Index) ←── also depends on Phase 7
-  └── Phase 4 (Event System)
-        ├── Phase 6 (Agents & Teams)
-        └── Phase 8 (Plugin) ←── also depends on Phase 7
+  ├── Phase 4 (Event System)
+  │     ├── Phase 6 (Agents & Teams)
+  │     └── Phase 8 (Plugin) ←── also depends on Phase 7
+  └── Phase 10 (Configuration) ←── also depends on Phase 7
 
 Phase 7 (API Layer) depends on Phases 2-6
 ```
@@ -376,12 +378,70 @@ Phase 7 (API Layer) depends on Phases 2-6
 
 ---
 
+## Phase 10: Configuration Management
+**File**: [phases/10-configuration.md](phases/10-configuration.md)
+**Research**: [docs/research/](../../research/README.md)
+
+### Task 10.1: Settings reader
+- `src/config/settings.ts` - Read settings from all scopes (managed, user, project, local)
+- Merge with correct precedence (managed > local > project > user)
+- Array merging for permissions (concatenate and deduplicate)
+- Track provenance (which scope each key came from)
+
+**Verify**: E2E test that reads real machine settings and verifies correct merging
+
+### Task 10.2: Settings writer
+- `src/config/settings-writer.ts` - Atomic writes to settings files
+- Support set/append/remove operations
+- Permission rule add/remove helpers
+- Never write to managed scope
+
+**Verify**: E2E test that adds a permission rule, reads it back, then removes it
+
+### Task 10.3: Plugin reader and management
+- `src/config/plugins.ts` - Parse installed_plugins.json, read enabledPlugins from settings
+- Enable/disable via settings.json edit
+- Install/uninstall via `claude plugin` CLI shell-out
+
+**Verify**: E2E test that lists installed plugins and verifies enable/disable
+
+### Task 10.4: Skills, agents, and rules reader
+- `src/config/components.ts` - Discover skills, agents, rules, CLAUDE.md from all locations
+- Parse YAML frontmatter with gray-matter
+- Create/update/delete agent and skill files
+
+**Verify**: E2E test that creates a test agent file, discovers it, then deletes it
+
+### Task 10.5: MCP server reader
+- `src/config/mcp.ts` - Parse MCP configs from ~/.claude.json and .mcp.json
+- Add/remove servers via `claude mcp` CLI
+- Report transport types, enabled state, scope
+
+**Verify**: E2E test that lists MCP servers and compares with `claude mcp list`
+
+### Task 10.6: Memory reader
+- `src/config/memory.ts` - Read auto-memory per project
+- Parse MEMORY.md index and memory files (frontmatter)
+- List all project memory directories
+
+**Verify**: E2E test that reads current project memory
+
+### Task 10.7: Configuration API endpoints
+- All endpoints under `/api/v1/config/`
+- Settings, plugins, skills, agents, rules, MCP, memory, CLAUDE.md
+- Read endpoints for all; write endpoints for settings, plugins, agents, MCP
+
+**Verify**: E2E test for each major endpoint group
+
+---
+
 ## Completion Criteria
 
 The middleware is considered complete when:
-1. All 9 phases pass verification
+1. All 10 phases pass verification
 2. All E2E tests pass in a clean run (`npm run test:e2e`)
 3. API documentation in `docs/api/` is current
 4. Architecture documentation in `docs/architecture/` is current
 5. The plugin loads successfully in Claude Code
 6. The middleware can be started as a standalone server
+7. Configuration reading covers all Claude Code config systems

@@ -67,6 +67,58 @@ Base URL: `http://127.0.0.1:3000`
 | POST | `/api/v1/search/reindex` | Trigger reindex |
 | GET | `/api/v1/search/stats` | Index statistics |
 
+## Configuration
+
+### Settings
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/config/settings` | Get merged effective settings |
+| GET | `/api/v1/config/settings/:scope` | Get settings for scope (user/project/local/managed) |
+| PUT | `/api/v1/config/settings/:scope` | Update a setting value |
+| POST | `/api/v1/config/settings/:scope/permissions` | Add a permission rule |
+| DELETE | `/api/v1/config/settings/:scope/permissions` | Remove a permission rule |
+
+### Plugins
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/config/plugins` | List all plugins |
+| GET | `/api/v1/config/plugins/:name` | Get plugin details |
+| POST | `/api/v1/config/plugins/:name/enable` | Enable a plugin |
+| POST | `/api/v1/config/plugins/:name/disable` | Disable a plugin |
+| POST | `/api/v1/config/plugins/install` | Install plugin (via CLI) |
+| POST | `/api/v1/config/plugins/:name/uninstall` | Uninstall plugin (via CLI) |
+
+### Skills, Agents, Rules
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/config/skills` | List all skills |
+| GET | `/api/v1/config/agents` | List file-based agent definitions |
+| POST | `/api/v1/config/agents` | Create agent definition file |
+| PUT | `/api/v1/config/agents/:name` | Update agent definition |
+| DELETE | `/api/v1/config/agents/:name` | Delete agent definition |
+| GET | `/api/v1/config/rules` | List all rules |
+
+### MCP Servers
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/config/mcp` | List all MCP servers |
+| POST | `/api/v1/config/mcp` | Add MCP server (via CLI) |
+| DELETE | `/api/v1/config/mcp/:name` | Remove MCP server (via CLI) |
+
+### Memory & CLAUDE.md
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/config/memory` | Get project memory index |
+| GET | `/api/v1/config/memory/files` | List memory files |
+| GET | `/api/v1/config/memory/files/:name` | Read a memory file |
+| GET | `/api/v1/config/claude-md` | List all CLAUDE.md files |
+| PUT | `/api/v1/config/claude-md/:scope` | Update CLAUDE.md for scope |
+
 ## WebSocket
 
 Connect to: `ws://127.0.0.1:3000/api/v1/ws`
