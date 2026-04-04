@@ -14,7 +14,7 @@
 - [x] Task 1.3: Create test harness
 
 ## Phase 2: Session Discovery
-- [ ] Task 2.1: Session discovery from filesystem
+- [x] Task 2.1: Session discovery from filesystem
 - [ ] Task 2.2: Session message reading
 - [ ] Task 2.3: Session info and metadata
 
@@ -79,3 +79,4 @@
 | 2026-04-04 | Task 1.1 | Passed | Orchestrator | Orchestrator | package.json, tsconfig.json, vitest.config.ts, .gitignore created; all deps installed; tsc --noEmit passes |
 | 2026-04-04 | Task 1.2 | Passed | Orchestrator | Orchestrator | sessions.ts, hooks.ts, agents.ts, errors.ts, index.ts created; all types compile cleanly |
 | 2026-04-04 | Task 1.3 | Passed | Orchestrator | Orchestrator | Test harness with fixtures, setup helpers, unit tests (13), E2E tests (4); all 17 tests pass |
+| 2026-04-04 | Task 2.1 | Passed | Orchestrator | Orchestrator | discovery.ts wraps listSessions(); 7 E2E tests pass against real filesystem |
