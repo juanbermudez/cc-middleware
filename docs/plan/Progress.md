@@ -20,7 +20,7 @@
 
 ## Phase 3: Session Launching
 - [x] Task 3.1: Launch headless session (single-turn)
-- [ ] Task 3.2: Launch streaming session
+- [x] Task 3.2: Launch streaming session
 - [ ] Task 3.3: Resume and continue sessions
 - [ ] Task 3.4: Session lifecycle management
 
@@ -87,3 +87,4 @@
 | 2026-04-04 | Task 4.3 | Passed | Orchestrator | Orchestrator | sdk-bridge.ts bridges event bus + blocking registry to SDK hooks format; 8 unit tests pass |
 | 2026-04-04 | Task 4.4 | Passed | Orchestrator | Orchestrator | server.ts HTTP hook server with Fastify; always 200, JSON body for decisions; 7 E2E tests pass |
 | 2026-04-04 | Task 3.1 | Passed | Orchestrator | Orchestrator | launcher.ts wraps query(); launchSession/resumeSession/continueSession/forkSession; 1 E2E test passes (real API call) |
+| 2026-04-04 | Task 3.2 | Passed | Orchestrator | Orchestrator | streaming.ts with SessionStreamEvent types, event normalization, abort control; 1 E2E test passes |
