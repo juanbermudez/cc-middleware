@@ -19,35 +19,15 @@ import type {
 import type { HookEventType, HookInput, BlockingEventType } from "../types/hooks.js";
 import { ALL_HOOK_EVENT_TYPES } from "./event-bus.js";
 import type { HookEventBus } from "./event-bus.js";
+import { BLOCKING_EVENT_SET } from "./blocking.js";
 import type { BlockingHookRegistry } from "./blocking.js";
-
-/** Set of blocking event types for quick lookup */
-const BLOCKING_EVENT_SET = new Set<string>([
-  "PreToolUse",
-  "PermissionRequest",
-  "UserPromptSubmit",
-  "Stop",
-  "SubagentStop",
-  "TeammateIdle",
-  "TaskCreated",
-  "TaskCompleted",
-  "ConfigChange",
-  "Elicitation",
-  "ElicitationResult",
-  "WorktreeCreate",
-]);
+import { extractToolName as extractToolNameFromRecord } from "./utils.js";
 
 /**
- * Extract tool name from hook input (for PreToolUse, PostToolUse, etc.)
+ * Extract tool name from SDK hook input (for PreToolUse, PostToolUse, etc.)
  */
 function extractToolName(input: SDKHookInput): string | undefined {
-  if (
-    "tool_name" in input &&
-    typeof (input as Record<string, unknown>).tool_name === "string"
-  ) {
-    return (input as Record<string, unknown>).tool_name as string;
-  }
-  return undefined;
+  return extractToolNameFromRecord(input as unknown as Record<string, unknown>);
 }
 
 /**

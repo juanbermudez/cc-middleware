@@ -9,6 +9,8 @@ import { launchSession } from "./launcher.js";
 import { launchStreamingSession } from "./streaming.js";
 import type { LaunchOptions, LaunchResult } from "./launcher.js";
 import type { StreamingSession } from "./streaming.js";
+import { toError } from "../utils/errors.js";
+import { generateId } from "../utils/id.js";
 
 /** An active session tracked by the manager */
 export interface TrackedSession {
@@ -57,7 +59,7 @@ export class SessionManager extends EventEmitter<SessionManagerEvents> {
    */
   async launch(options: LaunchOptions): Promise<LaunchResult> {
     const abortController = options.abortController ?? new AbortController();
-    const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tempId = generateId("pending");
 
     const tracked: TrackedSession = {
       sessionId: tempId,
@@ -87,7 +89,7 @@ export class SessionManager extends EventEmitter<SessionManagerEvents> {
       this.emit("session:completed", result, tracked);
       return result;
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = toError(error);
 
       if (abortController.signal.aborted) {
         tracked.status = "aborted";
@@ -107,7 +109,7 @@ export class SessionManager extends EventEmitter<SessionManagerEvents> {
    */
   async launchStreaming(options: LaunchOptions): Promise<StreamingSession> {
     const abortController = options.abortController ?? new AbortController();
-    const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tempId = generateId("pending");
 
     const tracked: TrackedSession = {
       sessionId: tempId,
@@ -137,7 +139,7 @@ export class SessionManager extends EventEmitter<SessionManagerEvents> {
         this.emit("session:completed", result, tracked);
       })
       .catch((error) => {
-        const err = error instanceof Error ? error : new Error(String(error));
+        const err = toError(error);
         if (abortController.signal.aborted) {
           tracked.status = "aborted";
           this.emit("session:aborted", tracked);

@@ -14,9 +14,9 @@ import type { SessionStore } from "../../src/store/db.js";
 let store: SessionStore;
 let tempDir: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   tempDir = mkdtempSync(join(tmpdir(), "cc-indexer-test-"));
-  store = createStore({ dbPath: join(tempDir, "test.db") });
+  store = await createStore({ dbPath: join(tempDir, "test.db") });
   store.migrate();
 });
 

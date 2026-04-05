@@ -5,10 +5,10 @@
  * Arrays (permissions.allow, etc.) are concatenated and deduplicated.
  */
 
-import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { stat as fsStat } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { homedir, platform } from "node:os";
+import { readFileSafe } from "../utils/fs.js";
 
 /** A settings file with scope and content */
 export interface SettingsFile {
@@ -40,7 +40,8 @@ export async function readSettingsFile(
 ): Promise<SettingsFile> {
   const absPath = resolve(path);
 
-  if (!existsSync(absPath)) {
+  const content = await readFileSafe(absPath);
+  if (!content) {
     return {
       scope,
       path: absPath,
@@ -50,17 +51,15 @@ export async function readSettingsFile(
   }
 
   try {
-    const raw = await readFile(absPath, "utf-8");
-    const content = JSON.parse(raw) as Record<string, unknown>;
-    const { statSync } = await import("node:fs");
-    const stat = statSync(absPath);
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    const fileStat = await fsStat(absPath);
 
     return {
       scope,
       path: absPath,
       exists: true,
-      content,
-      lastModified: stat.mtimeMs,
+      content: parsed,
+      lastModified: fileStat.mtimeMs,
     };
   } catch {
     return {

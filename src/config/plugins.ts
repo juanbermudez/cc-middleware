@@ -4,14 +4,14 @@
  * Enables/disables via settings edits, installs/uninstalls via CLI.
  */
 
-import { readFile } from "node:fs/promises";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readAllSettings } from "./settings.js";
 import { updateSettings } from "./settings-writer.js";
+import { readFileSafe, readJsonFileSafe } from "../utils/fs.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -60,15 +60,9 @@ function getPluginDataDir(): string {
 /** Read the installed plugins registry */
 async function readInstalledPlugins(): Promise<InstalledPluginsRegistry> {
   const path = getInstalledPluginsPath();
-  if (!existsSync(path)) {
-    return { version: 2, plugins: {} };
-  }
-  try {
-    const raw = await readFile(path, "utf-8");
-    return JSON.parse(raw) as InstalledPluginsRegistry;
-  } catch {
-    return { version: 2, plugins: {} };
-  }
+  const data = await readJsonFileSafe(path);
+  if (!data) return { version: 2, plugins: {} };
+  return data as unknown as InstalledPluginsRegistry;
 }
 
 /** Read a plugin manifest from its cache path */
@@ -76,14 +70,8 @@ async function readPluginManifest(
   cachePath: string
 ): Promise<Record<string, unknown> | undefined> {
   const manifestPath = join(cachePath, ".claude-plugin", "plugin.json");
-  if (!existsSync(manifestPath)) return undefined;
-
-  try {
-    const raw = await readFile(manifestPath, "utf-8");
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return undefined;
-  }
+  const data = await readJsonFileSafe(manifestPath);
+  return data ?? undefined;
 }
 
 /** Check if a directory contains specific plugin components */

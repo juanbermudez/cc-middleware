@@ -6,6 +6,7 @@
 
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { homedir } from "node:os";
 
@@ -175,11 +176,11 @@ END;
 /**
  * Create a new session store backed by SQLite.
  */
-export function createStore(options?: StoreOptions): SessionStore {
+export async function createStore(options?: StoreOptions): Promise<SessionStore> {
   const dbPath = options?.dbPath ?? defaultDbPath();
 
   // Ensure parent directory exists
-  mkdirSync(dirname(dbPath), { recursive: true });
+  await mkdir(dirname(dbPath), { recursive: true });
 
   const db = new Database(dbPath);
 
@@ -311,8 +312,8 @@ export function createStore(options?: StoreOptions): SessionStore {
   return store;
 }
 
-/** Internal row types */
-interface SessionRow {
+/** Row types */
+export interface SessionRow {
   id: string;
   project: string;
   cwd: string;

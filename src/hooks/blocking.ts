@@ -15,6 +15,7 @@ import type {
   HookJSONOutput,
   HookInput,
 } from "../types/hooks.js";
+import { generateId } from "../utils/id.js";
 
 /** Handler function type for blocking hooks */
 export type BlockingHookHandler = (
@@ -30,7 +31,7 @@ interface HandlerEntry {
 }
 
 /** All blocking event types */
-const BLOCKING_EVENTS: readonly BlockingEventType[] = [
+export const BLOCKING_EVENTS: readonly BlockingEventType[] = [
   "PreToolUse",
   "PermissionRequest",
   "UserPromptSubmit",
@@ -44,6 +45,9 @@ const BLOCKING_EVENTS: readonly BlockingEventType[] = [
   "ElicitationResult",
   "WorktreeCreate",
 ] as const;
+
+/** Set of blocking event type strings for quick lookup */
+export const BLOCKING_EVENT_SET = new Set<string>(BLOCKING_EVENTS);
 
 /** Default stub: proceed with no changes */
 const DEFAULT_STUB: BlockingHookHandler = async () => ({});
@@ -72,7 +76,7 @@ export class BlockingHookRegistry {
     handler: BlockingHookHandler,
     options?: { matcher?: string }
   ): () => void {
-    const id = `handler-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = generateId("handler");
 
     const entry: HandlerEntry = {
       id,

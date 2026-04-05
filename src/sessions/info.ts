@@ -9,6 +9,7 @@ import {
   tagSession,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionInfo } from "../types/sessions.js";
+import { toSessionInfo } from "./utils.js";
 
 /**
  * Get detailed info for a single session.
@@ -24,18 +25,7 @@ export async function getSession(
     return undefined;
   }
 
-  return {
-    sessionId: sdk.sessionId,
-    summary: sdk.summary,
-    lastModified: sdk.lastModified,
-    fileSize: sdk.fileSize ?? undefined,
-    customTitle: sdk.customTitle ?? undefined,
-    firstPrompt: sdk.firstPrompt ?? undefined,
-    gitBranch: sdk.gitBranch ?? undefined,
-    cwd: sdk.cwd ?? undefined,
-    tag: sdk.tag ?? undefined,
-    createdAt: sdk.createdAt ?? undefined,
-  };
+  return toSessionInfo(sdk);
 }
 
 /**

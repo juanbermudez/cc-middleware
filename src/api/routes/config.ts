@@ -6,7 +6,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { readAllSettings, mergeSettings } from "../../config/settings.js";
-import { readSettingsFile } from "../../config/settings.js";
 import {
   updateSettings,
   addPermissionRule,

@@ -4,7 +4,7 @@
  * relevance scoring and snippet highlighting.
  */
 
-import type { SessionStore, IndexedSession } from "./db.js";
+import type { SessionStore, IndexedSession, SessionRow } from "./db.js";
 
 /** Search options */
 export interface SearchOptions {
@@ -84,25 +84,13 @@ export function searchSessions(
     const countParams = [ftsQuery, ...filterParams];
     const countRow = store.db.prepare(countSql).get(...countParams) as { total: number };
 
-    const sessions: SearchResultEntry[] = rows.map((row) => ({
-      id: row.id,
-      project: row.project,
-      cwd: row.cwd,
-      summary: row.summary,
-      firstPrompt: row.first_prompt,
-      gitBranch: row.git_branch ?? undefined,
-      tag: row.tag ?? undefined,
-      status: row.status as IndexedSession["status"],
-      createdAt: row.created_at,
-      lastModified: row.last_modified,
-      fileSize: row.file_size ?? undefined,
-      messageCount: row.message_count ?? undefined,
-      relevanceScore: Math.abs(row.relevance_score ?? 0),
-      matchHighlights: [
-        row.highlight_summary,
-        row.highlight_prompt,
-      ].filter((h) => h && h.includes("<b>")),
-    }));
+    const sessions: SearchResultEntry[] = rows.map((row) =>
+      rowToSearchEntry(
+        row,
+        Math.abs(row.relevance_score ?? 0),
+        [row.highlight_summary, row.highlight_prompt].filter((h) => h && h.includes("<b>"))
+      )
+    );
 
     return {
       sessions,
@@ -260,22 +248,7 @@ function searchWithoutFts(
   const countRow = store.db.prepare(countSql).get(...filterParams) as { total: number };
 
   return {
-    sessions: rows.map((row) => ({
-      id: row.id,
-      project: row.project,
-      cwd: row.cwd,
-      summary: row.summary,
-      firstPrompt: row.first_prompt,
-      gitBranch: row.git_branch ?? undefined,
-      tag: row.tag ?? undefined,
-      status: row.status as IndexedSession["status"],
-      createdAt: row.created_at,
-      lastModified: row.last_modified,
-      fileSize: row.file_size ?? undefined,
-      messageCount: row.message_count ?? undefined,
-      relevanceScore: 0,
-      matchHighlights: [],
-    })),
+    sessions: rows.map((row) => rowToSearchEntry(row, 0, [])),
     total: countRow.total,
     queryTimeMs: Date.now() - start,
   };
@@ -311,45 +284,38 @@ function searchWithLike(
   const countRow = store.db.prepare(countSql).get(likePattern, likePattern, likePattern, ...filterParams) as { total: number };
 
   return {
-    sessions: rows.map((row) => ({
-      id: row.id,
-      project: row.project,
-      cwd: row.cwd,
-      summary: row.summary,
-      firstPrompt: row.first_prompt,
-      gitBranch: row.git_branch ?? undefined,
-      tag: row.tag ?? undefined,
-      status: row.status as IndexedSession["status"],
-      createdAt: row.created_at,
-      lastModified: row.last_modified,
-      fileSize: row.file_size ?? undefined,
-      messageCount: row.message_count ?? undefined,
-      relevanceScore: 0,
-      matchHighlights: [],
-    })),
+    sessions: rows.map((row) => rowToSearchEntry(row, 0, [])),
     total: countRow.total,
     queryTimeMs: Date.now() - start,
   };
-}
-
-/** Internal row types */
-interface SessionRow {
-  id: string;
-  project: string;
-  cwd: string;
-  summary: string;
-  first_prompt: string;
-  git_branch: string | null;
-  tag: string | null;
-  status: string;
-  created_at: number;
-  last_modified: number;
-  file_size: number | null;
-  message_count: number | null;
 }
 
 interface SessionFtsRow extends SessionRow {
   relevance_score: number;
   highlight_summary: string;
   highlight_prompt: string;
+}
+
+/** Convert a SessionRow to a SearchResultEntry with score and highlights */
+function rowToSearchEntry(
+  row: SessionRow,
+  relevanceScore: number,
+  matchHighlights: string[]
+): SearchResultEntry {
+  return {
+    id: row.id,
+    project: row.project,
+    cwd: row.cwd,
+    summary: row.summary,
+    firstPrompt: row.first_prompt,
+    gitBranch: row.git_branch ?? undefined,
+    tag: row.tag ?? undefined,
+    status: row.status as IndexedSession["status"],
+    createdAt: row.created_at,
+    lastModified: row.last_modified,
+    fileSize: row.file_size ?? undefined,
+    messageCount: row.message_count ?? undefined,
+    relevanceScore,
+    matchHighlights,
+  };
 }

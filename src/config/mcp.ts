@@ -4,12 +4,11 @@
  * management through the claude CLI.
  */
 
-import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir, platform } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { readJsonFileSafe } from "../utils/fs.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -28,15 +27,7 @@ export interface McpServerInfo {
 }
 
 /** Read a JSON file safely */
-async function readJsonFile(path: string): Promise<Record<string, unknown> | null> {
-  if (!existsSync(path)) return null;
-  try {
-    const raw = await readFile(path, "utf-8");
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
+const readJsonFile = readJsonFileSafe;
 
 /** Determine transport type from a server config */
 function getTransport(config: Record<string, unknown>): "stdio" | "sse" | "http" {

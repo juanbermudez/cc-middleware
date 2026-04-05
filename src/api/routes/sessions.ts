@@ -9,6 +9,7 @@ import { discoverSessions } from "../../sessions/discovery.js";
 import { readSessionMessages } from "../../sessions/messages.js";
 import { getSession, updateSessionTitle, updateSessionTag } from "../../sessions/info.js";
 import type { MiddlewareContext } from "../server.js";
+import { toError } from "../../utils/errors.js";
 
 /** Request schemas */
 const LaunchSessionSchema = z.object({
@@ -105,7 +106,7 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
         total: messages.length,
       });
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = toError(error);
       if (err.message.includes("not found") || err.message.includes("ENOENT")) {
         return reply.status(404).send({
           error: { code: "SESSION_NOT_FOUND", message: `Session ${id} not found` },
@@ -147,7 +148,7 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
 
       return reply.status(201).send(result);
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = toError(error);
       return reply.status(500).send({
         error: {
           code: "SESSION_LAUNCH_ERROR",
@@ -185,7 +186,7 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
 
       return reply.send(result);
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = toError(error);
       return reply.status(500).send({
         error: {
           code: "SESSION_RESUME_ERROR",

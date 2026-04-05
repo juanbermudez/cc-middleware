@@ -5,10 +5,13 @@
  */
 
 import { readFile, readdir, stat } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { homedir } from "node:os";
-import { execSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { readFileSafe } from "../utils/fs.js";
+
+const execFileAsync = promisify(execFile);
 
 /** Project memory information */
 export interface MemoryInfo {
@@ -41,15 +44,13 @@ export function encodeProjectKey(projectPath: string): string {
 /**
  * Try to get the git root for a directory.
  */
-function getGitRoot(dir: string): string | null {
+async function getGitRoot(dir: string): Promise<string | null> {
   try {
-    const result = execSync("git rev-parse --show-toplevel", {
+    const { stdout } = await execFileAsync("git", ["rev-parse", "--show-toplevel"], {
       cwd: dir,
-      encoding: "utf-8",
       timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"],
     });
-    return result.trim();
+    return stdout.trim();
   } catch {
     return null;
   }
@@ -65,66 +66,57 @@ export async function readProjectMemory(
   const home = homedir();
 
   // Use git root if available, otherwise project dir
-  const root = getGitRoot(project) ?? project;
+  const root = (await getGitRoot(project)) ?? project;
   const projectKey = encodeProjectKey(root);
   const memoryDir = join(home, ".claude", "projects", projectKey, "memory");
   const indexPath = join(memoryDir, "MEMORY.md");
 
   // Read index
-  let indexContent = "";
-  if (existsSync(indexPath)) {
-    try {
-      indexContent = await readFile(indexPath, "utf-8");
-    } catch {
-      indexContent = "";
-    }
-  }
+  const indexContent = (await readFileSafe(indexPath)) ?? "";
 
   // Read topic files
   const files: MemoryFileInfo[] = [];
 
-  if (existsSync(memoryDir)) {
-    try {
-      const entries = await readdir(memoryDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (!entry.isFile() || !entry.name.endsWith(".md") || entry.name === "MEMORY.md") {
-          continue;
-        }
-
-        const filePath = join(memoryDir, entry.name);
-        try {
-          const content = await readFile(filePath, "utf-8");
-          const fileStat = await stat(filePath);
-          const name = basename(entry.name, ".md");
-
-          // Try to determine type from frontmatter
-          let type: MemoryFileInfo["type"] = "project";
-          if (content.includes("type: user")) type = "user";
-          else if (content.includes("type: feedback")) type = "feedback";
-          else if (content.includes("type: reference")) type = "reference";
-
-          // Extract description from frontmatter
-          let description = "";
-          const descMatch = content.match(/description:\s*(.+)/);
-          if (descMatch) {
-            description = descMatch[1].trim();
-          }
-
-          files.push({
-            path: filePath,
-            name,
-            description,
-            type,
-            content,
-            lastModified: fileStat.mtimeMs,
-          });
-        } catch {
-          // Skip unreadable files
-        }
+  try {
+    const entries = await readdir(memoryDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith(".md") || entry.name === "MEMORY.md") {
+        continue;
       }
-    } catch {
-      // Empty memory directory
+
+      const filePath = join(memoryDir, entry.name);
+      try {
+        const content = await readFile(filePath, "utf-8");
+        const fileStat = await stat(filePath);
+        const name = basename(entry.name, ".md");
+
+        // Try to determine type from frontmatter
+        let type: MemoryFileInfo["type"] = "project";
+        if (content.includes("type: user")) type = "user";
+        else if (content.includes("type: feedback")) type = "feedback";
+        else if (content.includes("type: reference")) type = "reference";
+
+        // Extract description from frontmatter
+        let description = "";
+        const descMatch = content.match(/description:\s*(.+)/);
+        if (descMatch) {
+          description = descMatch[1].trim();
+        }
+
+        files.push({
+          path: filePath,
+          name,
+          description,
+          type,
+          content,
+          lastModified: fileStat.mtimeMs,
+        });
+      } catch {
+        // Skip unreadable files
+      }
     }
+  } catch {
+    // Directory doesn't exist or is empty
   }
 
   return {
@@ -145,8 +137,6 @@ export async function listAllProjectMemories(): Promise<
   const home = homedir();
   const projectsDir = join(home, ".claude", "projects");
 
-  if (!existsSync(projectsDir)) return [];
-
   const results: Array<{ projectKey: string; dir: string }> = [];
 
   try {
@@ -155,15 +145,18 @@ export async function listAllProjectMemories(): Promise<
       if (!entry.isDirectory()) continue;
 
       const memoryDir = join(projectsDir, entry.name, "memory");
-      if (existsSync(memoryDir)) {
+      try {
+        await stat(memoryDir);
         results.push({
           projectKey: entry.name,
           dir: memoryDir,
         });
+      } catch {
+        // Directory doesn't exist, skip
       }
     }
   } catch {
-    // Ignore errors
+    // Projects dir doesn't exist
   }
 
   return results;

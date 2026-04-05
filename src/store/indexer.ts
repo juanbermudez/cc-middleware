@@ -5,8 +5,10 @@
  */
 
 import { discoverSessions } from "../sessions/discovery.js";
+import { getSession } from "../sessions/info.js";
 import { readSessionMessages } from "../sessions/messages.js";
 import { extractTextContent, extractToolUses } from "../sessions/messages.js";
+import { toErrorMessage } from "../utils/errors.js";
 import type { SessionStore, IndexedSession, IndexedMessage } from "./db.js";
 
 /** Options for the session indexer */
@@ -78,7 +80,7 @@ export class SessionIndexer {
             const msgCount = await this.indexSessionMessages(session.sessionId);
             messagesIndexed += msgCount;
           } catch (error) {
-            const errMsg = error instanceof Error ? error.message : String(error);
+            const errMsg = toErrorMessage(error);
             errors.push({ sessionId: session.sessionId, error: errMsg });
           }
         }
@@ -90,7 +92,7 @@ export class SessionIndexer {
       this.store.setMetadata("last_full_index", String(now));
     } catch (error) {
       // Discovery-level error
-      const errMsg = error instanceof Error ? error.message : String(error);
+      const errMsg = toErrorMessage(error);
       errors.push({ sessionId: "_discovery", error: errMsg });
     }
 
@@ -132,7 +134,7 @@ export class SessionIndexer {
           const msgCount = await this.indexSessionMessages(session.sessionId);
           messagesIndexed += msgCount;
         } catch (error) {
-          const errMsg = error instanceof Error ? error.message : String(error);
+          const errMsg = toErrorMessage(error);
           errors.push({ sessionId: session.sessionId, error: errMsg });
         }
       }
@@ -142,7 +144,7 @@ export class SessionIndexer {
       this.store.setLastIndexedAt(now);
       this.store.setMetadata("last_incremental_index", String(now));
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
+      const errMsg = toErrorMessage(error);
       errors.push({ sessionId: "_discovery", error: errMsg });
     }
 
@@ -158,8 +160,7 @@ export class SessionIndexer {
    * Index a specific session by ID.
    */
   async indexSession(sessionId: string, dir?: string): Promise<void> {
-    const sessions = await discoverSessions({ dir, limit: 500 });
-    const session = sessions.find((s) => s.sessionId === sessionId);
+    const session = await getSession(sessionId, { dir });
 
     if (!session) {
       throw new Error(`Session ${sessionId} not found`);

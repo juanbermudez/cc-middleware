@@ -4,11 +4,12 @@
  * parsing YAML frontmatter with gray-matter.
  */
 
-import { readFile, readdir, stat, writeFile, mkdir, unlink } from "node:fs/promises";
+import { readdir, writeFile, mkdir, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, resolve, basename, dirname, relative } from "node:path";
+import { join, basename } from "node:path";
 import { homedir } from "node:os";
 import matter from "gray-matter";
+import { readFileSafe as readFileSafeUtil } from "../utils/fs.js";
 
 /** Skill information */
 export interface SkillInfo {
@@ -89,13 +90,7 @@ async function listDirs(dir: string): Promise<string[]> {
 }
 
 /** Read file content safely */
-async function readFileSafe(path: string): Promise<string | null> {
-  try {
-    return await readFile(path, "utf-8");
-  } catch {
-    return null;
-  }
-}
+const readFileSafe = readFileSafeUtil;
 
 /**
  * Discover all skills from standard locations.

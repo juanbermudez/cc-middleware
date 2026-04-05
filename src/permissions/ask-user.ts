@@ -11,6 +11,7 @@
 
 import type { PermissionResult } from "./handler.js";
 import type { HookEventBus } from "../hooks/event-bus.js";
+import { generateId } from "../utils/id.js";
 
 /** Question option */
 export interface QuestionOption {
@@ -121,22 +122,9 @@ export class AskUserQuestionManager {
 
     // Create pending question for external resolution
     return new Promise<PermissionResult>((resolve) => {
-      const id = `ask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const id = generateId("ask");
 
-      const pending: PendingQuestion = {
-        id,
-        input: askInput,
-        createdAt: Date.now(),
-        resolve: (result) => {
-          this.pending.delete(id);
-          resolve(result);
-        },
-      };
-
-      this.pending.set(id, pending);
-
-      // Timeout
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (this.pending.has(id)) {
           this.pending.delete(id);
           resolve({
@@ -146,6 +134,19 @@ export class AskUserQuestionManager {
           });
         }
       }, this.answerTimeout);
+
+      const pending: PendingQuestion = {
+        id,
+        input: askInput,
+        createdAt: Date.now(),
+        resolve: (result) => {
+          clearTimeout(timeoutId);
+          this.pending.delete(id);
+          resolve(result);
+        },
+      };
+
+      this.pending.set(id, pending);
     });
   }
 

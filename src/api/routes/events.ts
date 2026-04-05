@@ -8,6 +8,7 @@ import { z } from "zod";
 import { ALL_HOOK_EVENT_TYPES } from "../../hooks/event-bus.js";
 import type { MiddlewareContext } from "../server.js";
 import type { HookEventType, HookInput } from "../../types/hooks.js";
+import { generateId } from "../../utils/id.js";
 
 /** A webhook subscription */
 export interface WebhookSubscription {
@@ -58,7 +59,7 @@ export function registerEventRoutes(app: FastifyInstance, ctx: MiddlewareContext
     }
 
     const body = parseResult.data;
-    const id = `sub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = generateId("sub");
 
     const subscription: WebhookSubscription = {
       id,

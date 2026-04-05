@@ -87,10 +87,14 @@ function matchBashCondition(
 export class PolicyEngine {
   private rules: PermissionRule[];
   private defaultBehavior: "allow" | "deny" | "ask";
+  private compiledRules: Map<string, RegExp> = new Map();
 
   constructor(policy: PermissionPolicy) {
     this.rules = [...policy.rules].sort((a, b) => a.priority - b.priority);
     this.defaultBehavior = policy.defaultBehavior;
+    for (const rule of this.rules) {
+      this.compiledRules.set(rule.id, toolPatternToRegex(rule.toolName));
+    }
   }
 
   /**
@@ -102,7 +106,7 @@ export class PolicyEngine {
     input: Record<string, unknown>
   ): PolicyDecision {
     for (const rule of this.rules) {
-      const toolRegex = toolPatternToRegex(rule.toolName);
+      const toolRegex = this.compiledRules.get(rule.id)!;
 
       if (!toolRegex.test(toolName)) {
         continue;
@@ -127,10 +131,11 @@ export class PolicyEngine {
 
   /**
    * Add a rule to the policy.
-   * Re-sorts rules by priority.
+   * Compiles the regex and re-sorts rules by priority.
    */
   addRule(rule: PermissionRule): void {
     this.rules.push(rule);
+    this.compiledRules.set(rule.id, toolPatternToRegex(rule.toolName));
     this.rules.sort((a, b) => a.priority - b.priority);
   }
 
@@ -139,6 +144,7 @@ export class PolicyEngine {
    */
   removeRule(id: string): void {
     this.rules = this.rules.filter((r) => r.id !== id);
+    this.compiledRules.delete(id);
   }
 
   /**

@@ -13,9 +13,9 @@ import type { SessionStore, IndexedSession, IndexedMessage } from "../../src/sto
 let store: SessionStore;
 let tempDir: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   tempDir = mkdtempSync(join(tmpdir(), "cc-store-test-"));
-  store = createStore({ dbPath: join(tempDir, "test.db") });
+  store = await createStore({ dbPath: join(tempDir, "test.db") });
   store.migrate();
 });
 

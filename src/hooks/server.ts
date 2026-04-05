@@ -12,54 +12,13 @@
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import type { HookEventType, HookInput, BlockingEventType } from "../types/hooks.js";
+import { ALL_HOOK_EVENT_TYPES } from "./event-bus.js";
 import type { HookEventBus } from "./event-bus.js";
+import { BLOCKING_EVENT_SET } from "./blocking.js";
 import type { BlockingHookRegistry } from "./blocking.js";
+import { extractToolName } from "./utils.js";
 
-/** Set of blocking event types */
-const BLOCKING_EVENT_SET = new Set<string>([
-  "PreToolUse",
-  "PermissionRequest",
-  "UserPromptSubmit",
-  "Stop",
-  "SubagentStop",
-  "TeammateIdle",
-  "TaskCreated",
-  "TaskCompleted",
-  "ConfigChange",
-  "Elicitation",
-  "ElicitationResult",
-  "WorktreeCreate",
-]);
-
-/** All valid hook event names for validation */
-const VALID_EVENTS = new Set<string>([
-  "PreToolUse",
-  "PostToolUse",
-  "PostToolUseFailure",
-  "SessionStart",
-  "SessionEnd",
-  "UserPromptSubmit",
-  "Stop",
-  "StopFailure",
-  "SubagentStart",
-  "SubagentStop",
-  "TaskCreated",
-  "TaskCompleted",
-  "TeammateIdle",
-  "PermissionRequest",
-  "PermissionDenied",
-  "Notification",
-  "ConfigChange",
-  "CwdChanged",
-  "FileChanged",
-  "WorktreeCreate",
-  "WorktreeRemove",
-  "PreCompact",
-  "PostCompact",
-  "Elicitation",
-  "ElicitationResult",
-  "Setup",
-]);
+const VALID_EVENTS = new Set<string>(ALL_HOOK_EVENT_TYPES);
 
 export interface HookServerOptions {
   port?: number;
@@ -73,16 +32,6 @@ export interface HookServer {
   stop: () => Promise<void>;
   url: string;
   app: FastifyInstance;
-}
-
-/**
- * Extract tool name from hook input payload.
- */
-function extractToolName(input: Record<string, unknown>): string | undefined {
-  if (typeof input.tool_name === "string") {
-    return input.tool_name;
-  }
-  return undefined;
 }
 
 /**

@@ -5,6 +5,7 @@
 
 import { listSessions } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionInfo } from "../types/sessions.js";
+import { toSessionInfo } from "./utils.js";
 
 export interface DiscoverSessionsOptions {
   /** Project directory to filter by */
@@ -29,18 +30,7 @@ export async function discoverSessions(
       includeWorktrees: options?.includeWorktrees,
     });
 
-    const sessions: SessionInfo[] = sdkSessions.map((sdk) => ({
-      sessionId: sdk.sessionId,
-      summary: sdk.summary,
-      lastModified: sdk.lastModified,
-      fileSize: sdk.fileSize ?? undefined,
-      customTitle: sdk.customTitle ?? undefined,
-      firstPrompt: sdk.firstPrompt ?? undefined,
-      gitBranch: sdk.gitBranch ?? undefined,
-      cwd: sdk.cwd ?? undefined,
-      tag: sdk.tag ?? undefined,
-      createdAt: sdk.createdAt ?? undefined,
-    }));
+    const sessions: SessionInfo[] = sdkSessions.map(toSessionInfo);
 
     // Sort by lastModified descending (most recent first)
     sessions.sort((a, b) => b.lastModified - a.lastModified);

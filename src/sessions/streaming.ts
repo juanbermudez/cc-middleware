@@ -5,6 +5,9 @@
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { LaunchOptions, LaunchResult } from "./launcher.js";
+import { buildSDKOptions, buildLaunchResult } from "./utils.js";
+import { extractTextContent } from "./messages.js";
+import { toError } from "../utils/errors.js";
 
 /** Normalized stream events from the SDK's SDKMessage types */
 export type SessionStreamEvent =
@@ -35,25 +38,11 @@ export async function launchStreamingSession(
 ): Promise<StreamingSession> {
   const abortController = options.abortController ?? new AbortController();
 
-  const sdkOptions: Record<string, unknown> = {
+  const sdkOptions = buildSDKOptions({
+    ...options,
     includePartialMessages: true,
-  };
-
-  if (options.allowedTools) sdkOptions.allowedTools = options.allowedTools;
-  if (options.disallowedTools) sdkOptions.disallowedTools = options.disallowedTools;
-  if (options.permissionMode) sdkOptions.permissionMode = options.permissionMode;
-  if (options.maxTurns !== undefined) sdkOptions.maxTurns = options.maxTurns;
-  if (options.maxBudgetUsd !== undefined) sdkOptions.maxBudgetUsd = options.maxBudgetUsd;
-  if (options.systemPrompt) sdkOptions.systemPrompt = options.systemPrompt;
-  if (options.persistSession !== undefined) sdkOptions.persistSession = options.persistSession;
-  sdkOptions.abortController = abortController;
-  if (options.resume) sdkOptions.resume = options.resume;
-  if (options.continue) sdkOptions.continue = options.continue;
-  if (options.forkSession) sdkOptions.forkSession = options.forkSession;
-  if (options.sessionId) sdkOptions.sessionId = options.sessionId;
-  if (options.hooks) sdkOptions.hooks = options.hooks;
-  if (options.effort) sdkOptions.effort = options.effort;
-  if (options.cwd) sdkOptions.cwd = options.cwd;
+    abortController,
+  });
 
   const q = query({
     prompt: options.prompt,
@@ -109,7 +98,7 @@ export async function launchStreamingSession(
           }
         } else if (msg.type === "assistant") {
           // Complete assistant message
-          const content = extractTextFromMessage(msg);
+          const content = extractTextContent(msg);
           if (content) {
             yield { type: "assistant_message", content };
           }
@@ -141,7 +130,7 @@ export async function launchStreamingSession(
     } catch (error) {
       // SDK throws for error results (e.g., max_turns reached).
       // Convert to a result event rather than propagating the exception.
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = toError(error);
       const errorResult: LaunchResult = {
         sessionId,
         subtype: "error_during_execution",
@@ -179,50 +168,3 @@ export async function launchStreamingSession(
   };
 }
 
-/** Extract text content from a message object */
-function extractTextFromMessage(msg: Record<string, unknown>): string {
-  if (Array.isArray(msg.content)) {
-    return msg.content
-      .filter(
-        (block: unknown) =>
-          typeof block === "object" &&
-          block !== null &&
-          (block as Record<string, unknown>).type === "text"
-      )
-      .map((block: unknown) => (block as Record<string, unknown>).text)
-      .filter((text): text is string => typeof text === "string")
-      .join("");
-  }
-  if (typeof msg.content === "string") {
-    return msg.content;
-  }
-  return "";
-}
-
-/** Build a LaunchResult from a result message */
-function buildLaunchResult(
-  msg: Record<string, unknown>,
-  sessionId: string
-): LaunchResult {
-  return {
-    sessionId: (msg.session_id as string) ?? sessionId,
-    subtype: (msg.subtype as string) ?? "success",
-    isError: (msg.is_error as boolean) ?? false,
-    result: msg.result as string | undefined,
-    errors: msg.errors as string[] | undefined,
-    durationMs: (msg.duration_ms as number) ?? 0,
-    durationApiMs: (msg.duration_api_ms as number) ?? 0,
-    totalCostUsd: (msg.total_cost_usd as number) ?? 0,
-    numTurns: (msg.num_turns as number) ?? 0,
-    stopReason: (msg.stop_reason as string | null) ?? null,
-    usage: (msg.usage as LaunchResult["usage"]) ?? {
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
-    },
-    modelUsage: (msg.modelUsage as Record<string, unknown>) ?? {},
-    permissionDenials: (msg.permission_denials as LaunchResult["permissionDenials"]) ?? [],
-    structuredOutput: msg.structured_output,
-  };
-}

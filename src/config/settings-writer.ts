@@ -4,11 +4,11 @@
  * individual key updates, permission rule management, and scope validation.
  */
 
-import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { writeFile, rename, mkdir } from "node:fs/promises";
 import { resolve, dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { randomBytes } from "node:crypto";
+import { readFileSafe } from "../utils/fs.js";
 
 /** A settings update operation */
 export interface SettingsUpdate {
@@ -38,12 +38,10 @@ export function getSettingsPath(
 /** Read a settings file, returning empty object if it doesn't exist */
 async function readSettings(path: string): Promise<Record<string, unknown>> {
   const absPath = resolve(path);
-  if (!existsSync(absPath)) {
-    return {};
-  }
+  const content = await readFileSafe(absPath);
+  if (!content) return {};
   try {
-    const raw = await readFile(absPath, "utf-8");
-    return JSON.parse(raw) as Record<string, unknown>;
+    return JSON.parse(content) as Record<string, unknown>;
   } catch {
     return {};
   }

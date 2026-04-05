@@ -4,7 +4,7 @@
  */
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { SessionResult } from "../types/sessions.js";
+import { buildSDKOptions, buildLaunchResult } from "./utils.js";
 
 /** Options for launching a session */
 export interface LaunchOptions {
@@ -51,6 +51,8 @@ export interface LaunchOptions {
   enableFileCheckpointing?: boolean;
   /** Additional environment variables */
   env?: Record<string, string | undefined>;
+  /** Agent definitions for sub-agents */
+  agents?: Record<string, unknown>;
 }
 
 /** Result of a completed session */
@@ -87,26 +89,7 @@ export interface LaunchResult {
 export async function launchSession(
   options: LaunchOptions
 ): Promise<LaunchResult> {
-  const sdkOptions: Record<string, unknown> = {};
-
-  if (options.allowedTools) sdkOptions.allowedTools = options.allowedTools;
-  if (options.disallowedTools) sdkOptions.disallowedTools = options.disallowedTools;
-  if (options.permissionMode) sdkOptions.permissionMode = options.permissionMode;
-  if (options.maxTurns !== undefined) sdkOptions.maxTurns = options.maxTurns;
-  if (options.maxBudgetUsd !== undefined) sdkOptions.maxBudgetUsd = options.maxBudgetUsd;
-  if (options.systemPrompt) sdkOptions.systemPrompt = options.systemPrompt;
-  if (options.persistSession !== undefined) sdkOptions.persistSession = options.persistSession;
-  if (options.abortController) sdkOptions.abortController = options.abortController;
-  if (options.includePartialMessages) sdkOptions.includePartialMessages = options.includePartialMessages;
-  if (options.resume) sdkOptions.resume = options.resume;
-  if (options.continue) sdkOptions.continue = options.continue;
-  if (options.forkSession) sdkOptions.forkSession = options.forkSession;
-  if (options.sessionId) sdkOptions.sessionId = options.sessionId;
-  if (options.hooks) sdkOptions.hooks = options.hooks;
-  if (options.effort) sdkOptions.effort = options.effort;
-  if (options.enableFileCheckpointing) sdkOptions.enableFileCheckpointing = options.enableFileCheckpointing;
-  if (options.env) sdkOptions.env = options.env;
-  if (options.cwd) sdkOptions.cwd = options.cwd;
+  const sdkOptions = buildSDKOptions(options);
 
   let sessionId = "";
   let result: LaunchResult | undefined;
@@ -127,27 +110,7 @@ export async function launchSession(
     // Capture result from final message
     if (msg.type === "result") {
       sessionId = (msg.session_id as string) ?? sessionId;
-      result = {
-        sessionId,
-        subtype: (msg.subtype as string) ?? "success",
-        isError: (msg.is_error as boolean) ?? false,
-        result: msg.result as string | undefined,
-        errors: msg.errors as string[] | undefined,
-        durationMs: (msg.duration_ms as number) ?? 0,
-        durationApiMs: (msg.duration_api_ms as number) ?? 0,
-        totalCostUsd: (msg.total_cost_usd as number) ?? 0,
-        numTurns: (msg.num_turns as number) ?? 0,
-        stopReason: (msg.stop_reason as string | null) ?? null,
-        usage: (msg.usage as LaunchResult["usage"]) ?? {
-          input_tokens: 0,
-          output_tokens: 0,
-          cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 0,
-        },
-        modelUsage: (msg.modelUsage as Record<string, unknown>) ?? {},
-        permissionDenials: (msg.permission_denials as LaunchResult["permissionDenials"]) ?? [],
-        structuredOutput: msg.structured_output,
-      };
+      result = buildLaunchResult(msg, sessionId);
     }
   }
 

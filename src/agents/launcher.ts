@@ -9,6 +9,7 @@ import type { AgentDefinitionSource } from "./definitions.js";
 import type { LaunchOptions, LaunchResult } from "../sessions/launcher.js";
 import { AgentNotFoundError } from "../types/errors.js";
 
+
 /**
  * Agent launcher that uses the agent registry and session manager.
  */
@@ -57,7 +58,7 @@ export class AgentLauncher {
     return this.sessionManager.launch({
       prompt,
       ...options,
-      // Merge agents - the SDK agents option enables sub-agents
+      agents,
       hooks: {
         ...(options?.hooks ?? {}),
       },

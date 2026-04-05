@@ -11,6 +11,7 @@
 
 import type { PolicyEngine } from "./policy.js";
 import type { HookEventBus } from "../hooks/event-bus.js";
+import { generateId } from "../utils/id.js";
 
 /** Result type matching the SDK's PermissionResult */
 export type PermissionResult =
@@ -145,7 +146,17 @@ export function createCanUseTool(
 
     // Create pending permission for external resolution
     return new Promise<PermissionResult>((resolve) => {
-      const id = `perm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const id = generateId("perm");
+
+      const timeoutId = setTimeout(() => {
+        if (permissionManager.getPendingPermissions().some((p) => p.id === id)) {
+          permissionManager.resolvePermission(id, {
+            behavior: "deny",
+            message: `Permission request timed out after ${approvalTimeout}ms`,
+            toolUseID: callOptions.toolUseID,
+          });
+        }
+      }, approvalTimeout);
 
       const pending: PendingPermission = {
         id,
@@ -155,6 +166,7 @@ export function createCanUseTool(
         agentID: callOptions.agentID,
         createdAt: Date.now(),
         resolve: (result) => {
+          clearTimeout(timeoutId);
           permissionManager.removePending(id);
           resolve(result);
         },
@@ -165,17 +177,6 @@ export function createCanUseTool(
       if (onPendingPermission) {
         onPendingPermission(pending);
       }
-
-      // Timeout: auto-deny if not resolved
-      setTimeout(() => {
-        if (permissionManager.getPendingPermissions().some((p) => p.id === id)) {
-          permissionManager.resolvePermission(id, {
-            behavior: "deny",
-            message: `Permission request timed out after ${approvalTimeout}ms`,
-            toolUseID: callOptions.toolUseID,
-          });
-        }
-      }, approvalTimeout);
     });
   };
 

@@ -27,9 +27,9 @@ function makeSession(overrides: Partial<IndexedSession> & { id: string }): Index
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   tempDir = mkdtempSync(join(tmpdir(), "cc-search-test-"));
-  store = createStore({ dbPath: join(tempDir, "test.db") });
+  store = await createStore({ dbPath: join(tempDir, "test.db") });
   store.migrate();
 });
 

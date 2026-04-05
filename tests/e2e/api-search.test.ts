@@ -28,7 +28,7 @@ let tempDir: string;
 
 beforeAll(async () => {
   tempDir = mkdtempSync(join(tmpdir(), "cc-api-search-test-"));
-  store = createStore({ dbPath: join(tempDir, "test.db") });
+  store = await createStore({ dbPath: join(tempDir, "test.db") });
   store.migrate();
 
   const indexer = new SessionIndexer({ store, messageLimit: 10 });
