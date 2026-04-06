@@ -169,3 +169,18 @@ Each entry should include:
 - **Context**: Phase 11 Task 11.1 CLI scaffold
 - **Learning**: Commander.js handles `--no-X` flags by creating a boolean option `X` that defaults to `true` and is set to `false` when the flag is used. So `--no-color` results in `opts().color === false`. When checking for noColor in output, use `!opts.color` rather than `opts.noColor`.
 - **Impact**: Output formatting must check `!globalOpts.color` for the noColor condition.
+
+### 2026-04-04 - Chokidar v5 API changes from v3/v4
+- **Context**: Phase 12 Real-Time Sync
+- **Learning**: Chokidar v5 uses named exports (`import { watch, FSWatcher } from "chokidar"`) instead of default export (`import chokidar from "chokidar"`). The `disableGlobbing` option was removed. `FSWatcher` extends Node's `EventEmitter` with typed event maps. The error event handler receives `unknown` not `Error`.
+- **Impact**: Must use named imports and check v5 API for available options.
+
+### 2026-04-04 - Config watcher needs initial scan tracking for new-file detection
+- **Context**: Phase 12 Task 12.2 Config watcher
+- **Learning**: When scanning directories for changes via polling, we need to distinguish between the initial scan (populate known files without emitting events) and subsequent scans (emit "created" events for newly found files). Without this distinction, every file appears as "new" on the first poll after restart, causing spurious events.
+- **Impact**: Track `initialScanDone` flag; only emit creation events after the first scan completes.
+
+### 2026-04-04 - Glob expansion needed for polling fallback
+- **Context**: Phase 12 Task 12.2 Config watcher
+- **Learning**: Chokidar handles glob patterns natively for its fs.watch-based detection, but the polling fallback needs to manually expand glob patterns like `*.md` and `*/SKILL.md` by reading directories. Without this, the poll-based scanner only checks literal file paths and misses new files matching glob patterns.
+- **Impact**: Implemented `expandGlobs()` method that handles `dir/*.ext` and `dir/*/file` patterns for the polling scanner.

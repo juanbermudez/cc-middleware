@@ -90,12 +90,12 @@
 - [x] Task 11.9: Integration tests
 
 ## Phase 12: Real-Time Sync
-- [ ] Task 12.1: Session file watcher
-- [ ] Task 12.2: Config and component watcher
-- [ ] Task 12.3: Incremental auto-indexer
-- [ ] Task 12.4: WebSocket push for external changes
-- [ ] Task 12.5: Wire into server startup
-- [ ] Task 12.6: Watcher configuration
+- [x] Task 12.1: Session file watcher
+- [x] Task 12.2: Config and component watcher
+- [x] Task 12.3: Incremental auto-indexer
+- [x] Task 12.4: WebSocket push for external changes
+- [x] Task 12.5: Wire into server startup
+- [x] Task 12.6: Watcher configuration
 
 ---
 
@@ -160,3 +160,9 @@
 | 2026-04-04 | Task 11.7 | Passed | Orchestrator | Orchestrator | config show/get/set/plugins/mcp/skills/agents/memory; scope-colored output, flattenObject for dot-notation |
 | 2026-04-04 | Task 11.8 | Passed | Orchestrator | Orchestrator | Shell completion for bash/zsh/fish; graceful error handling (no stack traces); 13 polish E2E tests pass |
 | 2026-04-04 | Task 11.9 | Passed | Orchestrator | Orchestrator | 15 integration tests against live server; full session/config/permissions/agents/hooks workflows; 311 total tests pass |
+| 2026-04-04 | Task 12.1 | Passed | Orchestrator | Orchestrator | SessionWatcher with chokidar + polling hybrid, debounce, discover/update/remove events; 10 unit tests pass |
+| 2026-04-04 | Task 12.2 | Passed | Orchestrator | Orchestrator | ConfigWatcher for settings, MCP, agents, skills, rules, teams, plugins, memory; 8 unit tests pass |
+| 2026-04-04 | Task 12.3 | Passed | Orchestrator | Orchestrator | AutoIndexer with immediate index for discovered, batched index for updated; 7 unit tests pass |
+| 2026-04-04 | Task 12.4 | Passed | Orchestrator | Orchestrator | WebSocket sync event types, WebSocketBroadcaster interface; 15 unit tests + 6 E2E tests pass |
+| 2026-04-04 | Task 12.5 | Passed | Orchestrator | Orchestrator | Watchers wired into main.ts startup, /api/v1/sync/status endpoint, clean shutdown; 4 E2E tests pass |
+| 2026-04-04 | Task 12.6 | Passed | Orchestrator | Orchestrator | Env var config, ccm sync status/reindex CLI commands, sync route module, public exports; 9 unit tests pass; 364 total tests pass |
