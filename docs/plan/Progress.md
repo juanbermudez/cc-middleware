@@ -79,15 +79,15 @@
 - [x] Task 10.7: Configuration API endpoints
 
 ## Phase 11: CLI Control Surface
-- [ ] Task 11.1: CLI scaffold and client
-- [ ] Task 11.2: Server commands
-- [ ] Task 11.3: Session commands
-- [ ] Task 11.4: Hook commands
-- [ ] Task 11.5: Agent and team commands
-- [ ] Task 11.6: Permission commands
-- [ ] Task 11.7: Configuration commands
-- [ ] Task 11.8: Tab completion and polish
-- [ ] Task 11.9: Integration tests
+- [x] Task 11.1: CLI scaffold and client
+- [x] Task 11.2: Server commands
+- [x] Task 11.3: Session commands
+- [x] Task 11.4: Hook commands
+- [x] Task 11.5: Agent and team commands
+- [x] Task 11.6: Permission commands
+- [x] Task 11.7: Configuration commands
+- [x] Task 11.8: Tab completion and polish
+- [x] Task 11.9: Integration tests
 
 ---
 
@@ -143,3 +143,12 @@
 | 2026-04-04 | Task 10.5 | Passed | Orchestrator | Orchestrator | MCP server discovery from ~/.claude.json, .mcp.json, managed paths; 3 E2E tests pass |
 | 2026-04-04 | Task 10.6 | Passed | Orchestrator | Orchestrator | Memory reader with project key encoding, index/topic files; 5 E2E tests pass |
 | 2026-04-04 | Task 10.7 | Passed | Orchestrator | Orchestrator | 30+ config API routes for settings, plugins, agents, skills, rules, MCP, memory, CLAUDE.md; 21 E2E tests pass |
+| 2026-04-04 | Task 11.1 | Passed | Orchestrator | Orchestrator | CLI scaffold with commander, client.ts (HTTP), ws-client.ts (WebSocket), output.ts (tables/JSON), auto-start.ts; ccm --help works |
+| 2026-04-04 | Task 11.2 | Passed | Orchestrator | Orchestrator | server start/stop/status commands with PID file management, background/foreground modes; tested with live server |
+| 2026-04-04 | Task 11.3 | Passed | Orchestrator | Orchestrator | sessions list/show/launch/resume/stream/search with table output, --json flag, WebSocket streaming, spinner |
+| 2026-04-04 | Task 11.4 | Passed | Orchestrator | Orchestrator | hooks listen (WebSocket live stream with Ctrl+C) and hooks list (event types + subscriptions) |
+| 2026-04-04 | Task 11.5 | Passed | Orchestrator | Orchestrator | agents list/show/create + teams list/show; table output with source, model, description |
+| 2026-04-04 | Task 11.6 | Passed | Orchestrator | Orchestrator | permissions list/add/pending/approve/deny; matched to actual API schema (rules, behavior, toolName) |
+| 2026-04-04 | Task 11.7 | Passed | Orchestrator | Orchestrator | config show/get/set/plugins/mcp/skills/agents/memory; scope-colored output, flattenObject for dot-notation |
+| 2026-04-04 | Task 11.8 | Passed | Orchestrator | Orchestrator | Shell completion for bash/zsh/fish; graceful error handling (no stack traces); 13 polish E2E tests pass |
+| 2026-04-04 | Task 11.9 | Passed | Orchestrator | Orchestrator | 15 integration tests against live server; full session/config/permissions/agents/hooks workflows; 311 total tests pass |

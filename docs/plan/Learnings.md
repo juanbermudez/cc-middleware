@@ -159,3 +159,13 @@ Each entry should include:
 - **Context**: Phase 10 Task 10.6 Memory reader
 - **Learning**: Claude Code's auto-memory directory uses the git repository root (not the working directory) to generate the project key. This means all worktrees and subdirectories of the same repo share one memory directory. The encoding replaces `/` with `-` and prepends `-`. Outside a git repo, the project root path is used directly.
 - **Impact**: The memory reader must try `git rev-parse --show-toplevel` first, falling back to the provided directory if not in a git repo.
+
+### 2026-04-04 - CLI must match actual API schemas, not planned/assumed ones
+- **Context**: Phase 11 Task 11.6 Permission commands
+- **Learning**: The permissions API returns `{ rules: [...] }` not `{ policies: [...] }`, and the add policy endpoint requires `id`, `toolName`, `behavior`, and `priority` (all required fields per Zod schema), not the simpler `action`/`pattern` that the CLI spec assumed. The resolve endpoint uses `{ behavior: "allow"|"deny" }` not `{ allow: boolean }`. Always read the actual route handler code before implementing CLI commands.
+- **Impact**: All CLI commands must be validated against the actual API Zod schemas. The CLI adapts user-friendly flags (--action, --pattern) into the API-required shape (behavior, toolName, auto-generated id).
+
+### 2026-04-04 - commander --no-color creates an inverted boolean (color: true by default)
+- **Context**: Phase 11 Task 11.1 CLI scaffold
+- **Learning**: Commander.js handles `--no-X` flags by creating a boolean option `X` that defaults to `true` and is set to `false` when the flag is used. So `--no-color` results in `opts().color === false`. When checking for noColor in output, use `!opts.color` rather than `opts.noColor`.
+- **Impact**: Output formatting must check `!globalOpts.color` for the noColor condition.
