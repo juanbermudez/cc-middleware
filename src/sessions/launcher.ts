@@ -53,6 +53,38 @@ export interface LaunchOptions {
   env?: Record<string, string | undefined>;
   /** Agent definitions for sub-agents */
   agents?: Record<string, unknown>;
+  /** Model to use */
+  model?: string;
+  /** Fallback model */
+  fallbackModel?: string;
+  /** canUseTool callback for permission handling */
+  canUseTool?: (toolName: string, input: Record<string, unknown>, options: Record<string, unknown>) => Promise<unknown>;
+  /** MCP server configurations */
+  mcpServers?: Record<string, unknown>;
+  /** Plugin configurations */
+  plugins?: Array<{ type: string; path: string }>;
+  /** Settings sources to load */
+  settingSources?: Array<"user" | "project" | "local">;
+  /** Thinking configuration */
+  thinking?: unknown;
+  /** Output format for structured output */
+  outputFormat?: unknown;
+  /** Sandbox settings */
+  sandbox?: unknown;
+  /** Tools configuration */
+  tools?: string[] | { type: string; preset: string };
+  /** Tool config */
+  toolConfig?: unknown;
+  /** Additional directories */
+  additionalDirectories?: string[];
+  /** Allow bypassing permissions */
+  allowDangerouslySkipPermissions?: boolean;
+  /** Debug mode */
+  debug?: boolean;
+  /** Debug log file */
+  debugFile?: string;
+  /** Enable prompt suggestions */
+  promptSuggestions?: boolean;
 }
 
 /** Result of a completed session */

@@ -62,7 +62,22 @@ export function buildSDKOptions(options: LaunchOptions): Record<string, unknown>
   if (options.env) sdkOptions.env = options.env;
   if (options.cwd) sdkOptions.cwd = options.cwd;
   if (options.agents) sdkOptions.agents = options.agents;
-
+  if (options.model) sdkOptions.model = options.model;
+  if (options.canUseTool) sdkOptions.canUseTool = options.canUseTool;
+  if (options.mcpServers) sdkOptions.mcpServers = options.mcpServers;
+  if (options.plugins) sdkOptions.plugins = options.plugins;
+  if (options.settingSources) sdkOptions.settingSources = options.settingSources;
+  if (options.thinking) sdkOptions.thinking = options.thinking;
+  if (options.outputFormat) sdkOptions.outputFormat = options.outputFormat;
+  if (options.sandbox) sdkOptions.sandbox = options.sandbox;
+  if (options.fallbackModel) sdkOptions.fallbackModel = options.fallbackModel;
+  if (options.tools) sdkOptions.tools = options.tools;
+  if (options.toolConfig) sdkOptions.toolConfig = options.toolConfig;
+  if (options.additionalDirectories) sdkOptions.additionalDirectories = options.additionalDirectories;
+  if (options.allowDangerouslySkipPermissions) sdkOptions.allowDangerouslySkipPermissions = options.allowDangerouslySkipPermissions;
+  if (options.debug) sdkOptions.debug = options.debug;
+  if (options.debugFile) sdkOptions.debugFile = options.debugFile;
+  if (options.promptSuggestions) sdkOptions.promptSuggestions = options.promptSuggestions;
   return sdkOptions;
 }
 

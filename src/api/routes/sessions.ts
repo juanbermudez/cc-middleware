@@ -24,12 +24,14 @@ const LaunchSessionSchema = z.object({
   systemPrompt: z.string().optional(),
   cwd: z.string().optional(),
   effort: z.enum(["low", "medium", "high", "max"]).optional(),
+  model: z.string().optional(),
   agent: z.string().optional(),
 });
 
 const ResumeSessionSchema = z.object({
   prompt: z.string().min(1),
   maxTurns: z.number().int().positive().optional(),
+  model: z.string().optional(),
 });
 
 const UpdateSessionSchema = z.object({
@@ -144,6 +146,7 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
         systemPrompt: body.systemPrompt,
         cwd: body.cwd,
         effort: body.effort,
+        model: body.model,
       });
 
       return reply.status(201).send(result);
@@ -182,6 +185,7 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
         prompt: body.prompt,
         resume: id,
         maxTurns: body.maxTurns,
+        model: body.model,
       });
 
       return reply.send(result);
