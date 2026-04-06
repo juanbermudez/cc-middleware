@@ -9,9 +9,7 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
 
 ## System Diagram
 
-<Frame>
-  <img className="diagram-expandable" src="/images/diagrams/architecture-0.svg" alt="architecture-0" style={{ width: '100%', cursor: 'pointer' }} />
-</Frame>
+<img className="diagram-expandable" src="/images/diagrams/architecture-0.svg" alt="architecture-0" style={{ width: '100%', cursor: 'pointer' }} />
 
 ## Component Overview
 
@@ -92,28 +90,15 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
 
 ## Data Flow: Launching a Headless Session
 
-<Frame>
-  <img className="diagram-expandable" src="/images/diagrams/architecture-1.svg" alt="architecture-1" style={{ width: '100%', cursor: 'pointer' }} />
-</Frame>
+<img className="diagram-expandable" src="/images/diagrams/architecture-1.svg" alt="architecture-1" style={{ width: '100%', cursor: 'pointer' }} />
 
 ## Data Flow: Hook Events (Plugin Mode)
 
-<Frame>
-  <img className="diagram-expandable" src="/images/diagrams/architecture-2.svg" alt="architecture-2" style={{ width: '100%', cursor: 'pointer' }} />
-</Frame>
+<img className="diagram-expandable" src="/images/diagrams/architecture-2.svg" alt="architecture-2" style={{ width: '100%', cursor: 'pointer' }} />
 
 ## Data Flow: Hook Events (SDK Mode)
 
-```
-Agent SDK            SDK Bridge              Event Bus          Blocking Registry
-  |                      |                      |                     |
-  |--HookCallback()----->|                      |                     |
-  |                      |--dispatch()--------->|                     |
-  |                      |--execute()------------------------------------>|
-  |                      |                      |                     |<--handler()
-  |                      |<--HookJSONOutput--------------------------------|
-  |<--HookJSONOutput-----|                      |                     |
-```
+<img className="diagram-expandable" src="/images/diagrams/architecture-3.svg" alt="architecture-3" style={{ width: '100%', cursor: 'pointer' }} />
 
 ## Server Startup
 
