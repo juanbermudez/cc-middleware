@@ -103,3 +103,31 @@ Claude Code stores sessions at:
 Each JSONL line is a transcript entry (user message, assistant message, tool use, tool result, system event). The Agent SDK handles reading and writing these files.
 
 The middleware's SQLite index (`src/store/`) provides searchable metadata on top of this storage.
+
+## Real-Time File Watching & Auto-Indexing
+
+The real-time sync system (Phase 12) adds automatic detection of session file changes on disk, independent of sessions launched by the middleware itself.
+
+### Session Watcher (`src/sync/session-watcher.ts`)
+Watches `~/.claude/projects/` directories for new, modified, or removed `.jsonl` session files using chokidar with a polling fallback.
+
+- **Discovery**: Auto-discovers all project directories under `~/.claude/projects/` (or watches specific directories if configured)
+- **Events**: Emits `session:discovered` (new file), `session:updated` (modified), `session:removed` (deleted)
+- **Debouncing**: New session events fire immediately; update events are debounced (default 2s) to batch rapid writes during active sessions
+- **Polling fallback**: Polls at a configurable interval (default 10s) to catch changes that chokidar may miss (e.g., network filesystems)
+- **WebSocket push**: All events are broadcast to connected WebSocket clients via the `session:*` subscription pattern
+
+### Auto-Indexer (`src/sync/auto-indexer.ts`)
+Listens to session watcher events and keeps the SQLite search index up to date without manual reindex.
+
+- **Immediate indexing**: Newly discovered sessions (`session:discovered`) are indexed right away
+- **Batched updates**: Modified sessions (`session:updated`) are queued and flushed every 5 seconds to avoid excessive re-indexing during active sessions
+- **Statistics**: Tracks `sessionsIndexed`, `indexErrors`, `lastIndexTime`, and `pendingBatch` count
+- **Resilient**: Index errors are non-fatal; sessions that fail to index are skipped silently
+
+### Configuration
+All watchers are enabled by default and can be disabled via environment variables:
+- `CC_MIDDLEWARE_WATCH_SESSIONS` (default: `true`) -- Enable/disable session file watching
+- `CC_MIDDLEWARE_AUTO_INDEX` (default: `true`) -- Enable/disable auto-indexing (requires session watching)
+- `CC_MIDDLEWARE_POLL_INTERVAL` (default: `10000`) -- Poll interval in milliseconds
+- `CC_MIDDLEWARE_DEBOUNCE_MS` (default: `2000`) -- Debounce interval in milliseconds

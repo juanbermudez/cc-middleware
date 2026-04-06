@@ -48,8 +48,40 @@ description: "Launch a new headless Claude Code session with the given prompt an
   Effort level: `low`, `medium`, `high`, or `max`.
 </ParamField>
 
+<ParamField body="model" type="string">
+  Model to use for the session (e.g., `claude-sonnet-4-20250514`). Passed through to the Agent SDK.
+</ParamField>
+
+<ParamField body="fallbackModel" type="string">
+  Fallback model to use if the primary model is unavailable.
+</ParamField>
+
 <ParamField body="agent" type="string">
   Name of a registered agent to use for this session.
+</ParamField>
+
+<ParamField body="mcpServers" type="object">
+  MCP server configurations to use for this session.
+</ParamField>
+
+<ParamField body="plugins" type="array">
+  Plugin configurations (`[{ type, path }]`).
+</ParamField>
+
+<ParamField body="thinking" type="object">
+  Thinking/reasoning configuration for extended thinking mode.
+</ParamField>
+
+<ParamField body="outputFormat" type="object">
+  Structured output format configuration.
+</ParamField>
+
+<ParamField body="additionalDirectories" type="string[]">
+  Additional directories to include in the session context.
+</ParamField>
+
+<ParamField body="debug" type="boolean">
+  Enable debug mode for verbose logging.
 </ParamField>
 
 ## Response

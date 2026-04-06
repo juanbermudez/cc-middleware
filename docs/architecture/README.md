@@ -17,6 +17,7 @@ graph TD
         Agents
         Permissions
         Search
+        Sync
         Health
         WS["WebSocket"]
     end
@@ -25,9 +26,20 @@ graph TD
     API --> EB["Event Bus<br/>+ Blocking Hooks"]
     API --> PM["Permission Manager<br/>+ Policy"]
     API --> AR["Agent Registry<br/>+ Teams"]
+    API --> RS["Real-Time Sync"]
 
     EB --> HookHTTP["Hook HTTP Server"]
     PM --> AskUser["Ask User Mgr"]
+
+    subgraph RS["Real-Time Sync"]
+        SW["Session Watcher"]
+        CW["Config Watcher"]
+        AI["Auto-Indexer"]
+    end
+
+    SW -->|"session:discovered<br/>session:updated<br/>session:removed"| WS
+    CW -->|"config:changed<br/>config:mcp-changed<br/>team:updated<br/>..."| WS
+    AI --> Store["SQLite Store"]
 
     SM --> SDK["Agent SDK (@anthropic-ai/claude-agent-sdk)<br/>query() | listSessions() | getSessionMessages() | hooks"]
     AR --> SDK
@@ -73,6 +85,13 @@ graph TD
 - SQLite session index with FTS5 search
 - Session indexer (full and incremental)
 - Search API with filters and highlights
+
+### Real-Time Sync (`src/sync/`)
+- **Session Watcher** (`session-watcher.ts`): Watches `~/.claude/projects/` for new/modified `.jsonl` session files using chokidar with polling fallback. Emits `session:discovered`, `session:updated`, `session:removed` events.
+- **Config Watcher** (`config-watcher.ts`): Watches settings files, MCP configs, agent/skill/rule definitions, team configs, plugins, and memory files. Emits typed events: `config:settings-changed`, `config:mcp-changed`, `config:agent-changed`, `config:skill-changed`, `config:rule-changed`, `config:plugin-changed`, `config:memory-changed`, `team:created`, `team:updated`, `team:task-updated`.
+- **Auto-Indexer** (`auto-indexer.ts`): Listens to session watcher events and automatically indexes new/updated sessions into the SQLite store. New sessions are indexed immediately; updates are batched every 5 seconds.
+- All sync events are pushed to WebSocket clients via the broadcaster.
+- Configurable via environment variables (see below).
 
 ### Plugin (`src/plugin/`)
 - [Plugin Integration](plugin-integration.md)
@@ -145,6 +164,11 @@ sequenceDiagram
 | `CC_MIDDLEWARE_HOOK_PORT` | `3001` | Hook HTTP server port |
 | `CC_MIDDLEWARE_HOST` | `127.0.0.1` | Bind address |
 | `CC_MIDDLEWARE_DB_PATH` | `~/.cc-middleware/sessions.db` | SQLite database path |
+| `CC_MIDDLEWARE_WATCH_SESSIONS` | `true` | Enable session file watching |
+| `CC_MIDDLEWARE_WATCH_CONFIG` | `true` | Enable config file watching |
+| `CC_MIDDLEWARE_AUTO_INDEX` | `true` | Enable auto-indexing of new/modified sessions |
+| `CC_MIDDLEWARE_POLL_INTERVAL` | `10000` | Poll interval in ms for session watcher (config watcher uses 3x this value) |
+| `CC_MIDDLEWARE_DEBOUNCE_MS` | `2000` | Debounce interval in ms for file change events |
 
 ### Integration Modes
 

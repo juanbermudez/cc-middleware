@@ -50,6 +50,8 @@ This guide walks you through installing CC-Middleware, starting the server, and 
     The server starts two listeners:
     - **API server** on `http://127.0.0.1:3000` (REST + WebSocket)
     - **Hook server** on `http://127.0.0.1:3001` (receives Claude Code plugin hooks)
+
+    Real-time file watchers also start automatically, monitoring `~/.claude/projects/` for session changes and config files for updates. New sessions are auto-indexed into the search database. You can check watcher status with `ccm sync status`.
   </Step>
 
   <Step title="Verify it's running">
@@ -73,6 +75,11 @@ This guide walks you through installing CC-Middleware, starting the server, and 
 | `HOOK_PORT` | `3001` | Hook HTTP server port |
 | `HOST` | `127.0.0.1` | Bind address |
 | `PROJECT_DIR` | Current directory | Project directory for config discovery |
+| `CC_MIDDLEWARE_WATCH_SESSIONS` | `true` | Enable session file watching |
+| `CC_MIDDLEWARE_WATCH_CONFIG` | `true` | Enable config file watching |
+| `CC_MIDDLEWARE_AUTO_INDEX` | `true` | Enable auto-indexing of discovered sessions |
+| `CC_MIDDLEWARE_POLL_INTERVAL` | `10000` | Poll interval in ms for file watchers |
+| `CC_MIDDLEWARE_DEBOUNCE_MS` | `2000` | Debounce interval in ms for change events |
 
 ## Your First API Call
 
@@ -140,7 +147,7 @@ npx ccm sessions search "fibonacci" --limit 10
 </CodeGroup>
 
 <Note>
-  Search requires the session index to be built first. Trigger a full reindex with `POST /api/v1/search/reindex` or wait for sessions to be indexed automatically on launch.
+  Search requires the session index to be built first. With real-time sync enabled (the default), new and modified sessions are auto-indexed as they appear on disk. You can also trigger a full reindex manually with `POST /api/v1/search/reindex` or `ccm sync reindex`.
 </Note>
 
 ## Using as a Library

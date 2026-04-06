@@ -41,7 +41,14 @@ ccm server start --foreground
 
 ```
 Starting server on port 3000 (foreground)...
+Session watcher: started (poll: 10000ms, debounce: 2000ms)
+Config watcher: started (poll: 30000ms, debounce: 2000ms)
+Auto-indexer: started (batch: 5000ms)
 ```
+
+<Note>
+  Real-time file watchers start automatically with the server. They monitor `~/.claude/projects/` for session changes, config files for updates, and keep the search index current. Disable with env vars `CC_MIDDLEWARE_WATCH_SESSIONS=false` or `CC_MIDDLEWARE_WATCH_CONFIG=false`.
+</Note>
 
 ```bash
 # Start and get JSON output

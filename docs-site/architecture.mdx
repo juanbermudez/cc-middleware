@@ -18,12 +18,12 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
                     +--------v----------------v----------------+
                     |            API Layer (Fastify)            |
                     |  Sessions | Events | Agents | Permissions |
-                    |  Search   | Config | Health | WebSocket   |
-                    +----+------+--------+-------+-------------+
-                         |      |        |       |
-          +--------------+      |        |       +--------------+
-          |              |      |        |       |              |
-  +-------v------+ +----v------v--+ +---v-------v--+ +--------v-------+
+                    |  Search   | Config | Sync   | WebSocket   |
+                    +----+------+--------+--+----+-------------+
+                         |      |        |  |    |
+          +--------------+      |        |  |    +--------------+
+          |              |      |        |  |    |              |
+  +-------v------+ +----v------v--+ +---v--v----v--+ +--------v-------+
   |   Session    | |  Event Bus   | |  Permission  | |    Agent       |
   |   Manager    | |  + Blocking  | |   Manager    | |   Registry     |
   |              | |    Hooks     | |   + Policy   | |   + Teams      |
@@ -44,6 +44,15 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
   |          Claude Code Runtime             |
   |   Sessions | Tools | Agents             |
   +---------------------------------------------+
+          |
+  +-------v---------------------------------+     +------------------+
+  |     ~/.claude/projects/ (Disk)          |<----|  Real-Time Sync  |
+  |   Session .jsonl files                  |     |  Session Watcher |
+  |   Settings, MCP, Agents, Skills, Rules  |<----|  Config Watcher  |
+  +---------------------------------------------+ |  Auto-Indexer    |
+                                                   +--------+---------+
+                                                            |
+                                                   WebSocket Broadcast
 ```
 
 ## Component Overview
@@ -107,6 +116,20 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
 
     Source: `src/plugin/`
   </Accordion>
+
+  <Accordion title="Real-Time Sync" icon="rotate">
+    File watchers that automatically detect changes to Claude Code sessions and configuration files on disk, independent of sessions launched through the middleware.
+
+    **Session Watcher** (`src/sync/session-watcher.ts`): Monitors `~/.claude/projects/` for new, modified, or removed `.jsonl` session files using chokidar with polling fallback. Emits `session:discovered`, `session:updated`, and `session:removed` events.
+
+    **Config Watcher** (`src/sync/config-watcher.ts`): Monitors settings files, MCP configs, agent/skill/rule markdown files, team configs, plugins, and memory. Emits typed events like `config:settings-changed`, `config:agent-changed`, `team:updated`, etc.
+
+    **Auto-Indexer** (`src/sync/auto-indexer.ts`): Listens to session watcher events and automatically indexes new/updated sessions into the SQLite search index. New sessions are indexed immediately; updates are batched every 5 seconds.
+
+    All sync events are broadcast to WebSocket clients, enabling real-time dashboards and monitoring tools.
+
+    Source: `src/sync/session-watcher.ts`, `src/sync/config-watcher.ts`, `src/sync/auto-indexer.ts`
+  </Accordion>
 </AccordionGroup>
 
 ## Data Flow: Launching a Headless Session
@@ -164,7 +187,12 @@ The server entry point (`src/main.ts`) creates all components and starts both se
 3. Initialize SQLite store and session indexer
 4. Start the API server (Fastify with CORS, WebSocket, and all REST routes)
 5. Start the Hook server (separate port, receives plugin HTTP hooks)
-6. Register graceful shutdown handlers (SIGINT, SIGTERM)
+6. Start real-time sync watchers:
+   - **Session Watcher**: Monitors `~/.claude/projects/` for session file changes, wires events to WebSocket broadcast
+   - **Config Watcher**: Monitors settings, MCP, agents, skills, rules, plugins, memory, and teams
+   - **Auto-Indexer**: Listens to session watcher and keeps the SQLite index current
+7. Register `GET /api/v1/sync/status` endpoint for watcher introspection
+8. Register graceful shutdown handlers (SIGINT, SIGTERM) -- watchers are stopped first during shutdown
 
 ## Configuration
 
@@ -174,3 +202,8 @@ The server entry point (`src/main.ts`) creates all components and starts both se
 | `HOOK_PORT` | `3001` | Hook HTTP server port |
 | `HOST` | `127.0.0.1` | Bind address |
 | `PROJECT_DIR` | `process.cwd()` | Project directory for config discovery |
+| `CC_MIDDLEWARE_WATCH_SESSIONS` | `true` | Enable session file watching |
+| `CC_MIDDLEWARE_WATCH_CONFIG` | `true` | Enable config file watching |
+| `CC_MIDDLEWARE_AUTO_INDEX` | `true` | Enable auto-indexing of discovered sessions |
+| `CC_MIDDLEWARE_POLL_INTERVAL` | `10000` | Poll interval in ms for session watcher |
+| `CC_MIDDLEWARE_DEBOUNCE_MS` | `2000` | Debounce interval in ms for change events |

@@ -1,0 +1,205 @@
+---
+title: "Real-Time Monitoring"
+description: "Monitor Claude Code sessions and configuration changes in real-time using WebSocket subscriptions"
+---
+
+# Real-Time Monitoring
+
+This guide shows how to use CC-Middleware's real-time sync system to monitor Claude Code activity as it happens -- including sessions started outside the middleware (e.g., from the `claude` CLI directly).
+
+## Prerequisites
+
+- CC-Middleware server running (`ccm server start`)
+- Real-time sync enabled (default; check with `ccm sync status`)
+
+## Subscribing to Events via WebSocket
+
+Connect to the WebSocket endpoint and subscribe to the event types you care about:
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
+
+ws.onopen = () => {
+  // Subscribe to all session and config events
+  ws.send(JSON.stringify({
+    type: "subscribe",
+    events: ["session:*", "config:*", "team:*"]
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  console.log(`[${msg.type}]`, msg);
+};
+```
+
+### Subscription Patterns
+
+| Pattern | Matches |
+|---------|---------|
+| `session:*` | All session events: `started`, `completed`, `errored`, `aborted`, `discovered`, `updated`, `removed` |
+| `config:*` | All config events: `changed`, `mcp-changed`, `agent-changed`, `skill-changed`, `rule-changed`, `plugin-changed`, `memory-changed` |
+| `team:*` | All team events: `created`, `updated`, `task-updated` |
+| `hook:*` | All hook events: `PreToolUse`, `PostToolUse`, etc. |
+| `*` | Everything |
+
+You can also subscribe to specific events:
+
+```json
+{ "type": "subscribe", "events": ["session:discovered", "config:agent-changed"] }
+```
+
+## Monitoring New Sessions
+
+When a user starts a Claude Code session anywhere on the system, the session watcher detects the new `.jsonl` file and emits a `session:discovered` event:
+
+```json
+{
+  "type": "session:discovered",
+  "sessionId": "01JQ8X7KBMN...",
+  "timestamp": 1712234567890
+}
+```
+
+As the session progresses and Claude writes to the transcript file, `session:updated` events fire (debounced every 2 seconds by default):
+
+```json
+{
+  "type": "session:updated",
+  "sessionId": "01JQ8X7KBMN...",
+  "timestamp": 1712234570000
+}
+```
+
+## Monitoring Configuration Changes
+
+When someone edits a settings file, adds an agent definition, or installs a plugin, the config watcher detects it:
+
+```json
+{
+  "type": "config:agent-changed",
+  "name": "code-reviewer",
+  "action": "created",
+  "timestamp": 1712234567890
+}
+```
+
+```json
+{
+  "type": "config:changed",
+  "scope": "project",
+  "path": "/Users/dev/my-project/.claude/settings.json",
+  "timestamp": 1712234567890
+}
+```
+
+## Building a Dashboard
+
+Here is a minimal example of a real-time dashboard that tracks session and config activity:
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
+
+const state = {
+  activeSessions: new Set(),
+  recentEvents: [],
+};
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: "subscribe",
+    events: ["*"]
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+
+  // Track session lifecycle
+  if (msg.type === "session:discovered" || msg.type === "session:started") {
+    state.activeSessions.add(msg.sessionId);
+  } else if (msg.type === "session:completed" || msg.type === "session:removed") {
+    state.activeSessions.delete(msg.sessionId);
+  }
+
+  // Keep recent events
+  state.recentEvents.unshift({
+    type: msg.type,
+    timestamp: msg.timestamp || Date.now(),
+    details: msg,
+  });
+  state.recentEvents = state.recentEvents.slice(0, 100);
+
+  renderDashboard(state);
+};
+```
+
+## Using the CLI
+
+### Check Sync Status
+
+```bash
+ccm sync status
+```
+
+This shows whether watchers are running, how many files are being tracked, and auto-indexer statistics.
+
+### Trigger a Full Reindex
+
+If the search index is out of date (e.g., server was offline while sessions were running), trigger a full reindex:
+
+```bash
+ccm sync reindex
+```
+
+This re-reads all session files from disk and rebuilds the search index.
+
+### Listen to Events
+
+Use the hooks listen command to see events in real-time from the terminal:
+
+```bash
+ccm hooks listen
+```
+
+This connects to the WebSocket and prints events as they arrive, including both hook events from active sessions and sync events from file watchers.
+
+## Polling the Sync Status API
+
+For non-WebSocket integrations, poll the sync status endpoint:
+
+```bash
+curl http://127.0.0.1:3000/api/v1/sync/status
+```
+
+This returns the current state of all three sync components (session watcher, config watcher, auto-indexer) including statistics like sessions indexed, errors, and last poll times.
+
+## Disabling Sync
+
+If you do not need real-time sync (e.g., in a CI environment), disable the watchers:
+
+```bash
+CC_MIDDLEWARE_WATCH_SESSIONS=false CC_MIDDLEWARE_WATCH_CONFIG=false ccm server start
+```
+
+You can also disable just auto-indexing while keeping the watchers active for WebSocket push:
+
+```bash
+CC_MIDDLEWARE_AUTO_INDEX=false ccm server start
+```
+
+## Tuning Performance
+
+For systems with many sessions or slow filesystems, adjust the polling and debounce intervals:
+
+```bash
+# Slower polling (less CPU usage)
+CC_MIDDLEWARE_POLL_INTERVAL=30000 CC_MIDDLEWARE_DEBOUNCE_MS=5000 ccm server start
+
+# Faster polling (more responsive)
+CC_MIDDLEWARE_POLL_INTERVAL=5000 CC_MIDDLEWARE_DEBOUNCE_MS=1000 ccm server start
+```
+
+<Note>
+The config watcher automatically uses a poll interval of 3x the session watcher's interval, since configuration files change less frequently.
+</Note>

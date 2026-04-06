@@ -67,6 +67,12 @@ Base URL: `http://127.0.0.1:3000`
 | POST | `/api/v1/search/reindex` | Trigger reindex |
 | GET | `/api/v1/search/stats` | Index statistics |
 
+## Sync
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/sync/status` | Get real-time sync watcher status (session watcher, config watcher, auto-indexer) |
+
 ## Configuration
 
 ### Settings
@@ -119,6 +125,19 @@ Base URL: `http://127.0.0.1:3000`
 | GET | `/api/v1/config/claude-md` | List all CLAUDE.md files |
 | PUT | `/api/v1/config/claude-md/:scope` | Update CLAUDE.md for scope |
 
+## Session Launch/Resume: `model` Field
+
+Both `POST /api/v1/sessions` (launch) and `POST /api/v1/sessions/:id/resume` accept an optional `model` field in the request body to specify which Claude model to use:
+
+```json
+{
+  "prompt": "Your task",
+  "model": "claude-sonnet-4-20250514"
+}
+```
+
+Additional launch options now supported: `model`, `fallbackModel`, `mcpServers`, `plugins`, `settingSources`, `thinking`, `outputFormat`, `sandbox`, `tools`, `toolConfig`, `additionalDirectories`, `debug`, `debugFile`, `promptSuggestions`, `allowDangerouslySkipPermissions`.
+
 ## WebSocket
 
 Connect to: `ws://127.0.0.1:3000/api/v1/ws`
@@ -132,11 +151,35 @@ Connect to: `ws://127.0.0.1:3000/api/v1/ws`
 ```
 
 ### Server Messages
+
+#### Session Lifecycle Events
 ```json
 { "type": "session:started", "sessionId": "...", "timestamp": 0 }
 { "type": "session:stream", "sessionId": "...", "event": { "type": "text_delta", "text": "..." } }
 { "type": "session:completed", "sessionId": "...", "result": { ... } }
 { "type": "session:errored", "sessionId": "...", "error": "..." }
+{ "type": "session:aborted", "sessionId": "..." }
+```
+
+#### Real-Time Sync Events (from file watchers)
+```json
+{ "type": "session:discovered", "sessionId": "...", "timestamp": 0 }
+{ "type": "session:updated", "sessionId": "...", "timestamp": 0 }
+{ "type": "session:removed", "sessionId": "...", "timestamp": 0 }
+{ "type": "config:changed", "scope": "user", "path": "...", "timestamp": 0 }
+{ "type": "config:mcp-changed", "path": "...", "timestamp": 0 }
+{ "type": "config:agent-changed", "name": "...", "action": "created", "timestamp": 0 }
+{ "type": "config:skill-changed", "name": "...", "action": "modified", "timestamp": 0 }
+{ "type": "config:rule-changed", "name": "...", "action": "removed", "timestamp": 0 }
+{ "type": "config:plugin-changed", "path": "...", "timestamp": 0 }
+{ "type": "config:memory-changed", "path": "...", "timestamp": 0 }
+{ "type": "team:created", "teamName": "...", "timestamp": 0 }
+{ "type": "team:updated", "teamName": "...", "timestamp": 0 }
+{ "type": "team:task-updated", "path": "...", "timestamp": 0 }
+```
+
+#### Hook & Permission Events
+```json
 { "type": "hook:event", "eventType": "PreToolUse", "input": { ... } }
 { "type": "permission:pending", "permission": { "id": "...", "toolName": "..." } }
 { "type": "question:pending", "question": { "id": "...", "questions": [...] } }

@@ -1,0 +1,114 @@
+---
+title: "Sync Status"
+api: "GET /api/v1/sync/status"
+description: "Get the current status of real-time sync watchers, including session watcher, config watcher, and auto-indexer."
+---
+
+## Response
+
+<ResponseField name="sessionWatcher" type="object" required>
+  Status of the session file watcher.
+
+  <Expandable>
+    <ResponseField name="watching" type="boolean" required>
+      Whether the session watcher is currently active.
+    </ResponseField>
+    <ResponseField name="dirs" type="string[]" required>
+      List of directories being watched for session files.
+    </ResponseField>
+    <ResponseField name="knownFiles" type="integer" required>
+      Number of session files currently being tracked.
+    </ResponseField>
+    <ResponseField name="lastPoll" type="number | null" required>
+      Unix timestamp (ms) of the last polling scan, or `null` if no poll has occurred yet.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="configWatcher" type="object" required>
+  Status of the configuration file watcher.
+
+  <Expandable>
+    <ResponseField name="watching" type="boolean" required>
+      Whether the config watcher is currently active.
+    </ResponseField>
+    <ResponseField name="watchedPaths" type="integer" required>
+      Number of file paths/globs being monitored.
+    </ResponseField>
+    <ResponseField name="lastPoll" type="number | null" required>
+      Unix timestamp (ms) of the last polling scan, or `null` if no poll has occurred yet.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="autoIndexer" type="object" required>
+  Status of the automatic session indexer.
+
+  <Expandable>
+    <ResponseField name="running" type="boolean" required>
+      Whether the auto-indexer is currently active.
+    </ResponseField>
+    <ResponseField name="sessionsIndexed" type="integer" required>
+      Total number of sessions indexed since server startup.
+    </ResponseField>
+    <ResponseField name="indexErrors" type="integer" required>
+      Number of indexing errors since startup.
+    </ResponseField>
+    <ResponseField name="lastIndexTime" type="number | null" required>
+      Unix timestamp (ms) of the last successful index operation, or `null` if none.
+    </ResponseField>
+    <ResponseField name="pendingBatch" type="integer" required>
+      Number of sessions currently queued for batch indexing.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/sync/status
+```
+
+```bash CLI
+ccm sync status
+```
+
+```bash CLI (JSON output)
+ccm sync status --json
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "sessionWatcher": {
+    "watching": true,
+    "dirs": [
+      "/Users/dev/.claude/projects/-Users-dev-my-project",
+      "/Users/dev/.claude/projects/-Users-dev-other-project"
+    ],
+    "knownFiles": 42,
+    "lastPoll": 1712234567890
+  },
+  "configWatcher": {
+    "watching": true,
+    "watchedPaths": 18,
+    "lastPoll": 1712234565000
+  },
+  "autoIndexer": {
+    "running": true,
+    "sessionsIndexed": 15,
+    "indexErrors": 0,
+    "lastIndexTime": 1712234560000,
+    "pendingBatch": 0
+  }
+}
+```
+
+<Note>
+  If a watcher is disabled via environment variables (e.g., `CC_MIDDLEWARE_WATCH_SESSIONS=false`), the corresponding section will show `watching: false` (or `running: false` for the auto-indexer) with zeroed counters.
+</Note>

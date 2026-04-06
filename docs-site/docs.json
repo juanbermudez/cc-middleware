@@ -27,7 +27,8 @@
               "concepts/sessions",
               "concepts/hooks",
               "concepts/permissions",
-              "concepts/agents"
+              "concepts/agents",
+              "concepts/realtime-sync"
             ]
           },
           {
@@ -38,7 +39,8 @@
               "guides/permission-policies",
               "guides/search-indexing",
               "guides/plugin-integration",
-              "guides/configuration"
+              "guides/configuration",
+              "guides/realtime-monitoring"
             ]
           }
         ]
@@ -100,6 +102,12 @@
             ]
           },
           {
+            "group": "Sync",
+            "pages": [
+              "api-reference/sync/status"
+            ]
+          },
+          {
             "group": "Configuration",
             "pages": [
               "api-reference/config/settings",
@@ -123,7 +131,8 @@
               "cli/hooks",
               "cli/agents",
               "cli/permissions",
-              "cli/config"
+              "cli/config",
+              "cli/sync"
             ]
           }
         ]

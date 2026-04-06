@@ -40,6 +40,8 @@ CC-Middleware sits between your application and Claude Code, exposing every aspe
 
 - **Configuration Management** -- Read and write Claude Code settings across all scopes (user, project, local, managed), manage plugins, MCP servers, CLAUDE.md files, and project memory.
 
+- **Real-Time Sync** -- File watchers automatically detect new sessions, configuration changes, agent/skill/rule updates, plugin changes, and team modifications on disk. Changes are pushed to connected WebSocket clients instantly and new sessions are auto-indexed into the search database.
+
 - **CLI (`ccm`)** -- A full-featured command-line interface that mirrors every API capability, with colored table output, JSON mode, and real-time WebSocket streaming.
 
 ## Integration Modes
@@ -85,6 +87,7 @@ src/
   api/         REST/WebSocket API server, route handlers
   plugin/      Claude Code plugin manifest, hook configs, skills
   store/       SQLite session index store
+  sync/        Real-time file watchers and auto-indexer
   config/      Settings reader/writer, plugin/MCP/memory management
   cli/         CLI entry point and command handlers
   types/       Shared TypeScript type definitions

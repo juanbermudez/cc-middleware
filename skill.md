@@ -51,6 +51,13 @@ CC-Middleware provides a central API layer over Claude Code for session manageme
 - Discover skills, agents, rules, CLAUDE.md files
 - Read auto-memory per project
 
+### Real-Time Sync
+- Session file watcher monitors `~/.claude/projects/` for new/modified/removed sessions (chokidar + polling fallback)
+- Config watcher monitors settings, MCP configs, agents, skills, rules, plugins, memory, and teams for changes
+- Auto-indexer keeps the SQLite search index up to date as sessions change on disk
+- All changes are pushed to WebSocket clients in real-time (11 new event types)
+- Configurable via env vars: `CC_MIDDLEWARE_WATCH_SESSIONS`, `CC_MIDDLEWARE_WATCH_CONFIG`, `CC_MIDDLEWARE_AUTO_INDEX`, `CC_MIDDLEWARE_POLL_INTERVAL`, `CC_MIDDLEWARE_DEBOUNCE_MS`
+
 ### API & CLI
 - REST API with 60+ endpoints (Fastify)
 - WebSocket for real-time session streaming and event subscription
@@ -104,12 +111,27 @@ GET /api/v1/config/settings
 ```
 CLI: `ccm config show`
 
+### sync-status
+Check the status of real-time sync watchers.
+```
+GET /api/v1/sync/status
+```
+CLI: `ccm sync status`
+
+### realtime-monitoring
+Subscribe to file system changes in real-time via WebSocket.
+```
+ws://127.0.0.1:3000/api/v1/ws
+{"type": "subscribe", "events": ["session:*", "config:*", "team:*"]}
+```
+
 ## Workflows
 
 ### Monitor Active Sessions
-1. Start middleware: `ccm server start`
+1. Start middleware: `ccm server start` (watchers start automatically)
 2. Open event stream: `ccm hooks listen`
 3. Watch session activity in real-time
+4. Check sync status: `ccm sync status`
 
 ### Automated Session Control
 1. Launch session via API with custom permissions

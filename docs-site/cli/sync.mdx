@@ -1,0 +1,120 @@
+---
+title: "ccm sync"
+description: "Monitor and control the real-time sync subsystem."
+---
+
+## ccm sync status
+
+Show the current status of all real-time sync watchers.
+
+```bash
+ccm sync status
+```
+
+### Output
+
+```
+Session Watcher
+
+  Watching:      yes
+  Watched dirs:  /Users/dev/.claude/projects/my-project
+  Known files:   42
+  Last poll:     2:15:30 PM
+
+Config Watcher
+
+  Watching:      yes
+  Watched paths: 18
+  Last poll:     2:15:30 PM
+
+Auto-Indexer
+
+  Running:         yes
+  Sessions indexed: 15
+  Index errors:    0
+  Pending batch:   0
+  Last index time: 2:15:25 PM
+```
+
+### JSON Output
+
+```bash
+ccm sync status --json
+```
+
+```json
+{
+  "sessionWatcher": {
+    "watching": true,
+    "dirs": ["/Users/dev/.claude/projects/my-project"],
+    "knownFiles": 42,
+    "lastPoll": 1712234567890
+  },
+  "configWatcher": {
+    "watching": true,
+    "watchedPaths": 18,
+    "lastPoll": 1712234565000
+  },
+  "autoIndexer": {
+    "running": true,
+    "sessionsIndexed": 15,
+    "indexErrors": 0,
+    "lastIndexTime": 1712234560000,
+    "pendingBatch": 0
+  }
+}
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/sync/status
+```
+
+---
+
+## ccm sync reindex
+
+Trigger a full reindex of all sessions into the SQLite search database. This re-reads every session file from disk and rebuilds the search index.
+
+```bash
+ccm sync reindex
+```
+
+### Output
+
+```
+Reindex complete: 42 sessions, 1250 messages indexed in 3200ms
+```
+
+If there are indexing errors:
+
+```
+Reindex complete: 40 sessions, 1200 messages indexed in 3100ms
+  2 error(s) during indexing
+```
+
+### JSON Output
+
+```bash
+ccm sync reindex --json
+```
+
+```json
+{
+  "sessionsIndexed": 42,
+  "messagesIndexed": 1250,
+  "errors": [],
+  "durationMs": 3200
+}
+```
+
+### API Equivalent
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/search/reindex
+```
+
+<Note>
+  Reindex is typically only needed if the server was offline while sessions were running, or if you want to force a fresh rebuild of the search index. With real-time sync enabled (the default), the auto-indexer keeps the index up to date automatically.
+</Note>

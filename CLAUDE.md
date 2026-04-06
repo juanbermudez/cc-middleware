@@ -11,6 +11,7 @@ This middleware creates a central API layer over Claude Code that enables:
 - **Agent/Team management**: Expose sub-agent definitions and agent teams
 - **Plugin integration**: Installable as a Claude Code plugin
 - **Session indexing**: SQLite-based session search and history
+- **Real-time sync**: File watchers for sessions, configs, agents, skills, rules, plugins, memory, and teams with WebSocket push and auto-indexing
 
 ## Build & Test Commands
 
@@ -37,6 +38,8 @@ See [docs/architecture/README.md](docs/architecture/README.md) for full architec
 - `src/plugin/` - Claude Code plugin manifest, hook configs, skills
 - `src/types/` - Shared TypeScript type definitions
 - `src/store/` - SQLite session index store
+- `src/sync/` - Real-time file watchers (session-watcher, config-watcher, auto-indexer)
+- `src/config/` - Settings reader/writer, plugin/MCP/memory management
 
 ## Key Dependencies
 

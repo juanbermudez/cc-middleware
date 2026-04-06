@@ -20,6 +20,10 @@ description: "Resume an existing session with a follow-up prompt, continuing the
   Maximum number of additional conversation turns.
 </ParamField>
 
+<ParamField body="model" type="string">
+  Model to use for this resumption (e.g., `claude-sonnet-4-20250514`). Passed through to the Agent SDK.
+</ParamField>
+
 ## Response
 
 <ResponseField name="sessionId" type="string" required>
