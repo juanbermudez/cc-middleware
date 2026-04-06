@@ -26,6 +26,19 @@ export type WSServerMessage =
   | { type: "session:completed"; sessionId: string; result: LaunchResult }
   | { type: "session:errored"; sessionId: string; error: string }
   | { type: "session:aborted"; sessionId: string }
+  | { type: "session:discovered"; sessionId: string; timestamp: number }
+  | { type: "session:updated"; sessionId: string; timestamp: number }
+  | { type: "session:removed"; sessionId: string; timestamp: number }
+  | { type: "config:changed"; scope: string; path: string; timestamp: number }
+  | { type: "config:mcp-changed"; path: string; timestamp: number }
+  | { type: "config:agent-changed"; name: string; action: string; timestamp: number }
+  | { type: "config:skill-changed"; name: string; action: string; timestamp: number }
+  | { type: "config:rule-changed"; name: string; action: string; timestamp: number }
+  | { type: "config:plugin-changed"; path: string; timestamp: number }
+  | { type: "config:memory-changed"; path: string; timestamp: number }
+  | { type: "team:created"; teamName: string; timestamp: number }
+  | { type: "team:updated"; teamName: string; timestamp: number }
+  | { type: "team:task-updated"; path: string; timestamp: number }
   | { type: "hook:event"; eventType: string; input: HookInput }
   | { type: "permission:pending"; id: string; toolName: string; toolUseID: string }
   | { type: "pong" }
@@ -37,14 +50,21 @@ interface WSClient {
   subscriptions: Set<string>;
 }
 
+/** A handle to the WebSocket broadcast system */
+export interface WebSocketBroadcaster {
+  /** Broadcast a message to all clients matching the given pattern */
+  broadcast(pattern: string, message: WSServerMessage): void;
+}
+
 /**
  * Register WebSocket routes on the Fastify instance.
  * Requires @fastify/websocket plugin to be registered first.
+ * Returns a broadcaster that can be used to push sync events.
  */
 export function registerWebSocketRoutes(
   app: FastifyInstance,
   ctx: MiddlewareContext
-): void {
+): WebSocketBroadcaster {
   const clients = new Set<WSClient>();
 
   // Helper: send a message to a client
@@ -162,6 +182,9 @@ export function registerWebSocketRoutes(
       clients.delete(client);
     });
   });
+
+  // Return broadcaster for external use (sync events)
+  return { broadcast };
 }
 
 /**

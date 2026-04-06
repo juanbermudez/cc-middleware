@@ -22,6 +22,7 @@ import { registerEventRoutes } from "./routes/events.js";
 import { registerAgentRoutes } from "./routes/agents.js";
 import { registerPermissionRoutes } from "./routes/permissions.js";
 import { registerWebSocketRoutes } from "./websocket.js";
+import type { WebSocketBroadcaster } from "./websocket.js";
 import { registerSearchRoutes } from "./routes/search.js";
 import { registerConfigRoutes } from "./routes/config.js";
 import type { SearchContext } from "./routes/search.js";
@@ -67,6 +68,8 @@ export interface MiddlewareServer {
   stop: () => Promise<void>;
   app: FastifyInstance;
   url: string;
+  /** WebSocket broadcaster for pushing sync events */
+  wsBroadcaster: WebSocketBroadcaster;
 }
 
 const startTime = Date.now();
@@ -139,7 +142,7 @@ export async function createMiddlewareServer(
   registerEventRoutes(app, ctx);
   registerAgentRoutes(app, ctx);
   registerPermissionRoutes(app, ctx);
-  registerWebSocketRoutes(app, ctx);
+  const wsBroadcaster = registerWebSocketRoutes(app, ctx);
 
   // Register search routes if store and indexer are available
   if (options.sessionStore && options.sessionIndexer) {
@@ -188,5 +191,6 @@ export async function createMiddlewareServer(
     get url() {
       return serverUrl;
     },
+    wsBroadcaster,
   };
 }
