@@ -28,6 +28,7 @@ Build a Node/TypeScript middleware that wraps Claude Code to provide a clean, un
 | 9 | [Search & Indexing](phases/09-search-index.md) | Phase 2, 7 | SQLite full-text search for sessions |
 | 10 | [Configuration Management](phases/10-configuration.md) | Phase 1, 7 | Read/manage CC settings, plugins, skills, agents, MCP, memory |
 | 11 | [CLI Control Surface](phases/11-cli.md) | Phase 7, 9, 10 | Terminal CLI (`ccm`) wrapping the middleware API |
+| 12 | [Real-Time Sync](phases/12-realtime-sync.md) | Phase 7, 9 | Filesystem watchers, auto-indexing, WebSocket push for external changes |
 
 ## Dependency Graph
 

@@ -89,6 +89,14 @@
 - [x] Task 11.8: Tab completion and polish
 - [x] Task 11.9: Integration tests
 
+## Phase 12: Real-Time Sync
+- [ ] Task 12.1: Session file watcher
+- [ ] Task 12.2: Config and component watcher
+- [ ] Task 12.3: Incremental auto-indexer
+- [ ] Task 12.4: WebSocket push for external changes
+- [ ] Task 12.5: Wire into server startup
+- [ ] Task 12.6: Watcher configuration
+
 ---
 
 ## Completion Log
