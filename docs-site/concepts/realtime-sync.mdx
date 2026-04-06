@@ -13,26 +13,19 @@ This means that sessions started outside the middleware (e.g., via `claude` CLI 
 
 The sync system consists of three components that start automatically with the server:
 
-```
-~/.claude/projects/       Session Watcher          WebSocket Clients
-  *.jsonl files    -----> (chokidar + poll) -----> session:discovered
-                                |                  session:updated
-                                |                  session:removed
-                                v
-                          Auto-Indexer
-                          (SQLite FTS5)
+```mermaid
+graph LR
+    subgraph Sources["Filesystem Sources"]
+        SF["~/.claude/projects/*.jsonl"]
+        CF["settings.json<br/>.claude.json<br/>agents/*.md<br/>skills/SKILL.md<br/>rules/*.md<br/>plugins/<br/>memory/<br/>teams/"]
+    end
 
-~/.claude/                Config Watcher           WebSocket Clients
-  settings.json    -----> (chokidar + poll) -----> config:changed
-  .claude.json                                     config:mcp-changed
-  agents/*.md                                      config:agent-changed
-  skills/*/SKILL.md                                config:skill-changed
-  rules/*.md                                       config:rule-changed
-  plugins/                                         config:plugin-changed
-  memory/                                          config:memory-changed
-  teams/                                           team:created
-  tasks/                                           team:updated
-                                                   team:task-updated
+    SF --> SW["Session Watcher<br/>(chokidar + poll)"]
+    CF --> CW["Config Watcher<br/>(chokidar + poll)"]
+
+    SW --> AI["Auto-Indexer<br/>(SQLite FTS5)"]
+    SW -->|"session:discovered<br/>session:updated<br/>session:removed"| WS["WebSocket<br/>Broadcast"]
+    CW -->|"config:changed<br/>config:agent-changed<br/>config:skill-changed<br/>team:created<br/>..."| WS
 ```
 
 ## Session Watcher

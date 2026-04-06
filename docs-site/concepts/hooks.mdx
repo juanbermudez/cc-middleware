@@ -41,32 +41,16 @@ The event bus supports all Claude Code hook event types plus a wildcard `*` list
 
 ## Event Flow
 
-```
-Event Sources:
-+------------------+  +--------------------+
-|  Agent SDK Hooks  |  |  HTTP Hook Server   |
-|  (SDK mode)       |  |  (Plugin mode)      |
-+--------+---------+  +----------+----------+
-         |                       |
-         +-----------+-----------+
-                     |
-              +------v------+
-              |  Event Bus   |
-              |  (dispatch)  |
-              +------+------+
-                     |
-         +-----------+-----------+
-         |           |           |
-  +------v----+ +---v----+ +---v----------+
-  | Registered | |Wildcard| |  Blocking    |
-  | Handlers   | |Listener| |  Handler     |
-  | (per event)| |  (*)   | |  (if needed) |
-  +------------+ +--------+ +------+-------+
-                                   |
-                            +------v------+
-                            |  Decision    |
-                            |  allow/deny  |
-                            +-------------+
+```mermaid
+graph TD
+    SDK["Agent SDK Hooks<br/>(SDK mode)"] --> Bus["Event Bus<br/>(dispatch)"]
+    HTTP["HTTP Hook Server<br/>(Plugin mode)"] --> Bus
+
+    Bus --> RH["Registered Handlers<br/>(per event)"]
+    Bus --> WL["Wildcard Listener (*)"]
+    Bus --> BH["Blocking Handler<br/>(if needed)"]
+
+    BH --> Decision["Decision: allow/deny"]
 ```
 
 ## Blocking Hooks

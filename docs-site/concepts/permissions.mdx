@@ -11,21 +11,17 @@ The permission system provides programmatic control over tool approvals and user
 
 When Claude Code attempts to use a tool, the permission system evaluates the request through a multi-stage pipeline:
 
-```
-Tool call arrives
-  |
-  +-- PolicyEngine.evaluate()
-  |    +-- allow  -->  return { behavior: "allow" }
-  |    +-- deny   -->  return { behavior: "deny", message: "..." }
-  |    +-- ask    -->  continue to event-based flow
-  |
-  +-- Emit PermissionRequest event on bus
-  |    +-- If event handler responds  -->  return its result
-  |
-  +-- Create PendingPermission
-  |    +-- Wait for external resolution (with timeout)
-  |
-  +-- Timeout  -->  deny with message
+```mermaid
+graph TD
+    A["Tool call arrives"] --> B["PolicyEngine.evaluate()"]
+    B -->|allow| C["Return { behavior: 'allow' }"]
+    B -->|deny| D["Return { behavior: 'deny' }"]
+    B -->|ask| E["Emit PermissionRequest on bus"]
+    E -->|handler responds| F["Return handler result"]
+    E -->|no handler| G["Create PendingPermission"]
+    G --> H["Wait for external resolution"]
+    H -->|resolved| I["Return result"]
+    H -->|timeout| J["Deny with message"]
 ```
 
 ## Policy Engine

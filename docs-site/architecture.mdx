@@ -9,50 +9,44 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
 
 ## System Diagram
 
-```
-                    +------------------------------------------+
-                    |           External Consumers              |
-                    |    (CLI, UI, Integrations, Webhooks)      |
-                    +--------+----------------+----------------+
-                             | REST/WS        | WebSocket
-                    +--------v----------------v----------------+
-                    |            API Layer (Fastify)            |
-                    |  Sessions | Events | Agents | Permissions |
-                    |  Search   | Config | Sync   | WebSocket   |
-                    +----+------+--------+--+----+-------------+
-                         |      |        |  |    |
-          +--------------+      |        |  |    +--------------+
-          |              |      |        |  |    |              |
-  +-------v------+ +----v------v--+ +---v--v----v--+ +--------v-------+
-  |   Session    | |  Event Bus   | |  Permission  | |    Agent       |
-  |   Manager    | |  + Blocking  | |   Manager    | |   Registry     |
-  |              | |    Hooks     | |   + Policy   | |   + Teams      |
-  +-------+------+ +------+------+ +------+-------+ +--------+-------+
-          |               |                |                   |
-          |          +----v----+      +----v----+              |
-          |          |  Hook   |      |  Ask    |              |
-          |          |  HTTP   |      |  User   |              |
-          |          |  Server |      |  Mgr    |              |
-          |          +---------+      +---------+              |
-          |                                                    |
-  +-------v----------------------------------------------------v--+
-  |               Agent SDK (@anthropic-ai/claude-agent-sdk)      |
-  |   query() | listSessions() | getSessionMessages() | hooks     |
-  +-------+-------------------------------------------------------+
-          |
-  +-------v---------------------------------+
-  |          Claude Code Runtime             |
-  |   Sessions | Tools | Agents             |
-  +---------------------------------------------+
-          |
-  +-------v---------------------------------+     +------------------+
-  |     ~/.claude/projects/ (Disk)          |<----|  Real-Time Sync  |
-  |   Session .jsonl files                  |     |  Session Watcher |
-  |   Settings, MCP, Agents, Skills, Rules  |<----|  Config Watcher  |
-  +---------------------------------------------+ |  Auto-Indexer    |
-                                                   +--------+---------+
-                                                            |
-                                                   WebSocket Broadcast
+```mermaid
+graph TD
+    EC["External Consumers<br/>(CLI, UI, Integrations)"]
+    EC -->|"REST/WS"| API
+
+    subgraph API["API Layer (Fastify)"]
+        Sessions
+        Events
+        Agents
+        Permissions
+        Search
+        Config
+        Sync
+        WebSocket
+    end
+
+    API --> SM["Session Manager"]
+    API --> EB["Event Bus + Blocking Hooks"]
+    API --> PM["Permission Manager + Policy"]
+    API --> AR["Agent Registry + Teams"]
+
+    SM --> SDK["Agent SDK<br/>query() | listSessions() | hooks"]
+    AR --> SDK
+    EB --> HS["Hook HTTP Server"]
+    PM --> AUM["Ask User Manager"]
+
+    subgraph SYNC["Real-Time Sync"]
+        SW["Session Watcher"]
+        CW["Config Watcher"]
+        AI["Auto-Indexer"]
+    end
+
+    SW -->|"session events"| EB
+    CW -->|"config events"| EB
+    SW --> AI
+    AI --> Store["SQLite FTS5"]
+
+    SDK --> CC["Claude Code Runtime"]
 ```
 
 ## Component Overview
@@ -134,35 +128,39 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
 
 ## Data Flow: Launching a Headless Session
 
-```
-Client                API Server           Session Manager         Agent SDK
-  |                      |                      |                     |
-  |--POST /sessions----->|                      |                     |
-  |                      |--launch()----------->|                     |
-  |                      |                      |--query({prompt})-->|
-  |                      |                      |                     |--Claude Code-->
-  |                      |                      |                     |<--Messages----
-  |                      |                      |<--SDKMessages------|
-  |                      |                      |                     |
-  |                      |   (events dispatched to event bus)         |
-  |                      |                      |                     |
-  |                      |<--LaunchResult------|                     |
-  |<--200 {result}------|                      |                     |
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as API Server
+    participant SM as Session Manager
+    participant SDK as Agent SDK
+
+    C->>API: POST /sessions
+    API->>SM: launch()
+    SM->>SDK: query({prompt})
+    SDK->>SDK: Claude Code executes
+    SDK-->>SM: SDKMessages stream
+    Note over SM,SDK: Events dispatched to event bus
+    SM-->>API: LaunchResult
+    API-->>C: 200 {result}
 ```
 
 ## Data Flow: Hook Events (Plugin Mode)
 
-```
-Claude Code          Plugin HTTP Hook        Hook Server          Event Bus
-  |                      |                      |                     |
-  |--PreToolUse--------->|                      |                     |
-  |                      |--POST /hooks/------> |                     |
-  |                      |  PreToolUse          |--dispatch()------->|
-  |                      |                      |                     |--handlers()
-  |                      |                      |                     |<--result--
-  |                      |                      |<--blocking result--|
-  |                      |<--200 {allow}--------|                     |
-  |<--allow/deny---------|                      |                     |
+```mermaid
+sequenceDiagram
+    participant CC as Claude Code
+    participant Hook as Plugin HTTP Hook
+    participant Server as Hook Server
+    participant Bus as Event Bus
+
+    CC->>Hook: PreToolUse event
+    Hook->>Server: POST /hooks/PreToolUse
+    Server->>Bus: dispatch()
+    Bus->>Bus: handlers execute
+    Bus-->>Server: blocking result
+    Server-->>Hook: 200 {allow/deny}
+    Hook-->>CC: allow or deny
 ```
 
 ## Data Flow: Hook Events (SDK Mode)
