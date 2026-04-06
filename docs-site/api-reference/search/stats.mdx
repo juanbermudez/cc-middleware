@@ -1,0 +1,46 @@
+---
+title: "Index Statistics"
+api: "GET /api/v1/search/stats"
+description: "Get statistics about the current search index state."
+---
+
+## Response
+
+The response contains index statistics. The exact fields depend on the indexer implementation, but typically include:
+
+<ResponseField name="totalSessions" type="integer">
+  Total number of sessions in the index.
+</ResponseField>
+
+<ResponseField name="totalMessages" type="integer">
+  Total number of indexed messages.
+</ResponseField>
+
+<ResponseField name="lastIndexedAt" type="number">
+  Unix timestamp (milliseconds) of the last indexing run.
+</ResponseField>
+
+<ResponseField name="indexSizeBytes" type="number">
+  Approximate size of the index in bytes.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/search/stats
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "totalSessions": 142,
+  "totalMessages": 3847,
+  "lastIndexedAt": 1712233200000,
+  "indexSizeBytes": 524288
+}
+```

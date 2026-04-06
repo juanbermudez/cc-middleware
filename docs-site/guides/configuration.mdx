@@ -1,0 +1,353 @@
+---
+title: "Configuration"
+description: "Reading and managing Claude Code configuration through the middleware"
+---
+
+# Configuration
+
+CC-Middleware exposes Claude Code's entire configuration system through the REST API and CLI, allowing you to read, write, and manage settings, plugins, MCP servers, agents, skills, CLAUDE.md files, and project memory.
+
+## Settings Scopes
+
+Claude Code settings are organized into four scopes, merged with increasing precedence:
+
+| Scope | File Location | Writable | Description |
+|-------|--------------|----------|-------------|
+| `managed` | Set by organization | No | Organization-managed settings (read-only) |
+| `user` | `~/.claude/settings.json` | Yes | User-level defaults |
+| `project` | `.claude/settings.json` | Yes | Project-specific settings |
+| `local` | `.claude/settings.local.json` | Yes | Local overrides (not committed to git) |
+
+Settings merge from left to right: `managed < user < project < local`. A setting in `local` overrides the same key in all other scopes.
+
+## Reading Settings
+
+### Merged (Effective) Settings
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/config/settings
+```
+
+```bash CLI
+ccm config show
+```
+</CodeGroup>
+
+The response includes the merged result of all four scopes, plus provenance information showing which scope each setting came from.
+
+### Specific Scope
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/config/settings/user
+curl http://127.0.0.1:3000/api/v1/config/settings/project
+curl http://127.0.0.1:3000/api/v1/config/settings/local
+curl http://127.0.0.1:3000/api/v1/config/settings/managed
+```
+
+```bash CLI
+ccm config show --scope user
+ccm config show --scope project
+```
+</CodeGroup>
+
+### Get a Single Value
+
+```bash
+ccm config get permissions
+ccm config get model
+```
+
+The CLI shows the value and its source scope:
+
+```
+permissions = [...] (from: project)
+```
+
+## Writing Settings
+
+### Set a Value
+
+<CodeGroup>
+```bash API
+curl -X PUT http://127.0.0.1:3000/api/v1/config/settings/project \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "model",
+    "value": "sonnet"
+  }'
+```
+
+```bash CLI
+ccm config set model sonnet
+ccm config set model sonnet --scope user
+```
+</CodeGroup>
+
+The `key` supports dot-notation for nested values:
+
+```bash
+curl -X PUT http://127.0.0.1:3000/api/v1/config/settings/project \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "hooks.timeout",
+    "value": 30000
+  }'
+```
+
+<Warning>
+  The `managed` scope cannot be modified. Attempting to write to it returns an error.
+</Warning>
+
+### Permission Rules in Settings
+
+Add permission rules directly to Claude Code's settings files:
+
+<CodeGroup>
+```bash Add a rule
+curl -X POST http://127.0.0.1:3000/api/v1/config/settings/project/permissions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rule": "Bash(npm *)",
+    "behavior": "allow"
+  }'
+```
+
+```bash Remove a rule
+curl -X DELETE http://127.0.0.1:3000/api/v1/config/settings/project/permissions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rule": "Bash(npm *)",
+    "behavior": "allow"
+  }'
+```
+</CodeGroup>
+
+These rules persist in the settings file and are used by Claude Code itself (separate from the middleware's runtime policy engine).
+
+## Plugin Management
+
+### List Installed Plugins
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/config/plugins
+```
+
+```bash CLI
+ccm config plugins
+```
+</CodeGroup>
+
+Output:
+
+```
+Name              Version   Enabled   Scope
+cc-middleware      0.1.0    yes       user
+code-analyzer      1.2.0    yes       project
+```
+
+### Plugin Details
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/plugins/cc-middleware
+```
+
+### Enable / Disable Plugins
+
+```bash
+# Enable
+curl -X POST http://127.0.0.1:3000/api/v1/config/plugins/code-analyzer/enable \
+  -H "Content-Type: application/json" \
+  -d '{"scope": "user"}'
+
+# Disable
+curl -X POST http://127.0.0.1:3000/api/v1/config/plugins/code-analyzer/disable \
+  -H "Content-Type: application/json" \
+  -d '{"scope": "user"}'
+```
+
+## MCP Servers
+
+List all configured MCP (Model Context Protocol) servers:
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/config/mcp
+```
+
+```bash CLI
+ccm config mcp
+```
+</CodeGroup>
+
+Output:
+
+```
+Name        Transport   Scope     Command/URL
+github      stdio       user      npx @modelcontextprotocol/ser...
+database    sse         project   http://localhost:8080/sse
+```
+
+## Skills
+
+List all discovered skills:
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/config/skills
+```
+
+```bash CLI
+ccm config skills
+```
+</CodeGroup>
+
+Skills are discovered from plugins and the project's `.claude/` directory.
+
+## Agent Definitions (File-Based)
+
+Manage agent definition markdown files:
+
+<CodeGroup>
+```bash List agents
+curl http://127.0.0.1:3000/api/v1/config/agents
+```
+
+```bash Create agent
+curl -X POST http://127.0.0.1:3000/api/v1/config/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "reviewer",
+    "description": "Code review agent",
+    "prompt": "You review code for quality and correctness.",
+    "scope": "project",
+    "model": "sonnet",
+    "tools": ["Read", "Glob", "Grep"],
+    "maxTurns": 15
+  }'
+```
+
+```bash Update agent
+curl -X PUT http://127.0.0.1:3000/api/v1/config/agents/reviewer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Updated code review agent",
+    "maxTurns": 20
+  }'
+```
+
+```bash Delete agent
+curl -X DELETE http://127.0.0.1:3000/api/v1/config/agents/reviewer
+```
+
+```bash CLI
+ccm config agents
+```
+</CodeGroup>
+
+## Rules
+
+List all configured rules (from `.claude/rules/` and `~/.claude/rules/`):
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/rules
+```
+
+## CLAUDE.md Files
+
+Discover all CLAUDE.md files in the project hierarchy:
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/claude-md
+```
+
+Returns CLAUDE.md files from the project root, parent directories, and `~/.claude/CLAUDE.md`.
+
+## Project Memory
+
+Claude Code maintains a "memory" index for each project, storing key facts and context.
+
+### Read Memory Index
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/config/memory
+```
+
+```bash CLI
+ccm config memory
+```
+</CodeGroup>
+
+Response:
+
+```json
+{
+  "projectKey": "my-project",
+  "memoryDir": "/Users/dev/.claude/memory/my-project",
+  "hasIndex": true,
+  "indexContent": "## Key Facts\n- Uses TypeScript with strict mode...",
+  "fileCount": 3
+}
+```
+
+### Memory Files
+
+```bash
+# List memory files
+curl http://127.0.0.1:3000/api/v1/config/memory/files
+
+# Read a specific memory file
+curl http://127.0.0.1:3000/api/v1/config/memory/files/architecture.md
+```
+
+### All Project Memories
+
+List memory data across all projects:
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/memory/projects
+```
+
+## CLI Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `ccm config show` | Show merged effective settings |
+| `ccm config show --scope user` | Show settings for a specific scope |
+| `ccm config get <key>` | Get a single setting value |
+| `ccm config set <key> <value>` | Set a setting value |
+| `ccm config set <key> <value> --scope user` | Set in a specific scope |
+| `ccm config plugins` | List installed plugins |
+| `ccm config mcp` | List MCP servers |
+| `ccm config skills` | List skills |
+| `ccm config agents` | List file-based agent definitions |
+| `ccm config memory` | Show project memory index |
+
+## API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/config/settings` | GET | Get merged effective settings |
+| `/api/v1/config/settings/:scope` | GET | Get settings for a specific scope |
+| `/api/v1/config/settings/:scope` | PUT | Update a setting value |
+| `/api/v1/config/settings/:scope/permissions` | POST | Add a permission rule |
+| `/api/v1/config/settings/:scope/permissions` | DELETE | Remove a permission rule |
+| `/api/v1/config/plugins` | GET | List plugins |
+| `/api/v1/config/plugins/:name` | GET | Get plugin details |
+| `/api/v1/config/plugins/:name/enable` | POST | Enable a plugin |
+| `/api/v1/config/plugins/:name/disable` | POST | Disable a plugin |
+| `/api/v1/config/skills` | GET | List skills |
+| `/api/v1/config/agents` | GET | List agent definitions |
+| `/api/v1/config/agents` | POST | Create an agent |
+| `/api/v1/config/agents/:name` | PUT | Update an agent |
+| `/api/v1/config/agents/:name` | DELETE | Delete an agent |
+| `/api/v1/config/rules` | GET | List rules |
+| `/api/v1/config/mcp` | GET | List MCP servers |
+| `/api/v1/config/memory` | GET | Get project memory |
+| `/api/v1/config/memory/files` | GET | List memory files |
+| `/api/v1/config/memory/files/:name` | GET | Read a memory file |
+| `/api/v1/config/memory/projects` | GET | List all project memories |
+| `/api/v1/config/claude-md` | GET | List CLAUDE.md files |

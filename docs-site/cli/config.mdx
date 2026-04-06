@@ -1,0 +1,403 @@
+---
+title: "ccm config"
+description: "View and modify settings, list plugins, MCP servers, skills, agent definitions, and project memory."
+---
+
+## ccm config show
+
+Display the effective merged settings from all scopes, or settings from a specific scope.
+
+```bash
+ccm config show [options]
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--scope <scope>` | Show only one scope: `user`, `project`, `local`, or `managed` | all (merged) |
+
+### Examples
+
+```bash
+# Show merged effective settings
+ccm config show
+```
+
+```
+Effective Settings (merged)
+
+  Key                  Value                       Source
+  model                claude-sonnet-4-20250514    project
+  permissions.allow    Read, Edit                  user
+  permissions.deny     Bash(rm -rf *)              managed
+  maxTurns             20                          local
+  apiKey               sk-ant-...                  user
+```
+
+```bash
+# Show project-scope settings only
+ccm config show --scope project
+```
+
+```
+Settings (project scope)
+
+  model:             claude-sonnet-4-20250514
+  permissions.allow: Read, Edit
+```
+
+```bash
+ccm config show --json
+```
+
+### API Equivalent
+
+```bash
+# Merged settings
+curl http://127.0.0.1:3000/api/v1/config/settings
+
+# Specific scope
+curl http://127.0.0.1:3000/api/v1/config/settings/project
+```
+
+---
+
+## ccm config get
+
+Get the value of a specific setting by key.
+
+```bash
+ccm config get <key>
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `key` | Dot-notation setting key (e.g., `model`, `permissions.allow`) |
+
+### Examples
+
+```bash
+ccm config get model
+```
+
+```
+model = claude-sonnet-4-20250514 (from: project)
+```
+
+```bash
+ccm config get permissions.allow
+```
+
+```
+permissions.allow = Read, Edit (from: user)
+```
+
+```bash
+ccm config get model --json
+```
+
+```json
+{ "key": "model", "value": "claude-sonnet-4-20250514", "source": "project" }
+```
+
+If the setting does not exist:
+
+```
+Error: Setting not found: nonexistent.key
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/settings | jq '.settings.model'
+```
+
+---
+
+## ccm config set
+
+Set a configuration value in a specific scope.
+
+```bash
+ccm config set <key> <value> [options]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `key` | Dot-notation setting key |
+| `value` | New value (JSON-parsed if possible, otherwise treated as string) |
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--scope <scope>` | Scope to write to: `user`, `project`, or `local` | `project` |
+
+### Examples
+
+```bash
+# Set model in project scope
+ccm config set model "claude-sonnet-4-20250514"
+```
+
+```
+Set model = claude-sonnet-4-20250514 in project
+```
+
+```bash
+# Set a numeric value
+ccm config set maxTurns 25 --scope user
+```
+
+```
+Set maxTurns = 25 in user
+```
+
+```bash
+# Set an array value (JSON)
+ccm config set permissions.allow '["Read", "Edit", "Bash"]' --scope project
+```
+
+```
+Set permissions.allow = Read, Edit, Bash in project
+```
+
+```bash
+# Set a boolean
+ccm config set verbose true --scope local
+```
+
+You cannot write to the `managed` scope:
+
+```bash
+ccm config set model "claude-opus" --scope managed
+```
+
+```
+Error: Cannot modify managed settings
+```
+
+### API Equivalent
+
+```bash
+curl -X PUT http://127.0.0.1:3000/api/v1/config/settings/project \
+  -H "Content-Type: application/json" \
+  -d '{ "key": "model", "value": "claude-sonnet-4-20250514" }'
+```
+
+---
+
+## ccm config plugins
+
+List all installed plugins with their status.
+
+```bash
+ccm config plugins
+```
+
+### Examples
+
+```bash
+ccm config plugins
+```
+
+```
+  Name         Version  Enabled  Scope
+  git-helper   1.2.0    yes      user
+  test-runner  0.5.1    no       project
+  lint-check   2.0.0    yes      user
+```
+
+If no plugins are installed:
+
+```
+No plugins installed.
+```
+
+```bash
+ccm config plugins --json
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/plugins
+```
+
+---
+
+## ccm config mcp
+
+List all configured MCP (Model Context Protocol) servers.
+
+```bash
+ccm config mcp
+```
+
+### Examples
+
+```bash
+ccm config mcp
+```
+
+```
+  Name        Transport  Scope    Command/URL
+  filesystem  stdio      project  npx -y @modelcontextprotocol/server-f...
+  github      stdio      user     npx -y @modelcontextprotocol/server-g...
+```
+
+If no MCP servers are configured:
+
+```
+No MCP servers configured.
+```
+
+```bash
+ccm config mcp --json
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/mcp
+```
+
+---
+
+## ccm config skills
+
+List all discovered skills from plugins and configuration.
+
+```bash
+ccm config skills
+```
+
+### Examples
+
+```bash
+ccm config skills
+```
+
+```
+  Name       Scope   Description
+  commit     plugin  Create git commits with proper formatting
+  review-pr  plugin  Review pull requests and suggest improvements
+  deploy     user    Deploy to staging or production
+```
+
+If no skills are found:
+
+```
+No skills found.
+```
+
+```bash
+ccm config skills --json
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/skills
+```
+
+---
+
+## ccm config agents
+
+List file-based agent definitions (from `.claude/agents/` directories).
+
+```bash
+ccm config agents
+```
+
+This shows agents defined as files, as opposed to `ccm agents list` which shows runtime-registered agents.
+
+### Examples
+
+```bash
+ccm config agents
+```
+
+```
+  Name          Scope    Model                      Description                     Path
+  test-writer   project  claude-sonnet-4-20250514   Writes and maintains test su..  .claude/agents/test-writer.md
+  reviewer      user                                Reviews code for quality       ~/.claude/agents/reviewer.md
+```
+
+```bash
+ccm config agents --json
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/agents
+```
+
+---
+
+## ccm config memory
+
+Show the project memory index and list memory files.
+
+```bash
+ccm config memory
+```
+
+### Examples
+
+```bash
+ccm config memory
+```
+
+```
+Memory Index:
+
+# Project Memory
+
+- Architecture: Fastify + TypeScript
+- Testing: Vitest
+- Key patterns: Zod validation, event-driven hooks
+
+Memory Files:
+  Name              Type       Last Modified
+  architecture.md   knowledge  2026-04-04
+  patterns.md       knowledge  2026-04-03
+  conventions.md    knowledge  2026-04-01
+```
+
+If no memory data exists:
+
+```
+No memory data found.
+```
+
+```bash
+ccm config memory --json
+```
+
+```json
+{
+  "projectKey": "a1b2c3d4e5f6",
+  "memoryDir": "/Users/dev/.claude/memory/a1b2c3d4e5f6",
+  "hasIndex": true,
+  "indexContent": "# Project Memory\n\n- Architecture: Fastify + TypeScript\n- Testing: Vitest",
+  "fileCount": 3
+}
+```
+
+### API Equivalent
+
+```bash
+# Memory index
+curl http://127.0.0.1:3000/api/v1/config/memory
+
+# Memory files
+curl http://127.0.0.1:3000/api/v1/config/memory/files
+```

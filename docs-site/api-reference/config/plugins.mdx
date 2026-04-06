@@ -1,0 +1,180 @@
+---
+title: "Plugins"
+description: "List, inspect, enable, and disable Claude Code plugins."
+---
+
+## List Plugins
+
+```
+GET /api/v1/config/plugins
+```
+
+Returns all installed plugins across all scopes.
+
+### Response
+
+<ResponseField name="plugins" type="array" required>
+  Array of plugin objects.
+  <Expandable title="Plugin object">
+    <ResponseField name="name" type="string">
+      Plugin name (unique identifier).
+    </ResponseField>
+    <ResponseField name="version" type="string">
+      Plugin version string.
+    </ResponseField>
+    <ResponseField name="enabled" type="boolean">
+      Whether the plugin is currently enabled.
+    </ResponseField>
+    <ResponseField name="scope" type="string">
+      The scope where the plugin is installed: `user`, `project`, or `local`.
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Plugin description.
+    </ResponseField>
+    <ResponseField name="path" type="string">
+      Filesystem path to the plugin directory.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of plugins.
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/config/plugins
+```
+
+```bash CLI
+ccm config plugins
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "plugins": [
+    {
+      "name": "git-helper",
+      "version": "1.2.0",
+      "enabled": true,
+      "scope": "user",
+      "description": "Git workflow automation commands",
+      "path": "/Users/dev/.claude/plugins/git-helper"
+    },
+    {
+      "name": "test-runner",
+      "version": "0.5.1",
+      "enabled": false,
+      "scope": "project",
+      "description": "Automated test execution and reporting",
+      "path": "/Users/dev/my-project/.claude/plugins/test-runner"
+    }
+  ],
+  "total": 2
+}
+```
+
+### CLI Output
+
+```
+  Name         Version  Enabled  Scope
+  git-helper   1.2.0    yes      user
+  test-runner  0.5.1    no       project
+```
+
+---
+
+## Get Plugin Details
+
+```
+GET /api/v1/config/plugins/{name}
+```
+
+<ParamField path="name" type="string" required>
+  Plugin name.
+</ParamField>
+
+Returns full details about a specific plugin, including its components (commands, skills, hooks, agents).
+
+### Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `404` | `PLUGIN_NOT_FOUND` | No plugin found with this name |
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/plugins/git-helper
+```
+
+---
+
+## Enable Plugin
+
+```
+POST /api/v1/config/plugins/{name}/enable
+```
+
+<ParamField path="name" type="string" required>
+  Plugin name to enable.
+</ParamField>
+
+<ParamField body="scope" type="string" default="user">
+  Scope to enable for: `user`, `project`, or `local`.
+</ParamField>
+
+<ParamField body="marketplace" type="string" default="claude-plugins-official">
+  Marketplace identifier.
+</ParamField>
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/config/plugins/git-helper/enable \
+  -H "Content-Type: application/json" \
+  -d '{ "scope": "user" }'
+```
+
+### Example Response
+
+```json
+{
+  "status": "enabled",
+  "name": "git-helper",
+  "scope": "user"
+}
+```
+
+---
+
+## Disable Plugin
+
+```
+POST /api/v1/config/plugins/{name}/disable
+```
+
+<ParamField path="name" type="string" required>
+  Plugin name to disable.
+</ParamField>
+
+<ParamField body="scope" type="string" default="user">
+  Scope to disable for: `user`, `project`, or `local`.
+</ParamField>
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/config/plugins/git-helper/disable \
+  -H "Content-Type: application/json" \
+  -d '{ "scope": "user" }'
+```
+
+### Example Response
+
+```json
+{
+  "status": "disabled",
+  "name": "git-helper",
+  "scope": "user"
+}
+```

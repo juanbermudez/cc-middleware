@@ -1,0 +1,91 @@
+---
+title: "Introduction"
+description: "A Node/TypeScript middleware for managing and observing Claude Code sessions"
+---
+
+# CC-Middleware
+
+CC-Middleware is a central API layer that wraps Claude Code, providing clean programmatic access to sessions, hook events, permissions, agents, and configuration.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in minutes
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand the system design
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/overview">
+    Explore the REST & WebSocket API
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/cli/overview">
+    Control everything from the terminal
+  </Card>
+</CardGroup>
+
+## What It Does
+
+CC-Middleware sits between your application and Claude Code, exposing every aspect of the Claude Code runtime through a REST API, WebSocket streams, and a CLI. It handles:
+
+- **Session Management** -- List, launch, resume, fork, abort, and stream Claude Code sessions. Sessions are tracked with full lifecycle events and stored in a searchable SQLite index.
+
+- **Hook Event System** -- Intercept and react to every Claude Code lifecycle event (PreToolUse, PostToolUse, SessionStart, Stop, and 20+ more). Hook handlers can observe events passively or block them with allow/deny decisions.
+
+- **Permission Control** -- A policy engine evaluates tool usage requests against configurable rules. When no rule matches, requests queue as "pending" for external resolution via API or CLI.
+
+- **Agent & Team Management** -- Discover agent definitions from the filesystem, register runtime agents via API, and monitor Claude Code's experimental agent teams.
+
+- **Plugin Integration** -- Install CC-Middleware as a Claude Code plugin to intercept hook events from interactive sessions via HTTP, with graceful degradation when the server is offline.
+
+- **Session Search** -- SQLite-backed full-text search (FTS5) across all session history with filters for project, date range, tags, and status.
+
+- **Configuration Management** -- Read and write Claude Code settings across all scopes (user, project, local, managed), manage plugins, MCP servers, CLAUDE.md files, and project memory.
+
+- **CLI (`ccm`)** -- A full-featured command-line interface that mirrors every API capability, with colored table output, JSON mode, and real-time WebSocket streaming.
+
+## Integration Modes
+
+CC-Middleware supports three integration modes that can be mixed freely:
+
+<CardGroup cols={3}>
+  <Card title="SDK Mode" icon="code">
+    Launch sessions via the Agent SDK. Hooks are registered as TypeScript callbacks in-process. Tightest integration and lowest latency. Best for building automation and programmatic workflows.
+  </Card>
+  <Card title="Plugin Mode" icon="plug">
+    Install as a Claude Code plugin. Hooks arrive as HTTP POST requests to the middleware server. Works with existing interactive Claude Code sessions. Best for observing and controlling user-driven sessions.
+  </Card>
+  <Card title="Hybrid Mode" icon="shuffle">
+    Use both simultaneously. SDK mode for programmatic sessions and plugin mode for interactive sessions. Both dispatch to the same event bus, so consumers get a unified stream of events regardless of source.
+  </Card>
+</CardGroup>
+
+<Info>
+  Both SDK and Plugin mode events flow through the same event bus and blocking handler registry, so your hook handlers, permission policies, and WebSocket subscribers work identically regardless of how the session was started.
+</Info>
+
+## Core Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `@anthropic-ai/claude-agent-sdk` | Programmatic Claude Code control (`query()`, `listSessions()`, hooks) |
+| `fastify` | HTTP API server with CORS and WebSocket support |
+| `better-sqlite3` | Local SQLite database for session indexing and search |
+| `ws` | WebSocket for real-time session streaming and event delivery |
+| `zod` | Schema validation for all API inputs |
+| `commander` | CLI framework for the `ccm` command |
+| `eventemitter3` | Typed event bus for hook event dispatch |
+
+## Project Structure
+
+```
+src/
+  sessions/    Session discovery, launching, streaming, indexing
+  hooks/       Event bus, HTTP hook server, handler registration
+  permissions/ Permission policy manager, canUseTool implementation
+  agents/      Agent definition reader, team launcher, team monitor
+  api/         REST/WebSocket API server, route handlers
+  plugin/      Claude Code plugin manifest, hook configs, skills
+  store/       SQLite session index store
+  config/      Settings reader/writer, plugin/MCP/memory management
+  cli/         CLI entry point and command handlers
+  types/       Shared TypeScript type definitions
+```

@@ -1,0 +1,185 @@
+---
+title: "Quick Start"
+description: "Get CC-Middleware up and running in minutes"
+---
+
+# Quick Start
+
+This guide walks you through installing CC-Middleware, starting the server, and making your first API call.
+
+## Prerequisites
+
+- **Node.js 20+** installed
+- **Claude Code CLI** installed and authenticated (`claude` command available)
+- The `@anthropic-ai/claude-agent-sdk` requires a valid Anthropic authentication context
+
+## Installation
+
+<Steps>
+  <Step title="Clone and install">
+    ```bash
+    git clone <repo-url> cc-middleware
+    cd cc-middleware
+    npm install
+    ```
+  </Step>
+
+  <Step title="Build the project">
+    ```bash
+    npm run build
+    ```
+
+    This compiles TypeScript to `dist/`. The CLI binary is at `dist/cli/index.js` and the server entry point is `dist/main.js`.
+  </Step>
+
+  <Step title="Start the server">
+    <CodeGroup>
+      ```bash npm
+      npm start
+      ```
+
+      ```bash CLI
+      npx ccm server start
+      ```
+
+      ```bash Direct
+      node dist/main.js
+      ```
+    </CodeGroup>
+
+    The server starts two listeners:
+    - **API server** on `http://127.0.0.1:3000` (REST + WebSocket)
+    - **Hook server** on `http://127.0.0.1:3001` (receives Claude Code plugin hooks)
+  </Step>
+
+  <Step title="Verify it's running">
+    <CodeGroup>
+      ```bash curl
+      curl http://127.0.0.1:3000/health
+      ```
+
+      ```bash CLI
+      npx ccm server status
+      ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | API server port |
+| `HOOK_PORT` | `3001` | Hook HTTP server port |
+| `HOST` | `127.0.0.1` | Bind address |
+| `PROJECT_DIR` | Current directory | Project directory for config discovery |
+
+## Your First API Call
+
+### List existing sessions
+
+<CodeGroup>
+```bash curl
+curl http://127.0.0.1:3000/api/v1/sessions?limit=5
+```
+
+```bash CLI
+npx ccm sessions list --limit 5
+```
+</CodeGroup>
+
+This returns sessions Claude Code has stored at `~/.claude/projects/`.
+
+### Launch a headless session
+
+<CodeGroup>
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "What is 2 + 2?",
+    "maxTurns": 1,
+    "permissionMode": "plan"
+  }'
+```
+
+```bash CLI
+npx ccm sessions launch "What is 2 + 2?" --max-turns 1
+```
+</CodeGroup>
+
+The session runs to completion and returns:
+
+```json
+{
+  "sessionId": "abc123...",
+  "result": "2 + 2 = 4",
+  "costUsd": 0.003,
+  "durationMs": 1200
+}
+```
+
+### Stream a session in real-time
+
+```bash
+npx ccm sessions launch "Explain the Fibonacci sequence" --stream
+```
+
+With the CLI's `--stream` flag, output appears token-by-token as Claude generates it, using a WebSocket connection to `ws://127.0.0.1:3000/api/v1/ws`.
+
+### Search session history
+
+<CodeGroup>
+```bash curl
+curl "http://127.0.0.1:3000/api/v1/search?q=fibonacci&limit=10"
+```
+
+```bash CLI
+npx ccm sessions search "fibonacci" --limit 10
+```
+</CodeGroup>
+
+<Note>
+  Search requires the session index to be built first. Trigger a full reindex with `POST /api/v1/search/reindex` or wait for sessions to be indexed automatically on launch.
+</Note>
+
+## Using as a Library
+
+CC-Middleware exports its core modules for use as an npm package:
+
+```typescript
+import { createSessionManager } from "cc-middleware/sessions";
+import { createEventBus } from "cc-middleware/hooks";
+import { createPolicyEngine } from "cc-middleware/permissions";
+import { createAgentRegistry } from "cc-middleware/agents";
+import { createStore } from "cc-middleware/store";
+```
+
+Each module can be used independently or wired together as the server does in `src/main.ts`.
+
+## Development Mode
+
+For active development with auto-rebuild:
+
+```bash
+npm run dev     # Watch mode - rebuilds on file changes
+npm test        # Run all tests
+npm run lint    # Lint code
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand how the components fit together
+  </Card>
+  <Card title="Launching Sessions" icon="play" href="/guides/launching-sessions">
+    Deep dive into session launch options
+  </Card>
+  <Card title="Hook Events" icon="bolt" href="/guides/hook-events">
+    Set up event handlers and webhooks
+  </Card>
+  <Card title="Permission Policies" icon="shield" href="/guides/permission-policies">
+    Configure tool approval rules
+  </Card>
+</CardGroup>

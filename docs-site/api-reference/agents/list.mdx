@@ -1,0 +1,88 @@
+---
+title: "List Agents"
+api: "GET /api/v1/agents"
+description: "List all registered agents (both file-based and runtime-registered)."
+---
+
+## Response
+
+<ResponseField name="agents" type="array" required>
+  Array of agent definitions.
+  <Expandable title="Agent object">
+    <ResponseField name="name" type="string">
+      Unique agent name.
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Human-readable description of the agent's purpose.
+    </ResponseField>
+    <ResponseField name="source" type="string">
+      Where the agent was defined: `filesystem` (from `.claude/agents/` files) or `runtime` (registered via API).
+    </ResponseField>
+    <ResponseField name="model" type="string">
+      The model this agent uses, if specified.
+    </ResponseField>
+    <ResponseField name="tools" type="string[]">
+      List of allowed tools for this agent.
+    </ResponseField>
+    <ResponseField name="disallowedTools" type="string[]">
+      List of tools this agent is not allowed to use.
+    </ResponseField>
+    <ResponseField name="maxTurns" type="integer">
+      Maximum conversation turns for sessions using this agent.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of registered agents.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/agents
+```
+
+```bash CLI
+ccm agents list
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "agents": [
+    {
+      "name": "test-writer",
+      "description": "Writes and maintains test suites",
+      "source": "filesystem",
+      "model": "claude-sonnet-4-20250514",
+      "tools": ["Read", "Edit", "Bash"],
+      "disallowedTools": [],
+      "maxTurns": 15
+    },
+    {
+      "name": "code-reviewer",
+      "description": "Reviews code changes and suggests improvements",
+      "source": "runtime",
+      "model": null,
+      "tools": ["Read"],
+      "disallowedTools": ["Bash", "Edit"],
+      "maxTurns": 5
+    }
+  ],
+  "total": 2
+}
+```
+
+### CLI Output
+
+```
+  Name           Source      Model                      Description
+  test-writer    filesystem  claude-sonnet-4-20250514   Writes and maintains test suites
+  code-reviewer  runtime                                Reviews code changes and suggests...
+```

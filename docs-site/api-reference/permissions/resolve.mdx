@@ -1,0 +1,149 @@
+---
+title: "Resolve Permission / Answer Question"
+api: "POST /api/v1/permissions/pending/{id}/resolve"
+description: "Resolve a pending permission request (allow or deny) or answer a pending user question."
+---
+
+## Resolve Permission
+
+### Endpoint
+
+```
+POST /api/v1/permissions/pending/{id}/resolve
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The pending permission request ID to resolve.
+</ParamField>
+
+### Request Body
+
+<ParamField body="behavior" type="string" required>
+  Resolution: `"allow"` or `"deny"`.
+</ParamField>
+
+<ParamField body="message" type="string">
+  Optional message explaining the denial reason. Used when `behavior` is `"deny"`.
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string" required>
+  Always `"resolved"`.
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  The resolved request ID.
+</ResponseField>
+
+<ResponseField name="behavior" type="string" required>
+  The resolution behavior applied.
+</ResponseField>
+
+### Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `400` | `VALIDATION_ERROR` | Invalid request body |
+| `404` | `PERMISSION_NOT_FOUND` | No pending permission with this ID |
+
+### Examples
+
+<CodeGroup>
+
+```bash curl (approve)
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/pending/perm_01JQ9ABC/resolve \
+  -H "Content-Type: application/json" \
+  -d '{ "behavior": "allow" }'
+```
+
+```bash curl (deny with message)
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/pending/perm_01JQ9ABC/resolve \
+  -H "Content-Type: application/json" \
+  -d '{
+    "behavior": "deny",
+    "message": "This command modifies production data"
+  }'
+```
+
+```bash CLI (approve)
+ccm permissions approve perm_01JQ9ABC
+```
+
+```bash CLI (deny)
+ccm permissions deny perm_01JQ9ABC --message "Not safe for production"
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "resolved",
+  "id": "perm_01JQ9ABC...",
+  "behavior": "allow"
+}
+```
+
+---
+
+## Answer Question
+
+### Endpoint
+
+```
+POST /api/v1/permissions/questions/{id}/answer
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The pending question ID to answer.
+</ParamField>
+
+### Request Body
+
+<ParamField body="answers" type="object" required>
+  A key-value map of answers. Keys correspond to question identifiers, values are the answer strings.
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string" required>
+  Always `"answered"`.
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  The answered question ID.
+</ResponseField>
+
+### Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `400` | `VALIDATION_ERROR` | Invalid request body |
+| `404` | `QUESTION_NOT_FOUND` | No pending question with this ID |
+
+### Examples
+
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/questions/q_01JQ9DEF/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "answers": {
+      "q1": "Use the pg driver for PostgreSQL"
+    }
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "status": "answered",
+  "id": "q_01JQ9DEF..."
+}
+```

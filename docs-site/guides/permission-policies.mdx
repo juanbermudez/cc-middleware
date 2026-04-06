@@ -1,0 +1,301 @@
+---
+title: "Permission Policies"
+description: "Create policies, handle pending permissions, and answer questions"
+---
+
+# Permission Policies
+
+This guide covers configuring the policy engine, managing pending permission requests, and handling AskUserQuestion interactions.
+
+## Understanding the Permission Pipeline
+
+When Claude Code calls a tool, the permission system processes it in stages:
+
+<Steps>
+  <Step title="Policy evaluation">
+    The policy engine checks all rules in priority order. The first matching rule decides the outcome.
+  </Step>
+  <Step title="Event handler check">
+    If the policy returns "ask", a `PermissionRequest` event is emitted. If any event handler responds, its decision is used.
+  </Step>
+  <Step title="Pending queue">
+    If no handler responds, the request enters the pending queue and waits for external resolution (API or CLI).
+  </Step>
+  <Step title="Timeout">
+    If no resolution arrives within the timeout period, the request is denied.
+  </Step>
+</Steps>
+
+## Creating Policy Rules
+
+### Via the API
+
+```bash
+# Allow read-only tools with highest priority
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "allow-read-tools",
+    "toolName": "Read|Glob|Grep",
+    "behavior": "allow",
+    "priority": 1
+  }'
+
+# Deny dangerous Bash commands
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "deny-destructive-bash",
+    "toolName": "Bash",
+    "behavior": "deny",
+    "condition": "Bash(rm *)",
+    "priority": 2
+  }'
+
+# Allow safe Bash commands (lower priority than deny)
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "allow-bash-general",
+    "toolName": "Bash",
+    "behavior": "allow",
+    "priority": 10
+  }'
+```
+
+### Via the CLI
+
+```bash
+# Allow read tools
+ccm permissions add --action allow --pattern "Read|Glob|Grep" --priority 1
+
+# Deny Write to specific directories
+ccm permissions add --action deny --pattern "Write" --priority 5
+```
+
+### Rule Evaluation Order
+
+Rules are sorted by priority number (ascending). Lower numbers are checked first:
+
+| Priority | Rule | Behavior |
+|----------|------|----------|
+| 1 | `Read\|Glob\|Grep` | allow |
+| 2 | `Bash` (condition: `rm *`) | deny |
+| 5 | `Write` | deny |
+| 10 | `Bash` | allow |
+| (default) | Everything else | ask |
+
+When Claude tries to use `Bash` with `rm -rf /tmp`:
+1. Priority 1 (`Read|Glob|Grep`) -- does not match `Bash`, skip
+2. Priority 2 (`Bash` with `rm *` condition) -- matches! Result: **deny**
+
+When Claude tries to use `Bash` with `npm test`:
+1. Priority 1 -- does not match, skip
+2. Priority 2 -- matches `Bash` but condition `rm *` does not match `npm test`, skip
+3. Priority 10 -- matches `Bash` with no condition. Result: **allow**
+
+## Managing Rules
+
+<CodeGroup>
+```bash List all rules
+curl http://127.0.0.1:3000/api/v1/permissions/policies
+```
+
+```bash Remove a rule
+curl -X DELETE http://127.0.0.1:3000/api/v1/permissions/policies/deny-destructive-bash
+```
+
+```bash CLI
+ccm permissions list
+```
+</CodeGroup>
+
+Response:
+
+```json
+{
+  "rules": [
+    {
+      "id": "allow-read-tools",
+      "toolName": "Read|Glob|Grep",
+      "behavior": "allow",
+      "priority": 1
+    },
+    {
+      "id": "deny-destructive-bash",
+      "toolName": "Bash",
+      "behavior": "deny",
+      "condition": "Bash(rm *)",
+      "priority": 2
+    }
+  ],
+  "total": 2
+}
+```
+
+## Handling Pending Permissions
+
+When a tool request falls through to the pending queue, it waits for external resolution. This is the bridge between automated policy and human oversight.
+
+### Monitoring Pending Requests
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/permissions/pending
+```
+
+```bash CLI
+ccm permissions pending
+```
+</CodeGroup>
+
+Output:
+
+```
+ID        Tool Name   Session    Timestamp   Input
+perm_123  Bash        abc12345   14:23:01    {"command":"git push origin main"}
+perm_456  Write       abc12345   14:23:15    {"path":"/etc/config.json","content":"..."}
+```
+
+### Resolving Requests
+
+<Tabs>
+  <Tab title="Approve">
+    <CodeGroup>
+      ```bash API
+      curl -X POST http://127.0.0.1:3000/api/v1/permissions/pending/perm_123/resolve \
+        -H "Content-Type: application/json" \
+        -d '{"behavior": "allow"}'
+      ```
+
+      ```bash CLI
+      ccm permissions approve perm_123
+      ```
+    </CodeGroup>
+  </Tab>
+
+  <Tab title="Deny">
+    <CodeGroup>
+      ```bash API
+      curl -X POST http://127.0.0.1:3000/api/v1/permissions/pending/perm_123/resolve \
+        -H "Content-Type: application/json" \
+        -d '{
+          "behavior": "deny",
+          "message": "Push to main is not allowed. Use a feature branch."
+        }'
+      ```
+
+      ```bash CLI
+      ccm permissions deny perm_123 --message "Push to main is not allowed"
+      ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+### Real-Time Notification
+
+Pending permissions are broadcast via WebSocket:
+
+```typescript
+const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: "subscribe",
+    events: ["permission:pending"]
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === "permission:pending") {
+    console.log(`Permission needed: ${msg.toolName} (ID: ${msg.id})`);
+    // Present to user or auto-resolve based on your logic
+  }
+};
+```
+
+## Answering Questions
+
+When Claude uses `AskUserQuestion`, it appears as a pending question:
+
+<CodeGroup>
+```bash List pending questions
+curl http://127.0.0.1:3000/api/v1/permissions/questions
+```
+
+```bash Answer a question
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/questions/q_789/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "answers": {
+      "Which database should I use?": "PostgreSQL with Prisma ORM",
+      "Should I add authentication?": "Yes, use JWT tokens"
+    }
+  }'
+```
+</CodeGroup>
+
+The `answers` object maps question text to answer text. Each question in the `AskUserQuestion` tool call gets its corresponding answer.
+
+## Claude Code Settings Permissions
+
+In addition to the runtime policy engine, you can manage Claude Code's own permission rules through the config API:
+
+<CodeGroup>
+```bash Add a settings-level permission rule
+curl -X POST http://127.0.0.1:3000/api/v1/config/settings/project/permissions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rule": "Bash(npm *)",
+    "behavior": "allow"
+  }'
+```
+
+```bash Remove a settings-level permission rule
+curl -X DELETE http://127.0.0.1:3000/api/v1/config/settings/project/permissions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rule": "Bash(npm *)",
+    "behavior": "allow"
+  }'
+```
+</CodeGroup>
+
+These rules are written to Claude Code's settings files and persist across sessions and server restarts.
+
+## Common Policy Patterns
+
+<AccordionGroup>
+  <Accordion title="Read-only mode">
+    Allow only read operations:
+    ```bash
+    ccm permissions add --action allow --pattern "Read|Glob|Grep" --priority 1
+    # Default behavior "deny" catches everything else
+    ```
+  </Accordion>
+
+  <Accordion title="Allow all except destructive commands">
+    ```bash
+    ccm permissions add --action deny --pattern "Bash" --priority 1
+    # condition: "Bash(rm *)" for rm commands only
+    ccm permissions add --action deny --pattern "Bash" --priority 1
+    # condition: "Bash(sudo *)" for sudo commands
+    ccm permissions add --action allow --pattern ".*" --priority 100
+    ```
+  </Accordion>
+
+  <Accordion title="Sandbox: allow specific tools only">
+    ```bash
+    ccm permissions add --action allow --pattern "Read" --priority 1
+    ccm permissions add --action allow --pattern "Glob" --priority 1
+    ccm permissions add --action allow --pattern "Grep" --priority 1
+    ccm permissions add --action allow --pattern "Bash" --priority 2
+    # Default behavior "deny" blocks Write, Edit, etc.
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  Use regex patterns in `toolName` to match multiple tools at once. For example, `Read|Glob|Grep` matches all three tools, and `.*` matches everything.
+</Tip>

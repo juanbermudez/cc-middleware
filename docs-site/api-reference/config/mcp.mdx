@@ -1,0 +1,95 @@
+---
+title: "MCP Servers"
+description: "List configured MCP (Model Context Protocol) servers."
+---
+
+## List MCP Servers
+
+```
+GET /api/v1/config/mcp
+```
+
+Returns all configured MCP servers discovered from `.mcp.json` files across user and project scopes.
+
+### Response
+
+<ResponseField name="servers" type="array" required>
+  Array of MCP server configurations.
+  <Expandable title="MCP server object">
+    <ResponseField name="name" type="string">
+      Server name (unique identifier within scope).
+    </ResponseField>
+    <ResponseField name="transport" type="string">
+      Transport type: `stdio` or `sse`.
+    </ResponseField>
+    <ResponseField name="scope" type="string">
+      Configuration scope: `user` or `project`.
+    </ResponseField>
+    <ResponseField name="command" type="string">
+      For `stdio` transport: the command to execute.
+    </ResponseField>
+    <ResponseField name="args" type="string[]">
+      Command arguments for `stdio` transport.
+    </ResponseField>
+    <ResponseField name="url" type="string">
+      For `sse` transport: the server URL.
+    </ResponseField>
+    <ResponseField name="env" type="object">
+      Environment variables to set for the server process.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of MCP servers.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/config/mcp
+```
+
+```bash CLI
+ccm config mcp
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "servers": [
+    {
+      "name": "filesystem",
+      "transport": "stdio",
+      "scope": "project",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/dev/my-project"],
+      "env": {}
+    },
+    {
+      "name": "github",
+      "transport": "stdio",
+      "scope": "user",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+      }
+    }
+  ],
+  "total": 2
+}
+```
+
+### CLI Output
+
+```
+  Name        Transport  Scope    Command/URL
+  filesystem  stdio      project  npx -y @modelcontextprotocol/server-f...
+  github      stdio      user     npx -y @modelcontextprotocol/server-g...
+```

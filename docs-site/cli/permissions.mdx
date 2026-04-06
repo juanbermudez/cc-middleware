@@ -1,0 +1,264 @@
+---
+title: "ccm permissions"
+description: "List permission policies, add rules, view pending requests, and approve or deny tool usage."
+---
+
+## ccm permissions list
+
+List all permission policy rules that govern tool execution.
+
+```bash
+ccm permissions list
+```
+
+### Examples
+
+```bash
+ccm permissions list
+```
+
+```
+  ID         Action  Pattern  Priority  Source
+  allow-rea  allow   Read     10
+  deny-rm-r  deny    Bash     100
+  allow-edi  allow   Edit     5
+```
+
+If no policies are configured:
+
+```
+No permission policies configured.
+```
+
+```bash
+ccm permissions list --json
+```
+
+```json
+{
+  "rules": [
+    { "id": "allow-read", "toolName": "Read", "behavior": "allow", "condition": null, "priority": 10 },
+    { "id": "deny-rm-rf", "toolName": "Bash", "behavior": "deny", "condition": "input.command.includes('rm -rf')", "priority": 100 }
+  ],
+  "total": 2
+}
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/permissions/policies
+```
+
+---
+
+## ccm permissions add
+
+Add a new permission policy rule.
+
+```bash
+ccm permissions add [options]
+```
+
+### Options
+
+| Option | Description | Required |
+|--------|-------------|----------|
+| `--action <action>` | `allow` or `deny` | Yes |
+| `--pattern <pattern>` | Tool name or glob pattern | Yes |
+| `--priority <n>` | Rule priority (higher = checked first) | No (default: `0`) |
+
+### Examples
+
+```bash
+# Allow all Read operations
+ccm permissions add --action allow --pattern "Read" --priority 10
+```
+
+```
+Permission added: allow Read (ID: cli-1712233200000)
+```
+
+```bash
+# Deny dangerous bash commands
+ccm permissions add --action deny --pattern "Bash" --priority 100
+```
+
+```bash
+# JSON output
+ccm permissions add --action allow --pattern "Edit" --json
+```
+
+```json
+{ "id": "cli-1712233200001", "toolName": "Edit", "behavior": "allow", "priority": 0 }
+```
+
+Both `--action` and `--pattern` are required:
+
+```bash
+ccm permissions add --action allow
+```
+
+```
+Error: Both --action and --pattern are required.
+Usage: ccm permissions add --action allow --pattern 'Read'
+```
+
+### API Equivalent
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/policies \
+  -H "Content-Type: application/json" \
+  -d '{ "id": "allow-read", "toolName": "Read", "behavior": "allow", "priority": 10 }'
+```
+
+---
+
+## ccm permissions pending
+
+Show pending permission requests that are waiting for approval.
+
+```bash
+ccm permissions pending
+```
+
+### Examples
+
+```bash
+ccm permissions pending
+```
+
+```
+  ID        Tool Name  Session   Timestamp  Input
+  perm_01J  Bash       sess_abc  14:20:00   {"command":"npm install expr...
+  perm_02K  Edit       sess_def  14:21:30   {"file_path":"/Users/dev/sr...
+
+Use "ccm permissions approve <id>" or "ccm permissions deny <id>"
+```
+
+If there are no pending requests:
+
+```
+No pending permission requests.
+```
+
+```bash
+ccm permissions pending --json
+```
+
+```json
+{
+  "pending": [
+    {
+      "id": "perm_01JQ9ABC...",
+      "toolName": "Bash",
+      "toolUseID": "tool_use_xyz",
+      "agentID": "main",
+      "createdAt": 1712233200000,
+      "input": { "command": "npm install express" }
+    }
+  ],
+  "total": 1
+}
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/permissions/pending
+```
+
+---
+
+## ccm permissions approve
+
+Approve a pending permission request, allowing the tool to execute.
+
+```bash
+ccm permissions approve <id>
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Pending permission request ID |
+
+### Examples
+
+```bash
+ccm permissions approve perm_01JQ9ABC
+```
+
+```
+Permission approved: perm_01JQ9ABC (Bash)
+```
+
+```bash
+ccm permissions approve perm_01JQ9ABC --json
+```
+
+```json
+{ "status": "resolved", "id": "perm_01JQ9ABC...", "behavior": "allow" }
+```
+
+### API Equivalent
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/pending/perm_01JQ9ABC/resolve \
+  -H "Content-Type: application/json" \
+  -d '{ "behavior": "allow" }'
+```
+
+---
+
+## ccm permissions deny
+
+Deny a pending permission request with an optional reason message.
+
+```bash
+ccm permissions deny <id> [options]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Pending permission request ID |
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--message <msg>` | Denial reason message | `"Denied via API"` |
+
+### Examples
+
+```bash
+ccm permissions deny perm_01JQ9ABC
+```
+
+```
+Permission denied: perm_01JQ9ABC (Bash)
+```
+
+```bash
+# With a reason
+ccm permissions deny perm_01JQ9ABC --message "This command modifies production data"
+```
+
+```bash
+ccm permissions deny perm_01JQ9ABC --json
+```
+
+```json
+{ "status": "resolved", "id": "perm_01JQ9ABC...", "behavior": "deny" }
+```
+
+### API Equivalent
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/pending/perm_01JQ9ABC/resolve \
+  -H "Content-Type: application/json" \
+  -d '{ "behavior": "deny", "message": "This command modifies production data" }'
+```

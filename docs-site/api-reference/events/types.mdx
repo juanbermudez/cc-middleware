@@ -1,0 +1,58 @@
+---
+title: "List Event Types"
+api: "GET /api/v1/events/types"
+description: "List all available hook event types that can be subscribed to."
+---
+
+## Response
+
+<ResponseField name="eventTypes" type="string[]" required>
+  Array of all supported hook event type names.
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of event types.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/events/types
+```
+
+```bash CLI
+ccm hooks list
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "eventTypes": [
+    "PreToolUse",
+    "PostToolUse",
+    "SessionStart",
+    "SessionEnd",
+    "Notification",
+    "Stop",
+    "SubagentStop"
+  ],
+  "total": 7
+}
+```
+
+### Event Type Reference
+
+| Event Type | Description |
+|------------|-------------|
+| `PreToolUse` | Fired before a tool is executed. Can be used to intercept or modify tool calls. |
+| `PostToolUse` | Fired after a tool completes execution. |
+| `SessionStart` | Fired when a new session begins. |
+| `SessionEnd` | Fired when a session completes or is aborted. |
+| `Notification` | General notification events from sessions. |
+| `Stop` | Fired when a session's main agent stops. |
+| `SubagentStop` | Fired when a subagent within a session stops. |

@@ -1,0 +1,46 @@
+---
+title: "Unsubscribe"
+api: "DELETE /api/v1/events/subscriptions/{id}"
+description: "Remove a webhook subscription, stopping all future event deliveries to that URL."
+---
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  The subscription ID to remove.
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="string" required>
+  Always `"deleted"`.
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  The ID of the removed subscription.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `404` | `SUBSCRIPTION_NOT_FOUND` | No subscription found with this ID |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE http://127.0.0.1:3000/api/v1/events/subscriptions/sub_01JQ8Z9NKPR
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "deleted",
+  "id": "sub_01JQ8Z9NKPR..."
+}
+```

@@ -1,0 +1,63 @@
+---
+title: "Abort Session"
+api: "POST /api/v1/sessions/{id}/abort"
+description: "Abort an actively running session, stopping execution immediately."
+---
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  The session ID to abort. Must be a currently running session.
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="string" required>
+  Always `"aborted"`.
+</ResponseField>
+
+<ResponseField name="sessionId" type="string" required>
+  The ID of the aborted session.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `404` | `SESSION_NOT_FOUND` | No active session found with this ID |
+| `409` | `SESSION_NOT_RUNNING` | The session exists but is not currently running (already completed, errored, or aborted) |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/sessions/01JQ8X7KBMN/abort
+```
+
+```bash CLI
+# There is no direct CLI abort command, but you can use curl or Ctrl+C during streaming
+curl -X POST http://127.0.0.1:3000/api/v1/sessions/01JQ8X7KBMN/abort
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "aborted",
+  "sessionId": "01JQ8X7KBMN..."
+}
+```
+
+### Error Response (session not running)
+
+```json
+{
+  "error": {
+    "code": "SESSION_NOT_RUNNING",
+    "message": "Session 01JQ8X7KBMN is completed"
+  }
+}
+```

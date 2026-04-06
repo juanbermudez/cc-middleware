@@ -1,0 +1,201 @@
+---
+title: "Plugin Integration"
+description: "Install CC-Middleware as a Claude Code plugin for hook routing and skills"
+---
+
+# Plugin Integration
+
+CC-Middleware can be installed as a Claude Code plugin, enabling it to receive hook events from interactive Claude Code sessions and provide middleware functionality directly within Claude Code.
+
+## Plugin Mode vs SDK Mode
+
+| Aspect | Plugin Mode | SDK Mode |
+|--------|-------------|----------|
+| **Sessions** | Existing interactive sessions | Programmatically launched |
+| **Hooks** | HTTP hooks (POST to middleware) | TypeScript callbacks (in-process) |
+| **Latency** | Higher (HTTP round-trip) | Lower (function call) |
+| **Setup** | Install plugin, start server | Import and call SDK |
+| **Use case** | Observe/control interactive sessions | Build automation |
+
+Both modes dispatch to the same event bus, so consumers do not need to know the source. You can use both simultaneously (hybrid mode).
+
+## Plugin Structure
+
+```
+src/plugin/
+  .claude-plugin/
+    plugin.json           # Plugin manifest
+  hooks/
+    hooks.json            # HTTP hooks pointing to middleware server
+  skills/
+    cc-middleware/
+      SKILL.md            # In-session middleware commands
+  bin/
+    start-server.sh       # Helper to start middleware
+  settings.json           # Default environment variables
+```
+
+## Installation
+
+<Tabs>
+  <Tab title="Development (load from directory)">
+    ```bash
+    # Start Claude Code with the plugin loaded
+    claude --plugin-dir /path/to/cc-middleware/src/plugin
+    ```
+
+    Or reload plugins within an active Claude Code session:
+    ```
+    /reload-plugins
+    ```
+  </Tab>
+
+  <Tab title="Production (future)">
+    ```bash
+    # Install from marketplace (when available)
+    claude plugin install cc-middleware
+    ```
+  </Tab>
+</Tabs>
+
+## HTTP Hook Flow
+
+When the plugin is installed and the middleware server is running, hook events flow through HTTP:
+
+<Steps>
+  <Step title="Claude Code fires a hook event">
+    For example, Claude attempts to use the `Bash` tool, triggering a `PreToolUse` event.
+  </Step>
+
+  <Step title="Plugin routes the event via HTTP">
+    The plugin's `hooks.json` routes it as an HTTP POST to:
+    ```
+    http://127.0.0.1:3001/hooks/PreToolUse
+    ```
+    The request body contains the hook input JSON (same format as command hook stdin).
+  </Step>
+
+  <Step title="Middleware processes the event">
+    The hook server receives the JSON payload, dispatches it to the event bus, and runs any blocking handlers.
+  </Step>
+
+  <Step title="Decision returned via HTTP">
+    The server responds with HTTP 200 and a `HookJSONOutput` JSON body. Claude Code parses this and applies the decision.
+  </Step>
+</Steps>
+
+### HTTP Response Protocol
+
+| Response | Meaning |
+|----------|---------|
+| HTTP 200 with `{}` or empty body | Proceed with no changes |
+| HTTP 200 with `{ hookSpecificOutput: { permissionDecision: "deny" } }` | Block the tool call |
+| HTTP 200 with `{ decision: "block" }` | Block Stop/TaskCompleted/TeammateIdle |
+| Non-2xx or timeout | Non-blocking error (Claude continues normally) |
+
+## Graceful Degradation
+
+<Info>
+  If the middleware server is not running, HTTP hooks timeout or return non-2xx. Since this produces a non-blocking error, Claude Code continues normally. **The plugin never breaks Claude Code when the server is down.**
+</Info>
+
+This is an important design property: installing the plugin is always safe. When the middleware server is offline, Claude Code behaves exactly as if the plugin were not installed.
+
+## Skill Usage
+
+The plugin provides a `/cc-middleware` skill for in-session access to middleware functionality:
+
+```
+/cc-middleware status     - Show middleware server status
+/cc-middleware sessions   - List recent sessions
+/cc-middleware agents     - List available agents
+/cc-middleware teams      - List active teams
+```
+
+The skill instructs Claude to use `WebFetch` to call the middleware's REST API. This means:
+- No additional authentication is needed
+- Claude can read and display middleware data within the conversation
+- The middleware server must be running for the skill to work
+
+## Setting Up Hybrid Mode
+
+Use both SDK mode and plugin mode simultaneously for maximum coverage:
+
+<Steps>
+  <Step title="Start the middleware server">
+    ```bash
+    npm start
+    # API on :3000, Hook server on :3001
+    ```
+  </Step>
+
+  <Step title="Install the plugin">
+    ```bash
+    claude --plugin-dir /path/to/cc-middleware/src/plugin
+    ```
+  </Step>
+
+  <Step title="Launch programmatic sessions via API">
+    ```bash
+    curl -X POST http://127.0.0.1:3000/api/v1/sessions \
+      -H "Content-Type: application/json" \
+      -d '{"prompt": "Analyze the codebase"}'
+    ```
+    These sessions use SDK mode (TypeScript callbacks, in-process hooks).
+  </Step>
+
+  <Step title="Use Claude Code interactively">
+    Interactive sessions in the terminal use plugin mode (HTTP hooks to the middleware).
+  </Step>
+
+  <Step title="Observe both from one place">
+    ```bash
+    # All events from both modes appear in the same stream
+    ccm hooks listen
+    ```
+
+    Or via WebSocket:
+    ```typescript
+    ws.send(JSON.stringify({ type: "subscribe", events: ["hook:*", "session:*"] }));
+    ```
+  </Step>
+</Steps>
+
+Both SDK and plugin mode events flow through the same event bus, blocking handlers, and WebSocket broadcast. Your hook handlers, permission policies, and webhook subscriptions work identically regardless of how the session was started.
+
+## Plugin Configuration
+
+The plugin's `settings.json` provides default environment variable values that Claude Code sets when running hook commands:
+
+```json
+{
+  "env": {
+    "CC_MIDDLEWARE_PORT": "3000",
+    "CC_MIDDLEWARE_HOOK_PORT": "3001",
+    "CC_MIDDLEWARE_HOST": "127.0.0.1"
+  }
+}
+```
+
+These can be overridden by the user's environment.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Plugin hooks not firing">
+    - Verify the middleware server is running: `ccm server status`
+    - Check the hook server is listening on port 3001: `curl http://127.0.0.1:3001/health`
+    - Ensure the plugin is loaded: check Claude Code's plugin list
+    - Try reloading plugins: `/reload-plugins` in Claude Code
+  </Accordion>
+
+  <Accordion title="Hooks fire but decisions are ignored">
+    - Verify the response format matches the expected `HookJSONOutput` schema
+    - For PreToolUse, the `hookSpecificOutput.hookEventName` must be `"PreToolUse"`
+    - Check middleware logs for parsing errors
+  </Accordion>
+
+  <Accordion title="Server offline, Claude Code behaving oddly">
+    When the server is offline, all hook responses are treated as non-blocking errors. Claude Code should continue normally. If you see unexpected behavior, it is likely unrelated to the plugin.
+  </Accordion>
+</AccordionGroup>

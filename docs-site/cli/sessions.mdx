@@ -1,0 +1,355 @@
+---
+title: "ccm sessions"
+description: "List, launch, resume, stream, and search Claude Code sessions."
+---
+
+## ccm sessions list
+
+List sessions with optional pagination and project filtering.
+
+```bash
+ccm sessions list [options]
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--limit <n>` | Maximum number of results | `20` |
+| `--offset <n>` | Number of results to skip | `0` |
+| `--project <dir>` | Filter by project directory | |
+
+### Examples
+
+```bash
+ccm sessions list
+```
+
+```
+  ID        Created              Status     First Prompt
+  01JQ8X7K  2026-04-04 10:30 AM  completed  Add error handling to the API routes
+  01JQ8W6J  2026-04-04 09:15 AM  completed  Write unit tests for the session manager
+  01JQ7Y8L  2026-04-03 02:15 PM  completed  Refactor database module
+
+  Showing 1-3 of 42 sessions
+```
+
+```bash
+# Filter by project and get JSON
+ccm sessions list --project /Users/dev/my-project --json
+```
+
+### API Equivalent
+
+```bash
+curl "http://127.0.0.1:3000/api/v1/sessions?limit=20&offset=0"
+```
+
+---
+
+## ccm sessions show
+
+Show detailed session information and conversation messages.
+
+```bash
+ccm sessions show <id> [options]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Session ID (can be a prefix) |
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--messages <n>` | Number of messages to display | `50` |
+| `--no-messages` | Show metadata only, skip messages | |
+
+### Examples
+
+```bash
+ccm sessions show 01JQ8X7K
+```
+
+```
+  Session:  01JQ8X7K
+  Created:  2026-04-04 10:30 AM
+  Status:   completed
+  Project:  /Users/dev/my-project
+  Tags:
+  Summary:  Added try/catch blocks and error response formatting
+
+--- Conversation (8 messages) ---
+
+[Human] Add error handling to the API routes
+
+[Assistant] I'll add comprehensive error handling to each route handler.
+First, let me read the current route files...
+
+[Human] Looks good, can you also add validation?
+
+[Assistant] Sure, I'll add Zod validation schemas for all request bodies...
+```
+
+```bash
+# Metadata only
+ccm sessions show 01JQ8X7K --no-messages
+```
+
+```bash
+# Full data as JSON
+ccm sessions show 01JQ8X7K --json
+```
+
+### API Equivalent
+
+```bash
+# Session details
+curl http://127.0.0.1:3000/api/v1/sessions/01JQ8X7K
+
+# Messages
+curl "http://127.0.0.1:3000/api/v1/sessions/01JQ8X7K/messages?limit=50"
+```
+
+---
+
+## ccm sessions launch
+
+Launch a new headless Claude Code session with a prompt.
+
+```bash
+ccm sessions launch <prompt> [options]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `prompt` | The task description / prompt for Claude |
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--stream` | Stream output in real-time via WebSocket | `false` |
+| `--tools <tools>` | Comma-separated list of allowed tools | all |
+| `--model <model>` | Model to use | server default |
+| `--max-turns <n>` | Maximum conversation turns | |
+| `--agent <name>` | Use a registered agent | |
+
+### Examples
+
+```bash
+# Simple launch (waits for completion)
+ccm sessions launch "Add input validation to the registration endpoint"
+```
+
+```
+I've added Zod validation schemas to the registration endpoint.
+The following validations are now enforced:
+- Email format validation
+- Password minimum length (8 characters)
+- Username alphanumeric check
+
+Session: 01JQ8X7KBMN
+```
+
+```bash
+# Stream output in real-time
+ccm sessions launch "Refactor the auth module" --stream
+```
+
+```
+I'll start by reading the current auth module structure...
+
+Looking at src/auth/index.ts, I can see several areas for improvement:
+1. The token validation logic is duplicated
+2. Error handling is inconsistent
+...
+Session completed.
+```
+
+```bash
+# Launch with specific tools and agent
+ccm sessions launch "Fix the failing tests" \
+  --agent test-fixer \
+  --tools Read,Edit,Bash \
+  --max-turns 10
+```
+
+```bash
+# Launch and pipe JSON result
+ccm sessions launch "Count the TypeScript files" --json | jq '.result'
+```
+
+<Note>
+  When using `--stream`, the command connects via WebSocket and prints text deltas as they arrive. Press `Ctrl+C` to abort the session.
+</Note>
+
+### API Equivalent
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -d '{ "prompt": "Add input validation to the registration endpoint" }'
+```
+
+---
+
+## ccm sessions resume
+
+Resume an existing session with a follow-up prompt.
+
+```bash
+ccm sessions resume <id> [options]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Session ID to resume |
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--prompt <text>` | Follow-up prompt / instruction | |
+| `--stream` | Stream output in real-time | `false` |
+
+### Examples
+
+```bash
+ccm sessions resume 01JQ8X7K --prompt "Now add tests for the validation"
+```
+
+```
+I've created test cases covering all validation scenarios:
+- Valid registration data
+- Invalid email format
+- Password too short
+- Username with special characters
+...
+```
+
+```bash
+# Resume with streaming
+ccm sessions resume 01JQ8X7K --prompt "Continue with integration tests" --stream
+```
+
+### API Equivalent
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/sessions/01JQ8X7K/resume \
+  -H "Content-Type: application/json" \
+  -d '{ "prompt": "Now add tests for the validation" }'
+```
+
+---
+
+## ccm sessions stream
+
+Attach to a running session and stream its output in real-time.
+
+```bash
+ccm sessions stream <id>
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Session ID to stream |
+
+### Examples
+
+```bash
+ccm sessions stream 01JQ8X7K
+```
+
+```
+Streaming session 01JQ8X7K... (Ctrl+C to stop)
+
+I'll continue working on the refactoring...
+  [Tool: Read] src/auth/index.ts
+  [Tool: Edit] src/auth/validator.ts
+The validation module is now extracted into its own file...
+
+Session completed.
+```
+
+The stream displays text output as it arrives, and shows tool usage in a compact format. Press `Ctrl+C` to stop streaming (the session continues running).
+
+### API Equivalent
+
+Connect to the WebSocket and subscribe to session events:
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: "subscribe",
+    events: ["session:stream", "session:completed", "session:errored"]
+  }));
+};
+```
+
+---
+
+## ccm sessions search
+
+Full-text search across session content.
+
+```bash
+ccm sessions search <query> [options]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `query` | Search query string |
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--limit <n>` | Maximum results | `20` |
+| `--project <dir>` | Filter by project directory | |
+| `--from <date>` | From date (YYYY-MM-DD) | |
+| `--to <date>` | To date (YYYY-MM-DD) | |
+| `--tag <tag>` | Filter by tag | |
+
+### Examples
+
+```bash
+ccm sessions search "error handling"
+```
+
+```
+  ID        Score  Created              Highlight
+  01JQ8X7K  0.95   2026-04-04 10:30 AM  Added comprehensive error handling to...
+  01JQ7Y8L  0.72   2026-04-03 02:15 PM  Implemented error handling middleware...
+```
+
+```bash
+# Search within a date range and project
+ccm sessions search "refactor" \
+  --project /Users/dev/my-project \
+  --from 2026-04-01 \
+  --to 2026-04-04
+```
+
+```bash
+# Search with JSON output for scripting
+ccm sessions search "database" --json | jq '.results[].sessionId'
+```
+
+### API Equivalent
+
+```bash
+curl "http://127.0.0.1:3000/api/v1/search?q=error+handling&limit=20"
+```

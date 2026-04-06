@@ -1,0 +1,266 @@
+---
+title: "ccm agents & teams"
+description: "List, inspect, and create agent definitions; list and inspect agent teams."
+---
+
+## ccm agents list
+
+List all registered agents (both file-based and runtime).
+
+```bash
+ccm agents list
+```
+
+### Examples
+
+```bash
+ccm agents list
+```
+
+```
+  Name           Source      Model                      Description
+  test-writer    filesystem  claude-sonnet-4-20250514   Writes and maintains test suites
+  code-reviewer  runtime                                Reviews code changes and suggests...
+  deploy-helper  filesystem  claude-sonnet-4-20250514   Automates deployment workflows
+```
+
+```bash
+ccm agents list --json
+```
+
+```json
+{
+  "agents": [
+    {
+      "name": "test-writer",
+      "description": "Writes and maintains test suites",
+      "source": "filesystem",
+      "model": "claude-sonnet-4-20250514",
+      "tools": ["Read", "Edit", "Bash"],
+      "disallowedTools": [],
+      "maxTurns": 15
+    }
+  ],
+  "total": 1
+}
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/agents
+```
+
+---
+
+## ccm agents show
+
+Show detailed information about a specific agent, including its full prompt.
+
+```bash
+ccm agents show <name>
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `name` | Agent name |
+
+### Examples
+
+```bash
+ccm agents show test-writer
+```
+
+```
+  Name:         test-writer
+  Source:       filesystem
+  Model:        claude-sonnet-4-20250514
+  Description:  Writes and maintains test suites
+  Tools:        Read, Edit, Bash
+
+Prompt:
+You are a test engineer. Given a source file, write comprehensive
+unit tests covering all edge cases. Use the project's existing
+test framework and patterns.
+```
+
+```bash
+ccm agents show test-writer --json
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/agents/test-writer
+```
+
+---
+
+## ccm agents create
+
+Create a new agent definition file on disk via the configuration API.
+
+```bash
+ccm agents create [options]
+```
+
+### Options
+
+| Option | Description | Required |
+|--------|-------------|----------|
+| `--name <name>` | Agent name | Yes |
+| `--description <desc>` | Agent description | |
+| `--model <model>` | Model to use | |
+| `--tools <tools>` | Comma-separated allowed tools | |
+| `--prompt <text>` | Agent system prompt | |
+
+### Examples
+
+```bash
+ccm agents create \
+  --name test-writer \
+  --description "Writes and maintains test suites" \
+  --prompt "You are a test engineer. Write comprehensive unit tests." \
+  --tools Read,Edit,Bash \
+  --model claude-sonnet-4-20250514
+```
+
+```
+Agent created: test-writer at /Users/dev/my-project/.claude/agents/test-writer.md
+```
+
+```bash
+# Minimal creation
+ccm agents create --name quick-review --description "Quick code review" --prompt "Review this code briefly."
+```
+
+```bash
+# JSON output
+ccm agents create --name quick-review --description "Quick review" --prompt "Review." --json
+```
+
+```json
+{ "status": "created", "path": "/Users/dev/my-project/.claude/agents/quick-review.md", "name": "quick-review" }
+```
+
+### API Equivalent
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/config/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test-writer",
+    "description": "Writes and maintains test suites",
+    "prompt": "You are a test engineer...",
+    "tools": ["Read", "Edit", "Bash"]
+  }'
+```
+
+---
+
+## Teams
+
+Teams are groups of agents that can collaborate on tasks. Team definitions are discovered from configuration files.
+
+### ccm teams list
+
+List all active agent teams.
+
+```bash
+ccm teams list
+```
+
+### Examples
+
+```bash
+ccm teams list
+```
+
+```
+  Name          Members  Active Tasks  Status
+  dev-team      3        2             active
+  review-team   2        0             idle
+```
+
+If there are no teams:
+
+```
+No active teams.
+```
+
+### API Equivalent
+
+```bash
+curl http://127.0.0.1:3000/api/v1/teams
+```
+
+---
+
+### ccm teams show
+
+Show team details including members and active tasks.
+
+```bash
+ccm teams show <name>
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `name` | Team name |
+
+### Examples
+
+```bash
+ccm teams show dev-team
+```
+
+```
+  Team:     dev-team
+  Members:  test-writer, code-reviewer, deploy-helper
+  Status:   active
+
+Tasks:
+  ID        Assignee      Status       Description
+  task_01J  test-writer   in_progress  Write tests for auth module
+  task_02K  code-review.  completed    Review PR #42
+```
+
+```bash
+ccm teams show dev-team --json
+```
+
+```json
+{
+  "team": {
+    "name": "dev-team",
+    "members": [
+      { "name": "test-writer", "agent": "test-writer" },
+      { "name": "code-reviewer", "agent": "code-reviewer" },
+      { "name": "deploy-helper", "agent": "deploy-helper" }
+    ],
+    "status": "active"
+  },
+  "tasks": [
+    {
+      "id": "task_01J",
+      "assignee": "test-writer",
+      "status": "in_progress",
+      "description": "Write tests for auth module"
+    }
+  ]
+}
+```
+
+### API Equivalent
+
+```bash
+# Team details
+curl http://127.0.0.1:3000/api/v1/teams/dev-team
+
+# Team tasks
+curl http://127.0.0.1:3000/api/v1/teams/dev-team/tasks
+```

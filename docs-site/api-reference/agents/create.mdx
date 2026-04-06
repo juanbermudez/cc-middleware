@@ -1,0 +1,96 @@
+---
+title: "Register Agent"
+api: "POST /api/v1/agents"
+description: "Register a new runtime agent. Runtime agents exist in memory and are lost when the server restarts."
+---
+
+## Request Body
+
+<ParamField body="name" type="string" required>
+  Unique name for the agent.
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Human-readable description of what the agent does.
+</ParamField>
+
+<ParamField body="prompt" type="string" required>
+  The system prompt / instructions for this agent.
+</ParamField>
+
+<ParamField body="model" type="string">
+  Model to use for sessions with this agent.
+</ParamField>
+
+<ParamField body="tools" type="string[]">
+  List of allowed tools.
+</ParamField>
+
+<ParamField body="disallowedTools" type="string[]">
+  List of disallowed tools.
+</ParamField>
+
+<ParamField body="maxTurns" type="integer">
+  Maximum conversation turns.
+</ParamField>
+
+## Response
+
+<ResponseField name="name" type="string" required>
+  The registered agent name.
+</ResponseField>
+
+<ResponseField name="description" type="string" required>
+  The agent description.
+</ResponseField>
+
+<ResponseField name="source" type="string" required>
+  Always `"runtime"` for API-registered agents.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `400` | `VALIDATION_ERROR` | Invalid request body (missing name, description, or prompt) |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "code-reviewer",
+    "description": "Reviews code changes and suggests improvements",
+    "prompt": "You are a senior code reviewer. Analyze the given code for bugs, performance issues, and style problems. Only use Read to examine files.",
+    "tools": ["Read"],
+    "disallowedTools": ["Bash", "Edit"],
+    "maxTurns": 5
+  }'
+```
+
+```bash CLI
+ccm agents create \
+  --name code-reviewer \
+  --description "Reviews code changes and suggests improvements" \
+  --prompt "You are a senior code reviewer..." \
+  --tools Read
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "name": "code-reviewer",
+  "description": "Reviews code changes and suggests improvements",
+  "source": "runtime"
+}
+```
+
+<Note>
+  Runtime agents are stored in memory and do not survive server restarts. To create persistent agents, use the [Config Agents API](/api-reference/config/agents-skills) which writes agent definition files to `.claude/agents/`.
+</Note>

@@ -1,0 +1,86 @@
+---
+title: "List Policies"
+api: "GET /api/v1/permissions/policies"
+description: "List all permission policy rules that govern tool execution behavior."
+---
+
+## Response
+
+<ResponseField name="rules" type="array" required>
+  Array of policy rule objects, ordered by priority.
+  <Expandable title="Policy rule object">
+    <ResponseField name="id" type="string">
+      Unique rule identifier.
+    </ResponseField>
+    <ResponseField name="toolName" type="string">
+      The tool name or glob pattern this rule matches (e.g., `"Bash"`, `"Edit"`, `"*"`).
+    </ResponseField>
+    <ResponseField name="behavior" type="string">
+      What to do when the rule matches: `allow` or `deny`.
+    </ResponseField>
+    <ResponseField name="condition" type="string">
+      Optional condition expression for conditional matching.
+    </ResponseField>
+    <ResponseField name="priority" type="integer">
+      Rule priority. Higher priority rules are evaluated first.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of policy rules.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/permissions/policies
+```
+
+```bash CLI
+ccm permissions list
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "rules": [
+    {
+      "id": "allow-read",
+      "toolName": "Read",
+      "behavior": "allow",
+      "condition": null,
+      "priority": 10
+    },
+    {
+      "id": "deny-rm-rf",
+      "toolName": "Bash",
+      "behavior": "deny",
+      "condition": "input.command.includes('rm -rf')",
+      "priority": 100
+    },
+    {
+      "id": "allow-edit",
+      "toolName": "Edit",
+      "behavior": "allow",
+      "condition": null,
+      "priority": 5
+    }
+  ],
+  "total": 3
+}
+```
+
+### CLI Output
+
+```
+  ID         Action  Pattern  Priority  Source
+  allow-rea  allow   Read     10
+  deny-rm-r  deny    Bash     100
+  allow-edi  allow   Edit     5
+```

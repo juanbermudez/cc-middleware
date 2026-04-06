@@ -1,0 +1,74 @@
+---
+title: "Update Session"
+api: "PUT /api/v1/sessions/{id}"
+description: "Update session metadata such as the title or tag."
+---
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  The session ID to update.
+</ParamField>
+
+## Request Body
+
+At least one field must be provided.
+
+<ParamField body="title" type="string">
+  New custom title for the session. Must be at least 1 character.
+</ParamField>
+
+<ParamField body="tag" type="string | null">
+  Tag to assign to the session. Pass `null` to clear an existing tag.
+</ParamField>
+
+## Response
+
+Returns the updated session object with all fields (same shape as [Get Session](/api-reference/sessions/get)).
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `400` | `VALIDATION_ERROR` | Invalid request body |
+| `404` | `SESSION_NOT_FOUND` | No session exists with the given ID |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl (set title)
+curl -X PUT http://127.0.0.1:3000/api/v1/sessions/01JQ8X7KBMN \
+  -H "Content-Type: application/json" \
+  -d '{ "title": "Auth module refactor" }'
+```
+
+```bash curl (set tag)
+curl -X PUT http://127.0.0.1:3000/api/v1/sessions/01JQ8X7KBMN \
+  -H "Content-Type: application/json" \
+  -d '{ "tag": "refactoring" }'
+```
+
+```bash curl (clear tag)
+curl -X PUT http://127.0.0.1:3000/api/v1/sessions/01JQ8X7KBMN \
+  -H "Content-Type: application/json" \
+  -d '{ "tag": null }'
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "sessionId": "01JQ8X7KBMN...",
+  "createdAt": "2026-04-04T10:30:00.000Z",
+  "lastModified": "2026-04-04T10:35:22.000Z",
+  "status": "completed",
+  "cwd": "/Users/dev/my-project",
+  "firstPrompt": "Add error handling to the API routes",
+  "summary": "Added try/catch blocks and error response formatting",
+  "customTitle": "Auth module refactor",
+  "tag": "refactoring"
+}
+```

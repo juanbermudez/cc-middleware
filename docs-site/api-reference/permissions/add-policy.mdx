@@ -1,0 +1,111 @@
+---
+title: "Add Policy Rule"
+api: "POST /api/v1/permissions/policies"
+description: "Add a new permission policy rule to control tool execution behavior."
+---
+
+## Request Body
+
+<ParamField body="id" type="string" required>
+  Unique identifier for this rule. Must not conflict with existing rule IDs.
+</ParamField>
+
+<ParamField body="toolName" type="string" required>
+  The tool name or glob pattern to match (e.g., `"Bash"`, `"Edit"`, `"*"`).
+</ParamField>
+
+<ParamField body="behavior" type="string" required>
+  Action when the rule matches: `"allow"` or `"deny"`.
+</ParamField>
+
+<ParamField body="condition" type="string">
+  Optional JavaScript-like condition expression evaluated against the tool input.
+</ParamField>
+
+<ParamField body="priority" type="integer" required>
+  Rule priority. Higher priority rules are evaluated first. Use values like `0` for default, `100` for critical overrides.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string" required>
+  The created rule's ID.
+</ResponseField>
+
+<ResponseField name="toolName" type="string" required>
+  The tool name pattern.
+</ResponseField>
+
+<ResponseField name="behavior" type="string" required>
+  The rule behavior.
+</ResponseField>
+
+<ResponseField name="priority" type="integer" required>
+  The rule priority.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `400` | `VALIDATION_ERROR` | Invalid request body |
+| `409` | `RULE_EXISTS` | A rule with this ID already exists |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl (allow all reads)
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "allow-read",
+    "toolName": "Read",
+    "behavior": "allow",
+    "priority": 10
+  }'
+```
+
+```bash curl (deny dangerous bash commands)
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "deny-rm-rf",
+    "toolName": "Bash",
+    "behavior": "deny",
+    "condition": "input.command.includes(\"rm -rf\")",
+    "priority": 100
+  }'
+```
+
+```bash CLI
+ccm permissions add --action allow --pattern "Read" --priority 10
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "id": "allow-read",
+  "toolName": "Read",
+  "behavior": "allow",
+  "priority": 10
+}
+```
+
+### Delete a Rule
+
+To remove a policy rule, use `DELETE /api/v1/permissions/policies/:id`:
+
+```bash
+curl -X DELETE http://127.0.0.1:3000/api/v1/permissions/policies/allow-read
+```
+
+```json
+{
+  "status": "deleted",
+  "id": "allow-read"
+}
+```

@@ -1,0 +1,100 @@
+---
+title: "Subscribe to Events"
+api: "POST /api/v1/events/subscribe"
+description: "Register a webhook URL to receive hook events via HTTP POST callbacks."
+---
+
+## Request Body
+
+<ParamField body="url" type="string" required>
+  The webhook URL to receive event payloads. Must be a valid URL.
+</ParamField>
+
+<ParamField body="events" type="string[]" required>
+  Array of event types to subscribe to. Use `"*"` to subscribe to all events, or specify individual types like `"PreToolUse"`, `"PostToolUse"`, etc.
+</ParamField>
+
+<ParamField body="headers" type="object">
+  Additional HTTP headers to include in webhook delivery requests. Keys and values must be strings.
+</ParamField>
+
+<ParamField body="secret" type="string">
+  A secret string sent as the `X-Webhook-Secret` header on each delivery for verification.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string" required>
+  Unique subscription identifier (prefixed with `sub_`).
+</ResponseField>
+
+<ResponseField name="events" type="string[]" required>
+  The event types this subscription listens for.
+</ResponseField>
+
+<ResponseField name="url" type="string" required>
+  The webhook URL registered.
+</ResponseField>
+
+## Webhook Delivery Format
+
+When an event fires, the middleware sends an HTTP POST to your webhook URL with this body:
+
+```json
+{
+  "eventType": "PreToolUse",
+  "input": {
+    "toolName": "Bash",
+    "toolInput": { "command": "npm test" },
+    "sessionId": "sess_abc123"
+  },
+  "subscriptionId": "sub_xyz789",
+  "timestamp": 1712233200000
+}
+```
+
+The request includes `Content-Type: application/json` plus any custom headers you specified. Delivery has a 10-second timeout.
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `400` | `VALIDATION_ERROR` | Invalid request body (missing URL, empty events array, etc.) |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl (subscribe to all events)
+curl -X POST http://127.0.0.1:3000/api/v1/events/subscribe \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "http://localhost:8080/webhook",
+    "events": ["*"]
+  }'
+```
+
+```bash curl (subscribe to specific events with secret)
+curl -X POST http://127.0.0.1:3000/api/v1/events/subscribe \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "http://localhost:8080/hooks",
+    "events": ["PreToolUse", "PostToolUse"],
+    "secret": "my-webhook-secret",
+    "headers": {
+      "X-Custom-Header": "my-value"
+    }
+  }'
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "id": "sub_01JQ8Z9NKPR...",
+  "events": ["PreToolUse", "PostToolUse"],
+  "url": "http://localhost:8080/hooks"
+}
+```

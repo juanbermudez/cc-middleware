@@ -1,0 +1,136 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "CC-Middleware",
+  "theme": "mint",
+  "colors": {
+    "primary": "#6C47FF",
+    "light": "#8B6CFF",
+    "dark": "#5230CC"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/sessions",
+              "concepts/hooks",
+              "concepts/permissions",
+              "concepts/agents"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/launching-sessions",
+              "guides/hook-events",
+              "guides/permission-policies",
+              "guides/search-indexing",
+              "guides/plugin-integration",
+              "guides/configuration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/overview"
+            ]
+          },
+          {
+            "group": "Sessions",
+            "pages": [
+              "api-reference/sessions/list",
+              "api-reference/sessions/get",
+              "api-reference/sessions/messages",
+              "api-reference/sessions/launch",
+              "api-reference/sessions/resume",
+              "api-reference/sessions/abort",
+              "api-reference/sessions/update"
+            ]
+          },
+          {
+            "group": "Events",
+            "pages": [
+              "api-reference/events/types",
+              "api-reference/events/subscribe",
+              "api-reference/events/list-subscriptions",
+              "api-reference/events/unsubscribe"
+            ]
+          },
+          {
+            "group": "Agents",
+            "pages": [
+              "api-reference/agents/list",
+              "api-reference/agents/get",
+              "api-reference/agents/create",
+              "api-reference/agents/delete"
+            ]
+          },
+          {
+            "group": "Permissions",
+            "pages": [
+              "api-reference/permissions/policies",
+              "api-reference/permissions/add-policy",
+              "api-reference/permissions/pending",
+              "api-reference/permissions/resolve"
+            ]
+          },
+          {
+            "group": "Search",
+            "pages": [
+              "api-reference/search/query",
+              "api-reference/search/reindex",
+              "api-reference/search/stats"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "api-reference/config/settings",
+              "api-reference/config/plugins",
+              "api-reference/config/mcp",
+              "api-reference/config/agents-skills",
+              "api-reference/config/memory"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "CLI",
+            "pages": [
+              "cli/overview",
+              "cli/server",
+              "cli/sessions",
+              "cli/hooks",
+              "cli/agents",
+              "cli/permissions",
+              "cli/config"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footerSocials": {
+    "github": "https://github.com/cc-middleware"
+  }
+}

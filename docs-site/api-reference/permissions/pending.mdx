@@ -1,0 +1,144 @@
+---
+title: "Pending Requests"
+api: "GET /api/v1/permissions/pending"
+description: "List pending permission requests that are awaiting approval or denial, plus pending user questions."
+---
+
+## Permission Requests
+
+### Endpoint
+
+```
+GET /api/v1/permissions/pending
+```
+
+### Response
+
+<ResponseField name="pending" type="array" required>
+  Array of pending permission requests.
+  <Expandable title="Pending permission object">
+    <ResponseField name="id" type="string">
+      Unique request identifier.
+    </ResponseField>
+    <ResponseField name="toolName" type="string">
+      The tool requesting permission.
+    </ResponseField>
+    <ResponseField name="toolUseID" type="string">
+      The tool use event ID.
+    </ResponseField>
+    <ResponseField name="agentID" type="string">
+      The agent that triggered the tool use.
+    </ResponseField>
+    <ResponseField name="createdAt" type="number">
+      Unix timestamp (milliseconds) when the request was created.
+    </ResponseField>
+    <ResponseField name="input" type="object">
+      The tool input that triggered the permission request.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of pending requests.
+</ResponseField>
+
+## Pending Questions
+
+### Endpoint
+
+```
+GET /api/v1/permissions/questions
+```
+
+### Response
+
+<ResponseField name="questions" type="array" required>
+  Array of pending user questions.
+  <Expandable title="Pending question object">
+    <ResponseField name="id" type="string">
+      Unique question identifier.
+    </ResponseField>
+    <ResponseField name="createdAt" type="number">
+      Unix timestamp (milliseconds).
+    </ResponseField>
+    <ResponseField name="questions" type="array">
+      Array of question strings posed by the session.
+    </ResponseField>
+    <ResponseField name="toolUseID" type="string">
+      The tool use event that triggered the question.
+    </ResponseField>
+    <ResponseField name="sessionId" type="string">
+      The session requesting an answer.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of pending questions.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl (permissions)
+curl http://127.0.0.1:3000/api/v1/permissions/pending
+```
+
+```bash curl (questions)
+curl http://127.0.0.1:3000/api/v1/permissions/questions
+```
+
+```bash CLI
+ccm permissions pending
+```
+
+</CodeGroup>
+
+### Example Permissions Response
+
+```json
+{
+  "pending": [
+    {
+      "id": "perm_01JQ9ABC...",
+      "toolName": "Bash",
+      "toolUseID": "tool_use_xyz",
+      "agentID": "main",
+      "createdAt": 1712233200000,
+      "input": {
+        "command": "npm install express"
+      }
+    }
+  ],
+  "total": 1
+}
+```
+
+### Example Questions Response
+
+```json
+{
+  "questions": [
+    {
+      "id": "q_01JQ9DEF...",
+      "createdAt": 1712233300000,
+      "questions": [
+        "Which database driver should I use: pg or mysql2?"
+      ],
+      "toolUseID": "tool_use_abc",
+      "sessionId": "sess_abc123"
+    }
+  ],
+  "total": 1
+}
+```
+
+### CLI Output
+
+```
+  ID        Tool Name  Session   Timestamp  Input
+  perm_01J  Bash       sess_abc  14:20:00   {"command":"npm install expr...
+
+Use "ccm permissions approve <id>" or "ccm permissions deny <id>"
+```

@@ -1,0 +1,242 @@
+---
+title: "Agents & Teams"
+description: "Agent definitions, registry, teams, and launching"
+---
+
+# Agents & Teams
+
+The agent system manages sub-agent definitions and agent teams, providing read access to filesystem-based agents, a registry for runtime agents, team monitoring, and programmatic agent launching.
+
+## Agent Definitions
+
+Agents are defined as markdown files with YAML frontmatter:
+
+```markdown
+---
+name: code-reviewer
+description: Reviews code for quality, patterns, and potential bugs
+model: sonnet
+maxTurns: 20
+tools: [Read, Glob, Grep]
+disallowedTools: [Write, Edit, Bash]
+---
+
+You are a code reviewer. Analyze the provided code for:
+- Code quality and readability
+- Common patterns and anti-patterns
+- Potential bugs or edge cases
+- Performance considerations
+
+Provide specific, actionable feedback with file and line references.
+```
+
+### Definition Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | `string` | Yes | Unique agent identifier |
+| `description` | `string` | Yes | When to use this agent (shown in agent selection) |
+| `model` | `"sonnet" \| "opus" \| "haiku" \| "inherit"` | No | Model to use (defaults to parent session's model) |
+| `maxTurns` | `number` | No | Maximum turns before the agent stops |
+| `tools` | `string[]` | No | Allowed tool names |
+| `disallowedTools` | `string[]` | No | Denied tool names |
+| `prompt` | `string` | Yes | System prompt body (the markdown content after frontmatter) |
+
+### Definition Locations
+
+Agent definitions are scanned from these locations on startup:
+
+| Location | Scope | Description |
+|----------|-------|-------------|
+| `.claude/agents/` | Project | Agents specific to the current project |
+| `~/.claude/agents/` | User | Agents available across all projects |
+| Plugin agent directories | Plugin | Agents provided by installed plugins |
+
+Frontmatter is parsed with `gray-matter`.
+
+## Agent Registry
+
+The registry merges filesystem and runtime agent definitions into a single lookup table.
+
+- Filesystem agents are loaded on startup by scanning the locations above
+- Runtime agents are registered via the API and stored in memory
+- Runtime agents **override** filesystem agents with the same name
+- The registry provides `toSDKAgents()` to convert all agents to Agent SDK format
+
+<CodeGroup>
+```bash List agents (API)
+curl http://127.0.0.1:3000/api/v1/agents
+```
+
+```bash Get agent details (API)
+curl http://127.0.0.1:3000/api/v1/agents/code-reviewer
+```
+
+```bash CLI
+ccm agents list
+ccm agents show code-reviewer
+```
+</CodeGroup>
+
+### Registering Runtime Agents
+
+Runtime agents can be registered via the API without creating markdown files:
+
+<CodeGroup>
+```bash API
+curl -X POST http://127.0.0.1:3000/api/v1/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test-runner",
+    "description": "Runs tests and reports results",
+    "prompt": "You are a test runner agent. Run the test suite and report results clearly.",
+    "model": "sonnet",
+    "tools": ["Read", "Bash", "Glob"],
+    "maxTurns": 15
+  }'
+```
+
+```bash Delete
+curl -X DELETE http://127.0.0.1:3000/api/v1/agents/test-runner
+```
+</CodeGroup>
+
+### Creating File-Based Agents
+
+The config API can create agent markdown files on disk:
+
+<CodeGroup>
+```bash API
+curl -X POST http://127.0.0.1:3000/api/v1/config/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "deploy-agent",
+    "description": "Handles deployment tasks",
+    "prompt": "You deploy applications safely.",
+    "scope": "project",
+    "model": "sonnet",
+    "tools": ["Read", "Bash"],
+    "maxTurns": 10
+  }'
+```
+
+```bash CLI
+ccm agents create \
+  --name deploy-agent \
+  --description "Handles deployment tasks" \
+  --prompt "You deploy applications safely." \
+  --model sonnet \
+  --tools "Read,Bash"
+```
+</CodeGroup>
+
+## Launching with Agents
+
+Sessions can be launched with a specific agent handling the main thread:
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Review the src/ directory for code quality",
+    "agent": "code-reviewer",
+    "maxTurns": 20
+  }'
+```
+
+The launcher uses the SDK's `agents` option to pass all registered agent definitions and the `agent` option to specify which agent handles the main thread.
+
+## Agent Teams
+
+Claude Code has experimental support for agent teams -- groups of agents that collaborate on tasks. The middleware provides **read-only monitoring** of team state.
+
+### Team Storage
+
+| Item | Location |
+|------|----------|
+| Team config | `~/.claude/teams/{team-name}/config.json` |
+| Team tasks | `~/.claude/tasks/{team-name}/` |
+
+### Team API
+
+<CodeGroup>
+```bash List teams
+curl http://127.0.0.1:3000/api/v1/teams
+```
+
+```bash Team details
+curl http://127.0.0.1:3000/api/v1/teams/{name}
+```
+
+```bash Team tasks
+curl http://127.0.0.1:3000/api/v1/teams/{name}/tasks
+```
+
+```bash CLI
+ccm teams list
+ccm teams show {name}
+```
+</CodeGroup>
+
+### Team Capabilities
+
+| Capability | Supported | Notes |
+|-----------|-----------|-------|
+| Discover existing teams | Yes | Scans `~/.claude/teams/` |
+| Read team member status | Yes | Members, roles, active state |
+| Read team task lists | Yes | Task descriptions, assignees, status |
+| Launch sessions with teams | Yes | Via session launch options |
+| Create teams programmatically | No | Must be done by Claude in-session |
+| Modify team membership | No | Read-only |
+| Directly message teammates | No | Read-only |
+
+<Note>
+  Agent teams are an experimental Claude Code feature. The middleware provides read-only monitoring -- teams must be created and managed by Claude within an interactive session.
+</Note>
+
+## Agent Definition Type
+
+The internal type that represents an agent:
+
+```typescript
+interface AgentDefinitionSource {
+  name: string;
+  description: string;
+  model?: "sonnet" | "opus" | "haiku" | "inherit";
+  maxTurns?: number;
+  tools?: string[];
+  disallowedTools?: string[];
+  prompt: string;
+  source: "project" | "user" | "plugin" | "runtime";
+  filePath?: string;
+}
+```
+
+This maps to the SDK's `AgentDefinition`:
+
+```typescript
+interface AgentDefinition {
+  description: string;
+  tools?: string[];
+  disallowedTools?: string[];
+  prompt: string;
+  model?: "sonnet" | "opus" | "haiku" | "inherit";
+  maxTurns?: number;
+}
+```
+
+## API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/agents` | GET | List all agents (filesystem + runtime) |
+| `/api/v1/agents/:name` | GET | Get agent details |
+| `/api/v1/agents` | POST | Register a runtime agent |
+| `/api/v1/agents/:name` | DELETE | Remove a runtime agent |
+| `/api/v1/teams` | GET | List teams |
+| `/api/v1/teams/:name` | GET | Get team details |
+| `/api/v1/teams/:name/tasks` | GET | Get team tasks |
+| `/api/v1/config/agents` | GET | List file-based agent definitions |
+| `/api/v1/config/agents` | POST | Create a new agent file |
+| `/api/v1/config/agents/:name` | PUT | Update an agent file |
+| `/api/v1/config/agents/:name` | DELETE | Delete an agent file |

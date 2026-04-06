@@ -1,0 +1,120 @@
+---
+title: "Get Session"
+api: "GET /api/v1/sessions/{id}"
+description: "Retrieve detailed information about a specific session by ID."
+---
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  The session ID to retrieve.
+</ParamField>
+
+## Response
+
+<ResponseField name="sessionId" type="string" required>
+  Unique session identifier.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  ISO 8601 timestamp of session creation.
+</ResponseField>
+
+<ResponseField name="lastModified" type="string">
+  ISO 8601 timestamp of last activity.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Session status: `completed`, `running`, `errored`, `aborted`.
+</ResponseField>
+
+<ResponseField name="cwd" type="string">
+  Working directory where the session ran.
+</ResponseField>
+
+<ResponseField name="firstPrompt" type="string">
+  The initial prompt that launched the session.
+</ResponseField>
+
+<ResponseField name="summary" type="string">
+  Auto-generated summary of the session.
+</ResponseField>
+
+<ResponseField name="customTitle" type="string">
+  User-assigned title, if any.
+</ResponseField>
+
+<ResponseField name="tag" type="string">
+  User-assigned tag, if any.
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  The model used for the session.
+</ResponseField>
+
+<ResponseField name="totalCost" type="number">
+  Total cost in USD for the session.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `404` | `SESSION_NOT_FOUND` | No session exists with the given ID |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/sessions/01JQ8X7KBMN
+```
+
+```bash CLI
+ccm sessions show 01JQ8X7KBMN
+```
+
+```bash CLI (JSON output)
+ccm sessions show 01JQ8X7KBMN --json
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "sessionId": "01JQ8X7KBMN...",
+  "createdAt": "2026-04-04T10:30:00.000Z",
+  "lastModified": "2026-04-04T10:35:22.000Z",
+  "status": "completed",
+  "cwd": "/Users/dev/my-project",
+  "firstPrompt": "Add error handling to the API routes",
+  "summary": "Added try/catch blocks and error response formatting to all route handlers",
+  "customTitle": null,
+  "tag": null,
+  "model": "claude-sonnet-4-20250514",
+  "totalCost": 0.042
+}
+```
+
+### CLI Output
+
+```
+  Session:  01JQ8X7K
+  Created:  2026-04-04 10:30 AM
+  Status:   completed
+  Project:  /Users/dev/my-project
+  Tags:
+  Summary:  Added try/catch blocks and error response formatting
+
+--- Conversation (8 messages) ---
+
+[Human] Add error handling to the API routes
+
+[Assistant] I'll add comprehensive error handling to each route handler...
+
+[Human] Looks good, can you also add validation?
+
+[Assistant] Sure, I'll add Zod validation schemas...
+```

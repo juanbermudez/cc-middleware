@@ -1,0 +1,57 @@
+---
+title: "Reindex"
+api: "POST /api/v1/search/reindex"
+description: "Trigger a full reindex of all sessions into the search index."
+---
+
+## Request
+
+No request body is required. Simply send a POST request to trigger the reindex.
+
+## Response
+
+<ResponseField name="status" type="string" required>
+  Always `"completed"` on success.
+</ResponseField>
+
+<ResponseField name="sessionsIndexed" type="integer" required>
+  Number of sessions processed during reindexing.
+</ResponseField>
+
+<ResponseField name="messagesIndexed" type="integer" required>
+  Number of individual messages indexed.
+</ResponseField>
+
+<ResponseField name="errors" type="integer" required>
+  Number of errors encountered during indexing.
+</ResponseField>
+
+<ResponseField name="durationMs" type="number" required>
+  Time taken to complete the reindex in milliseconds.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/search/reindex
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "completed",
+  "sessionsIndexed": 142,
+  "messagesIndexed": 3847,
+  "errors": 0,
+  "durationMs": 2340
+}
+```
+
+<Warning>
+  Reindexing scans all session files on disk and can take several seconds for large session histories. Avoid calling this endpoint frequently in automated pipelines.
+</Warning>

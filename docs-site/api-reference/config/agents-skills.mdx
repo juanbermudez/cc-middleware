@@ -1,0 +1,305 @@
+---
+title: "Agents, Skills & Rules"
+description: "Manage file-based agent definitions, discover skills, and list rules from the configuration system."
+---
+
+## List Agent Definitions (File-based)
+
+```
+GET /api/v1/config/agents
+```
+
+Returns agent definitions discovered from `.claude/agents/` directories. These are distinct from [runtime agents](/api-reference/agents/list) registered via the API.
+
+### Response
+
+<ResponseField name="agents" type="array" required>
+  Array of agent definition objects.
+  <Expandable title="Agent definition object">
+    <ResponseField name="name" type="string">
+      Agent name (derived from filename).
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Agent description from frontmatter.
+    </ResponseField>
+    <ResponseField name="scope" type="string">
+      Where the agent was found: `user` or `project`.
+    </ResponseField>
+    <ResponseField name="model" type="string">
+      Model specified in the agent definition.
+    </ResponseField>
+    <ResponseField name="path" type="string">
+      Filesystem path to the agent file.
+    </ResponseField>
+    <ResponseField name="tools" type="string[]">
+      Allowed tools.
+    </ResponseField>
+    <ResponseField name="maxTurns" type="integer">
+      Maximum turns.
+    </ResponseField>
+    <ResponseField name="effort" type="string">
+      Effort level.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of agent definitions.
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/config/agents
+```
+
+```bash CLI
+ccm config agents
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "agents": [
+    {
+      "name": "test-writer",
+      "description": "Writes and maintains test suites",
+      "scope": "project",
+      "model": "claude-sonnet-4-20250514",
+      "path": "/Users/dev/my-project/.claude/agents/test-writer.md",
+      "tools": ["Read", "Edit", "Bash"],
+      "maxTurns": 15,
+      "effort": "high"
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+## Create Agent Definition
+
+```
+POST /api/v1/config/agents
+```
+
+Creates a new agent definition file on disk.
+
+<ParamField body="name" type="string" required>
+  Agent name (used as the filename).
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Human-readable description.
+</ParamField>
+
+<ParamField body="prompt" type="string" required>
+  The agent's system prompt / instructions.
+</ParamField>
+
+<ParamField body="scope" type="string" default="project">
+  Where to create the file: `"project"` (in `.claude/agents/`) or `"user"` (in `~/.claude/agents/`).
+</ParamField>
+
+<ParamField body="model" type="string">
+  Model override for this agent.
+</ParamField>
+
+<ParamField body="tools" type="string[]">
+  Allowed tools.
+</ParamField>
+
+<ParamField body="maxTurns" type="integer">
+  Maximum conversation turns.
+</ParamField>
+
+<ParamField body="effort" type="string">
+  Effort level: `low`, `medium`, `high`, `max`.
+</ParamField>
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/config/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test-writer",
+    "description": "Writes and maintains test suites",
+    "prompt": "You are a test engineer. Write comprehensive unit tests.",
+    "scope": "project",
+    "model": "claude-sonnet-4-20250514",
+    "tools": ["Read", "Edit", "Bash"],
+    "maxTurns": 15
+  }'
+```
+
+```bash CLI
+ccm agents create \
+  --name test-writer \
+  --description "Writes and maintains test suites" \
+  --prompt "You are a test engineer. Write comprehensive unit tests." \
+  --tools Read,Edit,Bash
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "created",
+  "path": "/Users/dev/my-project/.claude/agents/test-writer.md",
+  "name": "test-writer"
+}
+```
+
+---
+
+## Update Agent Definition
+
+```
+PUT /api/v1/config/agents/{name}
+```
+
+Update an existing agent definition file.
+
+<ParamField path="name" type="string" required>
+  Agent name to update.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Updated description.
+</ParamField>
+
+<ParamField body="prompt" type="string">
+  Updated prompt.
+</ParamField>
+
+<ParamField body="model" type="string">
+  Updated model.
+</ParamField>
+
+<ParamField body="tools" type="string[]">
+  Updated tools list.
+</ParamField>
+
+<ParamField body="maxTurns" type="integer">
+  Updated max turns.
+</ParamField>
+
+<ParamField body="effort" type="string">
+  Updated effort level.
+</ParamField>
+
+```bash
+curl -X PUT http://127.0.0.1:3000/api/v1/config/agents/test-writer \
+  -H "Content-Type: application/json" \
+  -d '{ "maxTurns": 20, "effort": "max" }'
+```
+
+---
+
+## Delete Agent Definition
+
+```
+DELETE /api/v1/config/agents/{name}
+```
+
+Deletes an agent definition file from disk.
+
+```bash
+curl -X DELETE http://127.0.0.1:3000/api/v1/config/agents/test-writer
+```
+
+```json
+{ "status": "deleted", "name": "test-writer" }
+```
+
+---
+
+## List Skills
+
+```
+GET /api/v1/config/skills
+```
+
+Returns all discovered skills from plugins and project configuration.
+
+<ResponseField name="skills" type="array" required>
+  Array of skill objects.
+  <Expandable title="Skill object">
+    <ResponseField name="name" type="string">
+      Skill name.
+    </ResponseField>
+    <ResponseField name="scope" type="string">
+      Where the skill was discovered: `user`, `project`, or `plugin`.
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Skill description / trigger conditions.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/config/skills
+```
+
+```bash CLI
+ccm config skills
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "skills": [
+    {
+      "name": "commit",
+      "scope": "plugin",
+      "description": "Create git commits with proper formatting"
+    },
+    {
+      "name": "review-pr",
+      "scope": "plugin",
+      "description": "Review pull requests and suggest improvements"
+    }
+  ],
+  "total": 2
+}
+```
+
+---
+
+## List Rules
+
+```
+GET /api/v1/config/rules
+```
+
+Returns all rules discovered from `.claude/rules/` directories.
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/rules
+```
+
+```json
+{
+  "rules": [
+    {
+      "name": "no-console-log",
+      "scope": "project",
+      "content": "Never use console.log in production code. Use the logger utility instead.",
+      "path": "/Users/dev/my-project/.claude/rules/no-console-log.md"
+    }
+  ],
+  "total": 1
+}
+```

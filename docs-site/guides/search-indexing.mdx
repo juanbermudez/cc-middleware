@@ -1,0 +1,219 @@
+---
+title: "Search & Indexing"
+description: "Session search, reindexing, and search filters"
+---
+
+# Search & Indexing
+
+CC-Middleware maintains a SQLite-backed search index over all Claude Code sessions, providing full-text search with filters for project, date range, tags, and status.
+
+## How It Works
+
+The storage layer consists of three components:
+
+1. **SQLite Store** (`src/store/db.ts`) -- A `better-sqlite3` database at `~/.cc-middleware/sessions.db` that stores session metadata and message content.
+
+2. **Session Indexer** (`src/store/indexer.ts`) -- Reads Claude Code's JSONL session files and writes their content into the SQLite store. Supports full and incremental indexing.
+
+3. **Search Engine** (`src/store/search.ts`) -- Queries the SQLite FTS5 (full-text search) index with support for filters and highlighted result snippets.
+
+## Triggering a Reindex
+
+### Full Reindex
+
+Scan all sessions and rebuild the index from scratch:
+
+<CodeGroup>
+```bash API
+curl -X POST http://127.0.0.1:3000/api/v1/search/reindex
+```
+
+```bash CLI
+# No direct CLI command; use the API
+curl -X POST http://127.0.0.1:3000/api/v1/search/reindex
+```
+</CodeGroup>
+
+Response:
+
+```json
+{
+  "status": "completed",
+  "sessionsIndexed": 142,
+  "messagesIndexed": 3847,
+  "errors": 0,
+  "durationMs": 2345
+}
+```
+
+<Note>
+  A full reindex scans all JSONL files at `~/.claude/projects/`. For large session histories, this may take several seconds. Sessions launched through the middleware are indexed automatically.
+</Note>
+
+### Index Statistics
+
+Check the current state of the index:
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/search/stats
+```
+</CodeGroup>
+
+Returns counts of indexed sessions, messages, and the last index time.
+
+## Searching Sessions
+
+### Basic Search
+
+<CodeGroup>
+```bash API
+curl "http://127.0.0.1:3000/api/v1/search?q=authentication"
+```
+
+```bash CLI
+ccm sessions search "authentication"
+```
+</CodeGroup>
+
+The search engine uses SQLite FTS5 for full-text matching across session prompts, responses, and tool outputs.
+
+### Search with Filters
+
+<Tabs>
+  <Tab title="By Project">
+    ```bash
+    curl "http://127.0.0.1:3000/api/v1/search?q=refactor&project=/path/to/myapp"
+    ```
+
+    ```bash
+    ccm sessions search "refactor" --project /path/to/myapp
+    ```
+  </Tab>
+
+  <Tab title="By Date Range">
+    ```bash
+    curl "http://127.0.0.1:3000/api/v1/search?q=bug+fix&dateFrom=1704067200000&dateTo=1706745600000"
+    ```
+
+    ```bash
+    ccm sessions search "bug fix" --from 2025-01-01 --to 2025-01-31
+    ```
+  </Tab>
+
+  <Tab title="By Tags">
+    ```bash
+    curl "http://127.0.0.1:3000/api/v1/search?q=deploy&tags=production,staging"
+    ```
+
+    ```bash
+    ccm sessions search "deploy" --tag production
+    ```
+  </Tab>
+
+  <Tab title="By Status">
+    ```bash
+    curl "http://127.0.0.1:3000/api/v1/search?q=error&status=errored"
+    ```
+  </Tab>
+
+  <Tab title="Combined">
+    ```bash
+    curl "http://127.0.0.1:3000/api/v1/search?q=api+design&project=/myapp&tags=reviewed&limit=5"
+    ```
+
+    ```bash
+    ccm sessions search "api design" --project /myapp --tag reviewed --limit 5
+    ```
+  </Tab>
+</Tabs>
+
+### Search Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | `""` | Full-text search query |
+| `project` | string | -- | Filter by project directory path |
+| `dateFrom` | number | -- | Start of date range (Unix timestamp ms) |
+| `dateTo` | number | -- | End of date range (Unix timestamp ms) |
+| `tags` | string | -- | Comma-separated tag filter |
+| `status` | string | -- | Filter by session status |
+| `limit` | number | `20` | Maximum results to return |
+| `offset` | number | `0` | Number of results to skip (pagination) |
+
+### Search Results
+
+```json
+{
+  "results": [
+    {
+      "sessionId": "abc123",
+      "score": 12.5,
+      "summary": "Implemented JWT authentication for the API",
+      "firstPrompt": "Add authentication to the REST API",
+      "highlight": "...implemented <b>authentication</b> using JWT tokens...",
+      "createdAt": "2025-03-15T10:30:00Z",
+      "cwd": "/Users/dev/myapp",
+      "tag": "reviewed"
+    }
+  ],
+  "total": 15
+}
+```
+
+Results include:
+- **score**: FTS5 relevance score (higher = more relevant)
+- **highlight**: Snippet with matched terms emphasized
+- **summary**: Session summary for quick scanning
+
+## Pagination
+
+Use `limit` and `offset` for paginating through results:
+
+```bash
+# Page 1
+curl "http://127.0.0.1:3000/api/v1/search?q=test&limit=10&offset=0"
+
+# Page 2
+curl "http://127.0.0.1:3000/api/v1/search?q=test&limit=10&offset=10"
+
+# Page 3
+curl "http://127.0.0.1:3000/api/v1/search?q=test&limit=10&offset=20"
+```
+
+The CLI displays pagination info automatically:
+
+```
+ccm sessions search "test" --limit 10
+
+ID        Score   Created      Highlight
+abc123    12.5    Mar 15       ...unit <b>test</b> for the validator...
+def456    8.2     Mar 14       ...integration <b>test</b> suite...
+
+  Showing 1-10 of 42 sessions
+```
+
+## Session Storage Details
+
+Claude Code stores sessions as JSONL files:
+
+```
+~/.claude/projects/<encoded-cwd>/<session-id>.jsonl
+```
+
+The indexer reads these files and extracts:
+- Session metadata (ID, timestamps, working directory)
+- User messages (prompts)
+- Assistant messages (responses)
+- Tool usage (names, inputs, outputs)
+- Tags and custom titles
+
+All text content is indexed for full-text search using SQLite's FTS5 extension.
+
+## API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/search` | GET | Full-text search with filters |
+| `/api/v1/search/reindex` | POST | Trigger a full reindex |
+| `/api/v1/search/stats` | GET | Get index statistics |

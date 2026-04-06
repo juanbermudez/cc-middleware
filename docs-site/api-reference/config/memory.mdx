@@ -1,0 +1,221 @@
+---
+title: "Memory & CLAUDE.md"
+description: "Access project memory files and CLAUDE.md configuration files."
+---
+
+## Project Memory
+
+Claude Code stores per-project memories in `~/.claude/memory/` indexed by a hash of the project directory.
+
+### Get Memory Index
+
+```
+GET /api/v1/config/memory
+```
+
+Returns the project memory index with a summary of stored memory files.
+
+<ResponseField name="projectKey" type="string" required>
+  Hash key identifying this project's memory.
+</ResponseField>
+
+<ResponseField name="memoryDir" type="string" required>
+  Filesystem path to the memory directory.
+</ResponseField>
+
+<ResponseField name="hasIndex" type="boolean" required>
+  Whether an index file exists.
+</ResponseField>
+
+<ResponseField name="indexContent" type="string" required>
+  Content of the memory index file.
+</ResponseField>
+
+<ResponseField name="fileCount" type="integer" required>
+  Number of memory files.
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/config/memory
+```
+
+```bash CLI
+ccm config memory
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "projectKey": "a1b2c3d4e5f6",
+  "memoryDir": "/Users/dev/.claude/memory/a1b2c3d4e5f6",
+  "hasIndex": true,
+  "indexContent": "# Project Memory\n\n- Architecture: Fastify + TypeScript\n- Testing: Vitest\n- Key patterns: Zod validation, event-driven hooks",
+  "fileCount": 3
+}
+```
+
+---
+
+### List Memory Files
+
+```
+GET /api/v1/config/memory/files
+```
+
+Returns metadata for all memory files in the project's memory directory.
+
+<ResponseField name="files" type="array" required>
+  <Expandable title="Memory file object">
+    <ResponseField name="name" type="string">
+      File name.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      File type classification.
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Description of the memory file's content.
+    </ResponseField>
+    <ResponseField name="lastModified" type="number">
+      Unix timestamp of last modification.
+    </ResponseField>
+    <ResponseField name="path" type="string">
+      Full filesystem path.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/memory/files
+```
+
+```json
+{
+  "files": [
+    {
+      "name": "architecture.md",
+      "type": "knowledge",
+      "description": "Project architecture decisions",
+      "lastModified": 1712233200000,
+      "path": "/Users/dev/.claude/memory/a1b2c3d4e5f6/architecture.md"
+    },
+    {
+      "name": "patterns.md",
+      "type": "knowledge",
+      "description": "Code patterns and conventions",
+      "lastModified": 1712150400000,
+      "path": "/Users/dev/.claude/memory/a1b2c3d4e5f6/patterns.md"
+    }
+  ],
+  "total": 2
+}
+```
+
+---
+
+### Read Memory File
+
+```
+GET /api/v1/config/memory/files/{name}
+```
+
+<ParamField path="name" type="string" required>
+  Memory file name (e.g., `architecture.md`).
+</ParamField>
+
+Returns the full content of a specific memory file.
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `404` | `MEMORY_FILE_NOT_FOUND` | No memory file with this name |
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/memory/files/architecture.md
+```
+
+---
+
+### List All Project Memories
+
+```
+GET /api/v1/config/memory/projects
+```
+
+Lists memory directories for all projects the user has worked on.
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/memory/projects
+```
+
+```json
+{
+  "projects": [
+    {
+      "projectKey": "a1b2c3d4e5f6",
+      "memoryDir": "/Users/dev/.claude/memory/a1b2c3d4e5f6",
+      "fileCount": 3
+    },
+    {
+      "projectKey": "x7y8z9w0v1u2",
+      "memoryDir": "/Users/dev/.claude/memory/x7y8z9w0v1u2",
+      "fileCount": 1
+    }
+  ],
+  "total": 2
+}
+```
+
+---
+
+## CLAUDE.md Files
+
+### List CLAUDE.md Files
+
+```
+GET /api/v1/config/claude-md
+```
+
+Discovers all `CLAUDE.md` files in the project hierarchy (project root, parent directories, user home).
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/claude-md
+```
+
+```json
+{
+  "files": [
+    {
+      "path": "/Users/dev/my-project/CLAUDE.md",
+      "scope": "project",
+      "content": "# Project Instructions\n\nThis is a TypeScript project using Fastify..."
+    },
+    {
+      "path": "/Users/dev/.claude/CLAUDE.md",
+      "scope": "user",
+      "content": "# Global Instructions\n\nAlways use TypeScript strict mode..."
+    }
+  ],
+  "total": 2
+}
+```
+
+### CLI Output
+
+```
+Memory Index:
+
+# Project Memory
+
+- Architecture: Fastify + TypeScript
+- Testing: Vitest
+- Key patterns: Zod validation, event-driven hooks
+
+Memory Files:
+  Name              Type       Last Modified
+  architecture.md   knowledge  2026-04-04
+  patterns.md       knowledge  2026-04-03
+```

@@ -1,0 +1,80 @@
+---
+title: "Resume Session"
+api: "POST /api/v1/sessions/{id}/resume"
+description: "Resume an existing session with a follow-up prompt, continuing the prior conversation."
+---
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  The session ID to resume.
+</ParamField>
+
+## Request Body
+
+<ParamField body="prompt" type="string" required>
+  The follow-up prompt or instruction to continue the session with.
+</ParamField>
+
+<ParamField body="maxTurns" type="integer">
+  Maximum number of additional conversation turns.
+</ParamField>
+
+## Response
+
+<ResponseField name="sessionId" type="string" required>
+  The session ID that was resumed.
+</ResponseField>
+
+<ResponseField name="result" type="string">
+  The text output from the resumed session.
+</ResponseField>
+
+<ResponseField name="costUsd" type="number">
+  Cost in USD for this resumption.
+</ResponseField>
+
+<ResponseField name="durationMs" type="number">
+  Duration in milliseconds for this resumption.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `400` | `VALIDATION_ERROR` | Invalid request body |
+| `500` | `SESSION_RESUME_ERROR` | Failed to resume the session (e.g., session files not found) |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/sessions/01JQ8X7KBMN/resume \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Now add tests for the validation logic you just wrote",
+    "maxTurns": 5
+  }'
+```
+
+```bash CLI
+ccm sessions resume 01JQ8X7KBMN --prompt "Now add tests for the validation logic"
+```
+
+```bash CLI (with streaming)
+ccm sessions resume 01JQ8X7KBMN --prompt "Add tests" --stream
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "sessionId": "01JQ8X7KBMN...",
+  "result": "I've created test cases covering all validation scenarios...",
+  "costUsd": 0.028,
+  "durationMs": 32100
+}
+```

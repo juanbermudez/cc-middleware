@@ -1,0 +1,189 @@
+---
+title: "API Overview"
+description: "Base URL, error handling, authentication, pagination, and WebSocket connection details for the CC-Middleware API."
+---
+
+## Base URL
+
+All API endpoints are served from the middleware server, which defaults to:
+
+```
+http://127.0.0.1:3000
+```
+
+Every REST endpoint is prefixed with `/api/v1/`. For example, listing sessions is available at `GET http://127.0.0.1:3000/api/v1/sessions`.
+
+You can change the port when starting the server:
+
+```bash
+ccm server start --port 4000
+```
+
+## Authentication
+
+The middleware server binds to `127.0.0.1` (localhost only) by default. There is no authentication layer -- the server is designed to be accessed locally by the developer or by local tooling. Do not expose the server to a public network without adding your own authentication proxy.
+
+## Error Format
+
+All errors follow a consistent JSON structure:
+
+```json
+{
+  "error": {
+    "code": "SESSION_NOT_FOUND",
+    "message": "Session abc123 not found",
+    "details": null
+  }
+}
+```
+
+<ResponseField name="error.code" type="string" required>
+  A machine-readable error code such as `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`, `SESSION_NOT_FOUND`, `AGENT_NOT_FOUND`, etc.
+</ResponseField>
+
+<ResponseField name="error.message" type="string" required>
+  A human-readable error description.
+</ResponseField>
+
+<ResponseField name="error.details" type="object">
+  Additional details, typically Zod validation issues for `VALIDATION_ERROR` responses.
+</ResponseField>
+
+### Common HTTP Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| `200` | Success |
+| `201` | Created (new resource) |
+| `400` | Validation error in request body or parameters |
+| `404` | Resource not found |
+| `409` | Conflict (e.g., duplicate ID, session not in expected state) |
+| `500` | Internal server error |
+
+## Pagination
+
+List endpoints support pagination with `limit` and `offset` query parameters:
+
+<ParamField query="limit" type="integer" default="20">
+  Maximum number of results to return.
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Number of results to skip before returning.
+</ParamField>
+
+Paginated responses include a `total` field:
+
+```json
+{
+  "sessions": [...],
+  "total": 142
+}
+```
+
+## Health Check
+
+```
+GET /health
+```
+
+Returns server health status, version, and uptime:
+
+```json
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "uptime": 3600
+}
+```
+
+## Status Endpoint
+
+```
+GET /api/v1/status
+```
+
+Returns a summary of the middleware's current state:
+
+```json
+{
+  "activeSessions": 2,
+  "registeredAgents": 5,
+  "hookHandlerCount": 3,
+  "registeredEvents": ["PreToolUse", "PostToolUse", "SessionStart"],
+  "pendingPermissions": 1,
+  "pendingQuestions": 0,
+  "policyRuleCount": 4
+}
+```
+
+## WebSocket
+
+Connect to the WebSocket endpoint for real-time events:
+
+```
+ws://127.0.0.1:3000/api/v1/ws
+```
+
+### Client Messages
+
+<CodeGroup>
+
+```json Subscribe to Events
+{ "type": "subscribe", "events": ["session:*", "hook:PreToolUse"] }
+```
+
+```json Unsubscribe
+{ "type": "unsubscribe", "events": ["hook:PreToolUse"] }
+```
+
+```json Launch Session
+{
+  "type": "launch",
+  "options": {
+    "prompt": "Refactor the auth module",
+    "allowedTools": ["Read", "Edit", "Bash"]
+  }
+}
+```
+
+```json Resume Session
+{ "type": "resume", "sessionId": "abc-123", "prompt": "Continue with tests" }
+```
+
+</CodeGroup>
+
+### Server Messages
+
+| Type | Description |
+|------|-------------|
+| `session:started` | A new session has started |
+| `session:stream` | Streaming output from the session (text deltas, tool use) |
+| `session:completed` | Session finished successfully |
+| `session:errored` | Session encountered an error |
+| `hook:event` | A hook event was emitted (PreToolUse, PostToolUse, etc.) |
+| `permission:pending` | A permission request needs resolution |
+| `question:pending` | A user question needs answering |
+
+```json Example: session:stream
+{
+  "type": "session:stream",
+  "sessionId": "sess_abc123",
+  "event": {
+    "type": "text_delta",
+    "text": "I'll start by reading the file..."
+  }
+}
+```
+
+```json Example: hook:event
+{
+  "type": "hook:event",
+  "eventType": "PreToolUse",
+  "input": {
+    "toolName": "Bash",
+    "toolInput": { "command": "rm -rf /tmp/test" },
+    "sessionId": "sess_abc123"
+  }
+}
+```

@@ -1,0 +1,128 @@
+---
+title: "Search Sessions"
+api: "GET /api/v1/search"
+description: "Full-text search across session content with filtering by project, date range, tags, and status."
+---
+
+## Query Parameters
+
+<ParamField query="q" type="string" default="">
+  Search query string. Searches across session prompts, messages, and summaries.
+</ParamField>
+
+<ParamField query="project" type="string">
+  Filter results to a specific project directory.
+</ParamField>
+
+<ParamField query="dateFrom" type="number">
+  Unix timestamp (milliseconds). Only return sessions created after this time.
+</ParamField>
+
+<ParamField query="dateTo" type="number">
+  Unix timestamp (milliseconds). Only return sessions created before this time.
+</ParamField>
+
+<ParamField query="tags" type="string">
+  Comma-separated list of tags to filter by.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by session status: `completed`, `running`, `errored`, `aborted`.
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+  Maximum number of results.
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Number of results to skip.
+</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array" required>
+  Array of search result objects.
+  <Expandable title="Search result object">
+    <ResponseField name="sessionId" type="string">
+      The matching session ID.
+    </ResponseField>
+    <ResponseField name="score" type="number">
+      Relevance score (higher is more relevant).
+    </ResponseField>
+    <ResponseField name="highlight" type="string">
+      Snippet of matching text with highlights.
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      Session creation timestamp.
+    </ResponseField>
+    <ResponseField name="summary" type="string">
+      Session summary.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of matching sessions.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl (basic search)
+curl "http://127.0.0.1:3000/api/v1/search?q=error+handling"
+```
+
+```bash curl (with filters)
+curl "http://127.0.0.1:3000/api/v1/search?q=refactor&project=/Users/dev/my-project&status=completed&limit=10"
+```
+
+```bash curl (date range)
+curl "http://127.0.0.1:3000/api/v1/search?q=tests&dateFrom=1712102400000&dateTo=1712188800000"
+```
+
+```bash CLI
+ccm sessions search "error handling"
+```
+
+```bash CLI (with filters)
+ccm sessions search "refactor" --project /Users/dev/my-project --limit 10
+```
+
+```bash CLI (date range)
+ccm sessions search "tests" --from 2026-04-01 --to 2026-04-04
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "results": [
+    {
+      "sessionId": "01JQ8X7KBMN...",
+      "score": 0.95,
+      "highlight": "Added comprehensive <em>error handling</em> to all route handlers...",
+      "createdAt": "2026-04-04T10:30:00.000Z",
+      "summary": "Added try/catch blocks and error response formatting"
+    },
+    {
+      "sessionId": "01JQ7Y8LABC...",
+      "score": 0.72,
+      "highlight": "Implemented <em>error handling</em> middleware for the Express app...",
+      "createdAt": "2026-04-03T14:15:00.000Z",
+      "summary": "Created global error handling middleware"
+    }
+  ],
+  "total": 2
+}
+```
+
+### CLI Output
+
+```
+  ID        Score  Created              Highlight
+  01JQ8X7K  0.95   2026-04-04 10:30 AM  Added comprehensive error handling to...
+  01JQ7Y8L  0.72   2026-04-03 02:15 PM  Implemented error handling middleware...
+```

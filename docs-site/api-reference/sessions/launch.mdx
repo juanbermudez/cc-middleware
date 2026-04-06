@@ -1,0 +1,135 @@
+---
+title: "Launch Session"
+api: "POST /api/v1/sessions"
+description: "Launch a new headless Claude Code session with the given prompt and options."
+---
+
+## Request Body
+
+<ParamField body="prompt" type="string" required>
+  The prompt or task description for Claude to work on.
+</ParamField>
+
+<ParamField body="allowedTools" type="string[]">
+  List of tools the session is allowed to use (e.g., `["Read", "Edit", "Bash"]`). If omitted, all tools are available.
+</ParamField>
+
+<ParamField body="disallowedTools" type="string[]">
+  List of tools the session is not allowed to use. Takes precedence over `allowedTools`.
+</ParamField>
+
+<ParamField body="permissionMode" type="string">
+  How to handle permission requests. One of:
+  - `default` -- Standard interactive approval
+  - `acceptEdits` -- Auto-accept file edits, ask for others
+  - `plan` -- Plan only, no tool execution
+  - `dontAsk` -- Skip tools that would require permission
+  - `bypassPermissions` -- Allow everything without asking
+  - `auto` -- Fully autonomous mode
+</ParamField>
+
+<ParamField body="maxTurns" type="integer">
+  Maximum number of conversation turns before stopping.
+</ParamField>
+
+<ParamField body="maxBudgetUsd" type="number">
+  Maximum cost in USD before stopping the session.
+</ParamField>
+
+<ParamField body="systemPrompt" type="string">
+  Additional system prompt to prepend to the conversation.
+</ParamField>
+
+<ParamField body="cwd" type="string">
+  Working directory for the session. Defaults to the server's working directory.
+</ParamField>
+
+<ParamField body="effort" type="string">
+  Effort level: `low`, `medium`, `high`, or `max`.
+</ParamField>
+
+<ParamField body="agent" type="string">
+  Name of a registered agent to use for this session.
+</ParamField>
+
+## Response
+
+The response contains the session result after the session completes.
+
+<ResponseField name="sessionId" type="string" required>
+  The unique ID of the launched session.
+</ResponseField>
+
+<ResponseField name="result" type="string">
+  The final text output from the session.
+</ResponseField>
+
+<ResponseField name="costUsd" type="number">
+  Total cost in USD for the session.
+</ResponseField>
+
+<ResponseField name="durationMs" type="number">
+  Total duration in milliseconds.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `400` | `VALIDATION_ERROR` | Invalid request body (missing prompt, invalid enum values, etc.) |
+| `500` | `SESSION_LAUNCH_ERROR` | Failed to start the Claude Code session |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl (basic)
+curl -X POST http://127.0.0.1:3000/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Add input validation to the user registration endpoint"
+  }'
+```
+
+```bash curl (with options)
+curl -X POST http://127.0.0.1:3000/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Refactor the database module",
+    "allowedTools": ["Read", "Edit", "Bash"],
+    "permissionMode": "acceptEdits",
+    "maxTurns": 10,
+    "maxBudgetUsd": 0.50,
+    "cwd": "/Users/dev/my-project"
+  }'
+```
+
+```bash CLI
+ccm sessions launch "Add input validation to the user registration endpoint"
+```
+
+```bash CLI (with streaming)
+ccm sessions launch "Refactor the database module" \
+  --stream --tools Read,Edit,Bash --max-turns 10
+```
+
+```bash CLI (with agent)
+ccm sessions launch "Fix the failing tests" --agent test-fixer
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "sessionId": "01JQ8X7KBMN...",
+  "result": "I've added Zod validation schemas to the registration endpoint...",
+  "costUsd": 0.035,
+  "durationMs": 45200
+}
+```
+
+<Note>
+  For real-time output streaming, use the `--stream` flag with the CLI or connect via [WebSocket](/api-reference/overview#websocket) and send a `launch` message.
+</Note>

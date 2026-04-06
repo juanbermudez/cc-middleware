@@ -1,0 +1,151 @@
+---
+title: "CLI Overview"
+description: "Installation, global flags, auto-start behavior, and tab completion for the ccm command-line tool."
+---
+
+The `ccm` CLI provides a terminal-native interface for the CC-Middleware API. Every command talks to the middleware REST/WebSocket API -- the CLI never imports middleware internals or calls the Agent SDK directly.
+
+## Installation
+
+<Tabs>
+  <Tab title="npm (global)">
+    ```bash
+    npm install -g cc-middleware
+    ccm --version
+    ```
+  </Tab>
+  <Tab title="npx (one-off)">
+    ```bash
+    npx ccm --version
+    ```
+  </Tab>
+  <Tab title="From source">
+    ```bash
+    git clone https://github.com/cc-middleware/cc-middleware.git
+    cd cc-middleware
+    npm install
+    npm link
+    ccm --version
+    ```
+  </Tab>
+</Tabs>
+
+## Global Flags
+
+These flags are available on every `ccm` command:
+
+| Flag | Short | Description | Default |
+|------|-------|-------------|---------|
+| `--json` | `-j` | Output as JSON instead of formatted text | `false` |
+| `--server <url>` | `-s` | Middleware server URL | `http://127.0.0.1:3000` |
+| `--verbose` | `-v` | Show detailed output (request/response details) | `false` |
+| `--no-color` | | Disable colored terminal output | `false` |
+| `--auto-start` | | Auto-start the server if not running | `false` |
+
+### Server URL
+
+The server URL can also be set via the `CCM_SERVER_URL` environment variable:
+
+```bash
+export CCM_SERVER_URL=http://127.0.0.1:4000
+ccm sessions list  # uses port 4000
+```
+
+The priority is: `--server` flag > `CCM_SERVER_URL` env var > default (`http://127.0.0.1:3000`).
+
+## Auto-Start
+
+By default, if the middleware server is not running, commands will fail with an error. Use `--auto-start` to have the CLI start the server automatically:
+
+```bash
+# Will start the server if needed, then list sessions
+ccm --auto-start sessions list
+```
+
+You can also set this permanently with an alias:
+
+```bash
+alias ccm='ccm --auto-start'
+```
+
+When auto-starting, the CLI:
+1. Checks if the server is reachable via the health endpoint
+2. If not, spawns the server as a background process
+3. Waits up to 10 seconds for the server to become ready
+4. Then executes the requested command
+
+## Output Modes
+
+### Human-Friendly (default)
+
+The default output uses colored tables, key-value formatting, and spinners:
+
+```
+$ ccm sessions list
+
+  ID        Created              Status     First Prompt
+  01JQ8X7K  2026-04-04 10:30 AM  completed  Add error handling to the API routes
+  01JQ8W6J  2026-04-04 09:15 AM  completed  Write unit tests for the session manager
+
+  Showing 1-2 of 42 sessions
+```
+
+### JSON Mode (`--json`)
+
+Use `-j` or `--json` for machine-parseable output, suitable for piping to `jq` or other tools:
+
+```bash
+$ ccm sessions list --json | jq '.sessions[0].sessionId'
+"01JQ8X7KBMN..."
+```
+
+```bash
+# Count active sessions
+ccm sessions list --json | jq '.total'
+```
+
+## Tab Completion
+
+Install shell completions for your shell:
+
+<Tabs>
+  <Tab title="Bash">
+    ```bash
+    ccm completion bash >> ~/.bashrc
+    source ~/.bashrc
+    ```
+  </Tab>
+  <Tab title="Zsh">
+    ```bash
+    ccm completion zsh >> ~/.zshrc
+    source ~/.zshrc
+    ```
+  </Tab>
+  <Tab title="Fish">
+    ```bash
+    ccm completion fish > ~/.config/fish/completions/ccm.fish
+    ```
+  </Tab>
+</Tabs>
+
+After installation, press `<Tab>` to autocomplete commands and options:
+
+```
+$ ccm se<Tab>
+sessions  server
+
+$ ccm sessions <Tab>
+launch  list  resume  search  show  stream
+```
+
+## Command Groups
+
+| Command Group | Description |
+|---------------|-------------|
+| [`ccm server`](/cli/server) | Start, stop, and check server status |
+| [`ccm sessions`](/cli/sessions) | List, launch, resume, stream, and search sessions |
+| [`ccm hooks`](/cli/hooks) | Listen to hook events and list subscriptions |
+| [`ccm agents`](/cli/agents) | Manage agent definitions |
+| [`ccm teams`](/cli/agents#teams) | Manage agent teams |
+| [`ccm permissions`](/cli/permissions) | Manage permission policies and pending requests |
+| [`ccm config`](/cli/config) | View and modify configuration, plugins, MCP, memory |

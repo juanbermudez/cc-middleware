@@ -1,0 +1,207 @@
+---
+title: "Permissions"
+description: "Policy engine, canUseTool, and AskUserQuestion handling"
+---
+
+# Permissions
+
+The permission system provides programmatic control over tool approvals and user question handling. It implements the Agent SDK's `canUseTool` callback with a policy engine, event-based approval, and external resolution support.
+
+## Permission Flow
+
+When Claude Code attempts to use a tool, the permission system evaluates the request through a multi-stage pipeline:
+
+```
+Tool call arrives
+  |
+  +-- PolicyEngine.evaluate()
+  |    +-- allow  -->  return { behavior: "allow" }
+  |    +-- deny   -->  return { behavior: "deny", message: "..." }
+  |    +-- ask    -->  continue to event-based flow
+  |
+  +-- Emit PermissionRequest event on bus
+  |    +-- If event handler responds  -->  return its result
+  |
+  +-- Create PendingPermission
+  |    +-- Wait for external resolution (with timeout)
+  |
+  +-- Timeout  -->  deny with message
+```
+
+## Policy Engine
+
+The policy engine evaluates rules in priority order (lower priority number = higher precedence). The first matching rule wins.
+
+### Rule Structure
+
+```typescript
+{
+  id: "allow-read",           // Unique identifier
+  toolName: "Read",           // Regex pattern matching tool name
+  behavior: "allow",          // "allow" or "deny"
+  priority: 1                 // Lower = higher precedence
+}
+```
+
+### Bash Command Conditions
+
+For the Bash tool, conditions can specify command patterns:
+
+```typescript
+{
+  id: "deny-rm",
+  toolName: "Bash",
+  behavior: "deny",
+  condition: "Bash(rm *)",    // Deny rm commands
+  priority: 1
+}
+```
+
+### Default Behavior
+
+If no rule matches, the `defaultBehavior` applies. It is set when creating the policy engine and can be `"allow"`, `"deny"`, or `"ask"`. The server defaults to `"ask"`.
+
+<CodeGroup>
+```bash List policies
+curl http://127.0.0.1:3000/api/v1/permissions/policies
+```
+
+```bash Add a rule
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "allow-read-glob-grep",
+    "toolName": "Read|Glob|Grep",
+    "behavior": "allow",
+    "priority": 1
+  }'
+```
+
+```bash Remove a rule
+curl -X DELETE http://127.0.0.1:3000/api/v1/permissions/policies/allow-read-glob-grep
+```
+
+```bash CLI - Add rule
+ccm permissions add --action allow --pattern "Read" --priority 1
+```
+
+```bash CLI - List
+ccm permissions list
+```
+</CodeGroup>
+
+## Pending Permissions
+
+When the policy engine returns `"ask"` or no rule matches (and the default is `"ask"`), the system creates a **pending permission request**. These queue up for external resolution via the API or CLI.
+
+<CodeGroup>
+```bash List pending
+curl http://127.0.0.1:3000/api/v1/permissions/pending
+```
+
+```bash Approve
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/pending/{id}/resolve \
+  -H "Content-Type: application/json" \
+  -d '{"behavior": "allow"}'
+```
+
+```bash Deny
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/pending/{id}/resolve \
+  -H "Content-Type: application/json" \
+  -d '{"behavior": "deny", "message": "Not authorized for this operation"}'
+```
+
+```bash CLI - View pending
+ccm permissions pending
+```
+
+```bash CLI - Approve
+ccm permissions approve {id}
+```
+
+```bash CLI - Deny
+ccm permissions deny {id} --message "Not authorized"
+```
+</CodeGroup>
+
+Each pending permission includes:
+
+| Field | Description |
+|-------|-------------|
+| `id` | Unique request identifier |
+| `toolName` | Name of the tool being requested |
+| `toolUseID` | SDK tool use ID |
+| `agentID` | Agent making the request |
+| `createdAt` | Timestamp of the request |
+| `input` | Tool input parameters |
+
+<Tip>
+  Pending permissions are also broadcast via WebSocket as `permission:pending` events, so you can build real-time approval UIs.
+</Tip>
+
+## AskUserQuestion
+
+When Claude uses the `AskUserQuestion` tool, it is handled separately from regular tool permissions.
+
+The AskUserQuestion manager supports three resolution strategies, tried in order:
+
+<Steps>
+  <Step title="Registered handler">
+    A programmatic handler registered in code that can answer questions automatically.
+  </Step>
+  <Step title="Default answers">
+    Pre-configured answers for common question patterns.
+  </Step>
+  <Step title="External resolution">
+    The question becomes a pending item that can be answered via the API.
+  </Step>
+</Steps>
+
+If none of these resolve the question within the timeout period, it is denied.
+
+<CodeGroup>
+```bash List pending questions
+curl http://127.0.0.1:3000/api/v1/permissions/questions
+```
+
+```bash Answer a question
+curl -X POST http://127.0.0.1:3000/api/v1/permissions/questions/{id}/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "answers": {
+      "What framework should I use?": "Use React with TypeScript"
+    }
+  }'
+```
+</CodeGroup>
+
+## Integration with the Event Bus
+
+Permission requests emit `PermissionRequest` events on the event bus before creating a pending permission. If a registered event handler responds with a decision, that decision is used immediately without creating a pending request.
+
+This allows you to implement programmatic permission logic that runs inline:
+
+```typescript
+eventBus.on("PermissionRequest", (input) => {
+  // Auto-approve Read tools
+  if (input.toolName === "Read") {
+    return { behavior: "allow" };
+  }
+  // Let everything else go to pending
+  return undefined;
+});
+```
+
+Permission denials also emit `PermissionDenied` events for observability.
+
+## API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/permissions/policies` | GET | List all policy rules |
+| `/api/v1/permissions/policies` | POST | Add a policy rule |
+| `/api/v1/permissions/policies/:id` | DELETE | Remove a policy rule |
+| `/api/v1/permissions/pending` | GET | List pending permission requests |
+| `/api/v1/permissions/pending/:id/resolve` | POST | Resolve a pending request |
+| `/api/v1/permissions/questions` | GET | List pending questions |
+| `/api/v1/permissions/questions/:id/answer` | POST | Answer a pending question |

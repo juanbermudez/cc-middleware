@@ -1,0 +1,83 @@
+---
+title: "List Subscriptions"
+api: "GET /api/v1/events/subscriptions"
+description: "List all active webhook subscriptions."
+---
+
+## Response
+
+<ResponseField name="subscriptions" type="array" required>
+  Array of active webhook subscriptions.
+  <Expandable title="Subscription object">
+    <ResponseField name="id" type="string">
+      Unique subscription identifier.
+    </ResponseField>
+    <ResponseField name="url" type="string">
+      The webhook delivery URL.
+    </ResponseField>
+    <ResponseField name="events" type="string[]">
+      Event types this subscription listens for.
+    </ResponseField>
+    <ResponseField name="createdAt" type="number">
+      Unix timestamp (milliseconds) when the subscription was created.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of active subscriptions.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/events/subscriptions
+```
+
+```bash CLI
+ccm hooks list
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "subscriptions": [
+    {
+      "id": "sub_01JQ8Z9NKPR...",
+      "url": "http://localhost:8080/hooks",
+      "events": ["PreToolUse", "PostToolUse"],
+      "createdAt": 1712233200000
+    },
+    {
+      "id": "sub_01JQ8Z4ABCD...",
+      "url": "http://localhost:9090/all-events",
+      "events": ["*"],
+      "createdAt": 1712230000000
+    }
+  ],
+  "total": 2
+}
+```
+
+### CLI Output
+
+```
+Event Types:
+  PreToolUse
+  PostToolUse
+  SessionStart
+  SessionEnd
+  Notification
+  Stop
+  SubagentStop
+
+Active Subscriptions:
+  ID        URL                             Events
+  sub_01JQ  http://localhost:8080/hooks      PreToolUse, PostToolUse
+  sub_01JQ  http://localhost:9090/all-eve..  *
+```

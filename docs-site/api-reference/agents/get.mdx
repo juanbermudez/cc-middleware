@@ -1,0 +1,95 @@
+---
+title: "Get Agent"
+api: "GET /api/v1/agents/{name}"
+description: "Retrieve full details for a specific agent, including its prompt."
+---
+
+## Path Parameters
+
+<ParamField path="name" type="string" required>
+  The agent name to look up.
+</ParamField>
+
+## Response
+
+<ResponseField name="name" type="string" required>
+  The agent's unique name.
+</ResponseField>
+
+<ResponseField name="description" type="string" required>
+  Human-readable description.
+</ResponseField>
+
+<ResponseField name="prompt" type="string" required>
+  The system prompt / instructions for this agent.
+</ResponseField>
+
+<ResponseField name="source" type="string" required>
+  Origin: `filesystem` or `runtime`.
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  The model this agent uses.
+</ResponseField>
+
+<ResponseField name="tools" type="string[]">
+  Allowed tools.
+</ResponseField>
+
+<ResponseField name="disallowedTools" type="string[]">
+  Disallowed tools.
+</ResponseField>
+
+<ResponseField name="maxTurns" type="integer">
+  Maximum turns.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `404` | `AGENT_NOT_FOUND` | No agent found with this name |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/agents/test-writer
+```
+
+```bash CLI
+ccm agents show test-writer
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "name": "test-writer",
+  "description": "Writes and maintains test suites",
+  "prompt": "You are a test engineer. Given a source file, write comprehensive unit tests covering all edge cases. Use the project's existing test framework and patterns.",
+  "source": "filesystem",
+  "model": "claude-sonnet-4-20250514",
+  "tools": ["Read", "Edit", "Bash"],
+  "disallowedTools": [],
+  "maxTurns": 15
+}
+```
+
+### CLI Output
+
+```
+  Name:         test-writer
+  Source:       filesystem
+  Model:        claude-sonnet-4-20250514
+  Description:  Writes and maintains test suites
+  Tools:        Read, Edit, Bash
+
+Prompt:
+You are a test engineer. Given a source file, write comprehensive
+unit tests covering all edge cases. Use the project's existing
+test framework and patterns.
+```

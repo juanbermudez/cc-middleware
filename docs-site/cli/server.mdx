@@ -1,0 +1,164 @@
+---
+title: "ccm server"
+description: "Start, stop, and check the status of the CC-Middleware server."
+---
+
+## ccm server start
+
+Start the middleware server as a background daemon or in the foreground.
+
+```bash
+ccm server start [options]
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--port <port>` | Server port number | `3000` |
+| `--foreground` | Run in foreground (blocks terminal) | `false` |
+
+### Examples
+
+```bash
+# Start with default settings (background, port 3000)
+ccm server start
+```
+
+```
+Server started on http://127.0.0.1:3000 (PID: 48291)
+```
+
+```bash
+# Start on a custom port
+ccm server start --port 4000
+```
+
+```bash
+# Start in foreground (useful for debugging)
+ccm server start --foreground
+```
+
+```
+Starting server on port 3000 (foreground)...
+```
+
+```bash
+# Start and get JSON output
+ccm server start --json
+```
+
+```json
+{ "status": "started", "url": "http://127.0.0.1:3000", "pid": 48291 }
+```
+
+If the server is already running, you will see:
+
+```
+Server is already running on http://127.0.0.1:3000 (PID: 48291)
+```
+
+### API Equivalent
+
+There is no API equivalent -- this command manages the server process itself.
+
+---
+
+## ccm server stop
+
+Stop the running middleware server.
+
+```bash
+ccm server stop
+```
+
+The server is stopped gracefully with `SIGTERM`. If it does not exit within 5 seconds, `SIGKILL` is used as a fallback. The PID file is cleaned up automatically.
+
+### Examples
+
+```bash
+ccm server stop
+```
+
+```
+Server stopped (PID: 48291)
+```
+
+```bash
+ccm server stop --json
+```
+
+```json
+{ "status": "stopped", "pid": 48291 }
+```
+
+If the server is not running:
+
+```
+Server is not running (no PID file found)
+```
+
+---
+
+## ccm server status
+
+Show the current server status, including health info and middleware statistics.
+
+```bash
+ccm server status
+```
+
+### Examples
+
+```bash
+ccm server status
+```
+
+```
+  Status:              running
+  URL:                 http://127.0.0.1:3000
+  PID:                 48291
+  activeSessions:      2
+  registeredAgents:    5
+  hookHandlerCount:    3
+  pendingPermissions:  1
+  pendingQuestions:    0
+  policyRuleCount:     4
+```
+
+```bash
+ccm server status --json
+```
+
+```json
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "uptime": 3600,
+  "url": "http://127.0.0.1:3000",
+  "pid": 48291,
+  "activeSessions": 2,
+  "registeredAgents": 5,
+  "hookHandlerCount": 3,
+  "registeredEvents": ["PreToolUse", "PostToolUse", "SessionStart"],
+  "pendingPermissions": 1,
+  "pendingQuestions": 0,
+  "policyRuleCount": 4
+}
+```
+
+If the server is not running, the command exits with code 1:
+
+```
+Server is not running
+```
+
+### API Equivalent
+
+```bash
+# Health check
+curl http://127.0.0.1:3000/health
+
+# Full status
+curl http://127.0.0.1:3000/api/v1/status
+```

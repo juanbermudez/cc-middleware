@@ -1,0 +1,225 @@
+---
+title: "Settings"
+description: "Read and write Claude Code configuration settings across user, project, local, and managed scopes."
+---
+
+Settings are organized into four scopes, listed by priority (highest to lowest):
+
+| Scope | Description | Writable |
+|-------|-------------|----------|
+| `local` | Machine-specific overrides (gitignored) | Yes |
+| `project` | Project-level settings (committed to repo) | Yes |
+| `user` | User-wide settings | Yes |
+| `managed` | Enterprise-managed settings | No |
+
+The merged effective settings combine all scopes, with higher-priority scopes overriding lower ones.
+
+---
+
+## Get Merged Settings
+
+```
+GET /api/v1/config/settings
+```
+
+Returns the fully merged effective settings from all scopes.
+
+### Response
+
+The response is the merged settings object. When provenance tracking is available, each key includes which scope it came from.
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/config/settings
+```
+
+```bash CLI
+ccm config show
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "settings": {
+    "model": "claude-sonnet-4-20250514",
+    "permissions": {
+      "allow": ["Read", "Edit"],
+      "deny": ["Bash(rm -rf *)"]
+    },
+    "maxTurns": 20,
+    "apiKey": "sk-ant-..."
+  },
+  "provenance": {
+    "model": "project",
+    "permissions.allow": "user",
+    "permissions.deny": "managed",
+    "maxTurns": "local",
+    "apiKey": "user"
+  }
+}
+```
+
+### CLI Output
+
+```
+Effective Settings (merged)
+
+  Key                  Value                       Source
+  model                claude-sonnet-4-20250514    project
+  permissions.allow    Read, Edit                  user
+  permissions.deny     Bash(rm -rf *)              managed
+  maxTurns             20                          local
+  apiKey               sk-ant-...                  user
+```
+
+---
+
+## Get Scope Settings
+
+```
+GET /api/v1/config/settings/{scope}
+```
+
+Returns settings for a single scope.
+
+<ParamField path="scope" type="string" required>
+  One of: `user`, `project`, `local`, `managed`.
+</ParamField>
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:3000/api/v1/config/settings/project
+```
+
+```bash CLI
+ccm config show --scope project
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "scope": "project",
+  "exists": true,
+  "content": {
+    "model": "claude-sonnet-4-20250514",
+    "permissions": {
+      "allow": ["Read", "Edit"]
+    }
+  }
+}
+```
+
+---
+
+## Update Setting
+
+```
+PUT /api/v1/config/settings/{scope}
+```
+
+Update a setting value in a writable scope.
+
+<ParamField path="scope" type="string" required>
+  Writable scope: `user`, `project`, or `local`. Cannot write to `managed`.
+</ParamField>
+
+<ParamField body="key" type="string" required>
+  Dot-notation path to the setting (e.g., `"model"`, `"permissions.allow"`).
+</ParamField>
+
+<ParamField body="value" type="any" required>
+  The new value. Can be a string, number, boolean, array, or object.
+</ParamField>
+
+<CodeGroup>
+
+```bash curl
+curl -X PUT http://127.0.0.1:3000/api/v1/config/settings/project \
+  -H "Content-Type: application/json" \
+  -d '{ "key": "model", "value": "claude-sonnet-4-20250514" }'
+```
+
+```bash CLI
+ccm config set model "claude-sonnet-4-20250514" --scope project
+```
+
+</CodeGroup>
+
+---
+
+## Add Permission Rule (to settings file)
+
+```
+POST /api/v1/config/settings/{scope}/permissions
+```
+
+Add a permission rule to a scope's settings file.
+
+<ParamField path="scope" type="string" required>
+  Writable scope: `user`, `project`, or `local`.
+</ParamField>
+
+<ParamField body="rule" type="string" required>
+  The tool name or pattern for the rule (e.g., `"Read"`, `"Bash(npm *)"`, `"Edit"`).
+</ParamField>
+
+<ParamField body="behavior" type="string" required>
+  One of: `"allow"`, `"deny"`, `"ask"`.
+</ParamField>
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/config/settings/project/permissions \
+  -H "Content-Type: application/json" \
+  -d '{ "rule": "Read", "behavior": "allow" }'
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "added",
+  "rule": "Read",
+  "behavior": "allow",
+  "scope": "project"
+}
+```
+
+---
+
+## Remove Permission Rule (from settings file)
+
+```
+DELETE /api/v1/config/settings/{scope}/permissions
+```
+
+Remove a permission rule from a scope's settings file.
+
+<ParamField path="scope" type="string" required>
+  Writable scope: `user`, `project`, or `local`.
+</ParamField>
+
+<ParamField body="rule" type="string" required>
+  The tool name or pattern to remove.
+</ParamField>
+
+<ParamField body="behavior" type="string" required>
+  The behavior to remove: `"allow"`, `"deny"`, or `"ask"`.
+</ParamField>
+
+```bash
+curl -X DELETE http://127.0.0.1:3000/api/v1/config/settings/project/permissions \
+  -H "Content-Type: application/json" \
+  -d '{ "rule": "Read", "behavior": "allow" }'
+```

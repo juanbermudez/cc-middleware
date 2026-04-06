@@ -1,0 +1,170 @@
+---
+title: "ccm hooks"
+description: "Live-stream hook events and list event types and webhook subscriptions."
+---
+
+## ccm hooks listen
+
+Open a live connection to the middleware server and stream hook events as they occur. This is useful for monitoring what Claude Code sessions are doing in real-time.
+
+```bash
+ccm hooks listen [options]
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--events <types>` | Comma-separated event types to listen for | all (`hook:*`) |
+| `--session <id>` | Filter events to a specific session ID | |
+
+### Examples
+
+```bash
+# Listen to all hook events
+ccm hooks listen
+```
+
+```
+Listening for hook events... (Ctrl+C to stop)
+
+14:20:01  PreToolUse         Read         src/api/routes/sessions.ts
+14:20:02  PostToolUse        Read         (260 lines)
+14:20:03  PreToolUse         Edit         src/api/routes/sessions.ts
+14:20:05  PostToolUse        Edit         (success)
+14:20:06  PreToolUse         Bash         npm test
+14:20:12  PostToolUse        Bash         (exit: 0)
+```
+
+```bash
+# Listen only to PreToolUse events
+ccm hooks listen --events PreToolUse
+```
+
+```
+Listening for hook events... (Ctrl+C to stop)
+
+14:20:01  PreToolUse         Read         src/api/routes/sessions.ts
+14:20:03  PreToolUse         Edit         src/api/routes/sessions.ts
+14:20:06  PreToolUse         Bash         npm test
+```
+
+```bash
+# Filter by session
+ccm hooks listen --session 01JQ8X7K
+```
+
+```bash
+# Listen to specific event types
+ccm hooks listen --events PreToolUse,PostToolUse
+```
+
+Press `Ctrl+C` to stop listening. The connection uses WebSocket under the hood and will automatically reconnect if the connection drops.
+
+### Output Format
+
+Each line shows:
+
+```
+TIMESTAMP  EVENT_TYPE         TOOL_NAME    SUMMARY
+```
+
+- `PreToolUse` events are shown in yellow
+- `PostToolUse` events are shown in green
+- The summary shows either the tool input or session ID
+
+### API Equivalent
+
+Connect via WebSocket:
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: "subscribe",
+    events: ["hook:PreToolUse", "hook:PostToolUse"]
+  }));
+};
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === "hook:event") {
+    console.log(msg.eventType, msg.input);
+  }
+};
+```
+
+---
+
+## ccm hooks list
+
+List all available event types and active webhook subscriptions.
+
+```bash
+ccm hooks list
+```
+
+### Examples
+
+```bash
+ccm hooks list
+```
+
+```
+Event Types:
+  PreToolUse
+  PostToolUse
+  SessionStart
+  SessionEnd
+  Notification
+  Stop
+  SubagentStop
+
+Active Subscriptions:
+  ID        URL                             Events
+  sub_01JQ  http://localhost:8080/hooks      PreToolUse, PostToolUse
+  sub_01JQ  http://localhost:9090/all-eve..  *
+```
+
+If there are no subscriptions:
+
+```
+Event Types:
+  PreToolUse
+  PostToolUse
+  SessionStart
+  SessionEnd
+  Notification
+  Stop
+  SubagentStop
+
+Active Subscriptions:
+  No active subscriptions
+```
+
+```bash
+# JSON output
+ccm hooks list --json
+```
+
+```json
+{
+  "eventTypes": ["PreToolUse", "PostToolUse", "SessionStart", "SessionEnd", "Notification", "Stop", "SubagentStop"],
+  "subscriptions": [
+    {
+      "id": "sub_01JQ8Z9NKPR...",
+      "url": "http://localhost:8080/hooks",
+      "events": ["PreToolUse", "PostToolUse"]
+    }
+  ]
+}
+```
+
+### API Equivalent
+
+```bash
+# Event types
+curl http://127.0.0.1:3000/api/v1/events/types
+
+# Subscriptions
+curl http://127.0.0.1:3000/api/v1/events/subscriptions
+```

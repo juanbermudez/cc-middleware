@@ -1,0 +1,46 @@
+---
+title: "Delete Agent"
+api: "DELETE /api/v1/agents/{name}"
+description: "Remove a registered agent. Works for both runtime and filesystem-sourced agents."
+---
+
+## Path Parameters
+
+<ParamField path="name" type="string" required>
+  The agent name to remove.
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="string" required>
+  Always `"deleted"`.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  The name of the removed agent.
+</ResponseField>
+
+## Error Responses
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `404` | `AGENT_NOT_FOUND` | No agent found with this name |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE http://127.0.0.1:3000/api/v1/agents/code-reviewer
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "deleted",
+  "name": "code-reviewer"
+}
+```

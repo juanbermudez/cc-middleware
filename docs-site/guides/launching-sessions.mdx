@@ -1,0 +1,356 @@
+---
+title: "Launching Sessions"
+description: "Practical guide to launching Claude Code sessions via the API and CLI"
+---
+
+# Launching Sessions
+
+This guide covers all the ways to launch, resume, stream, and control Claude Code sessions through CC-Middleware.
+
+## Basic Launch
+
+The simplest way to launch a session is a single-turn prompt that runs to completion:
+
+<CodeGroup>
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Explain the difference between let and const in JavaScript"
+  }'
+```
+
+```bash CLI
+ccm sessions launch "Explain the difference between let and const in JavaScript"
+```
+
+```typescript SDK
+import { createSessionManager } from "cc-middleware/sessions";
+
+const manager = createSessionManager();
+const result = await manager.launch({
+  prompt: "Explain the difference between let and const in JavaScript",
+});
+
+console.log(result.result);       // The text output
+console.log(result.sessionId);    // Session ID for later resume
+console.log(result.costUsd);      // API cost
+console.log(result.durationMs);   // Wall-clock time
+```
+</CodeGroup>
+
+The response includes:
+
+```json
+{
+  "sessionId": "01abc123-def4-5678-9012-abcdef345678",
+  "result": "In JavaScript, `let` and `const` both declare block-scoped variables...",
+  "costUsd": 0.0032,
+  "durationMs": 1847
+}
+```
+
+## Launch Options
+
+<Tabs>
+  <Tab title="Permission Mode">
+    Control how Claude handles tool permissions:
+
+    ```json
+    {
+      "prompt": "Refactor the auth module",
+      "permissionMode": "plan"
+    }
+    ```
+
+    | Mode | Description |
+    |------|-------------|
+    | `default` | Normal permission prompts |
+    | `acceptEdits` | Auto-accept file edits, ask for everything else |
+    | `plan` | Claude explains what it would do without executing |
+    | `dontAsk` | Skip tools that need approval |
+    | `bypassPermissions` | Allow all tools without asking |
+    | `auto` | Auto-approve based on session context |
+  </Tab>
+
+  <Tab title="Tool Restrictions">
+    Limit which tools Claude can use:
+
+    ```json
+    {
+      "prompt": "Analyze the codebase structure",
+      "allowedTools": ["Read", "Glob", "Grep"],
+      "disallowedTools": ["Write", "Edit", "Bash"]
+    }
+    ```
+
+    Use `allowedTools` for a whitelist approach or `disallowedTools` for a blacklist approach. If both are specified, `allowedTools` takes precedence.
+  </Tab>
+
+  <Tab title="Limits">
+    Set boundaries on session execution:
+
+    ```json
+    {
+      "prompt": "Implement the new feature",
+      "maxTurns": 20,
+      "maxBudgetUsd": 0.50
+    }
+    ```
+
+    - **maxTurns**: Maximum number of conversation turns before stopping
+    - **maxBudgetUsd**: Maximum API cost before stopping
+  </Tab>
+
+  <Tab title="Agent">
+    Launch with a specific registered agent:
+
+    ```json
+    {
+      "prompt": "Review the authentication module",
+      "agent": "code-reviewer"
+    }
+    ```
+
+    The agent must be registered in the agent registry (either from filesystem or via API).
+  </Tab>
+
+  <Tab title="Custom System Prompt">
+    Override the system prompt:
+
+    ```json
+    {
+      "prompt": "What are the main files?",
+      "systemPrompt": "You are a codebase navigator. Only list file paths, no explanations.",
+      "effort": "low"
+    }
+    ```
+
+    The `effort` parameter controls response depth: `low`, `medium`, `high`, or `max`.
+  </Tab>
+
+  <Tab title="Working Directory">
+    Set the working directory for the session:
+
+    ```json
+    {
+      "prompt": "Describe this project",
+      "cwd": "/path/to/project"
+    }
+    ```
+
+    This affects which files Claude can access and which project settings apply.
+  </Tab>
+</Tabs>
+
+## Streaming
+
+For long-running sessions, streaming provides real-time output:
+
+<CodeGroup>
+```bash CLI
+ccm sessions launch "Implement a REST API for user management" --stream
+```
+
+```typescript WebSocket
+const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
+
+ws.onopen = () => {
+  // Subscribe to session events
+  ws.send(JSON.stringify({
+    type: "subscribe",
+    events: ["session:*"]
+  }));
+
+  // Launch with streaming
+  ws.send(JSON.stringify({
+    type: "launch",
+    options: {
+      prompt: "Implement a REST API for user management",
+      maxTurns: 15
+    }
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+
+  switch (msg.type) {
+    case "session:stream":
+      if (msg.event?.type === "text_delta") {
+        process.stdout.write(msg.event.text);
+      }
+      break;
+    case "session:completed":
+      console.log("\nDone!", msg.result);
+      ws.close();
+      break;
+    case "session:errored":
+      console.error("Error:", msg.error);
+      ws.close();
+      break;
+  }
+};
+```
+</CodeGroup>
+
+### Stream Event Types
+
+| Event Type | Description |
+|------------|-------------|
+| `text_delta` | Incremental text output from Claude |
+| `text` | Complete text block |
+| `tool_use` | Tool invocation (name, input) |
+| `tool_result` | Tool execution result |
+| `tool_progress` | Progress update for long-running tools |
+| `rate_limit` | Rate limit information |
+| `compact_boundary` | Context compaction occurred |
+
+<Warning>
+  Streaming is incompatible with extended thinking (`maxThinkingTokens`) and structured output JSON streaming.
+</Warning>
+
+## Resuming Sessions
+
+Resume a previous session with a follow-up prompt:
+
+<CodeGroup>
+```bash curl
+curl -X POST http://127.0.0.1:3000/api/v1/sessions/{id}/resume \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Now add input validation to the endpoints we created",
+    "maxTurns": 10
+  }'
+```
+
+```bash CLI
+ccm sessions resume {id} --prompt "Now add input validation"
+```
+
+```bash CLI (streaming)
+ccm sessions resume {id} --prompt "Add input validation" --stream
+```
+</CodeGroup>
+
+The agent has full context from the original session, including all previous messages, tool uses, and results.
+
+<Note>
+  The SDK locates session files by working directory. If the original session was in a different directory, you may need to specify `cwd` or ensure you are in the same directory.
+</Note>
+
+## Forking Sessions
+
+Fork creates a new session that branches from an existing one, leaving the original unchanged:
+
+```typescript
+const result = await sessionManager.launch({
+  prompt: "Try an alternative approach using a different library",
+  resume: "original-session-id",
+  forkSession: true,
+});
+// result.sessionId is a NEW session ID
+// The original session is untouched
+```
+
+This is useful for exploring alternative approaches without losing the original session's history.
+
+## Watching Active Sessions
+
+Stream the output of an already-running session:
+
+```bash
+ccm sessions stream {id}
+```
+
+This connects via WebSocket and displays:
+- Text output as it is generated
+- Tool invocations with names and inputs
+- Completion or error status
+
+## Listing and Searching
+
+<CodeGroup>
+```bash List recent sessions
+ccm sessions list --limit 10
+```
+
+```bash Filter by project
+ccm sessions list --project /path/to/project
+```
+
+```bash Search session content
+ccm sessions search "authentication" --limit 5
+```
+
+```bash Search with filters
+ccm sessions search "refactor" --project /myapp --from 2025-01-01 --tag production
+```
+</CodeGroup>
+
+## Aborting Sessions
+
+Abort a running session immediately:
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/sessions/{id}/abort
+```
+
+The session manager sends an abort signal via the `AbortController` that was passed to `query()`. The session transitions to the `aborted` state.
+
+## Session Metadata
+
+View and update session metadata:
+
+<CodeGroup>
+```bash View details
+ccm sessions show {id}
+```
+
+```bash Rename
+curl -X PUT http://127.0.0.1:3000/api/v1/sessions/{id} \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Auth module refactoring session"}'
+```
+
+```bash Tag
+curl -X PUT http://127.0.0.1:3000/api/v1/sessions/{id} \
+  -H "Content-Type: application/json" \
+  -d '{"tag": "reviewed"}'
+```
+</CodeGroup>
+
+## Complete Example
+
+Here is a full workflow: launch a session, check the result, resume with a follow-up, and search later:
+
+```bash
+# 1. Launch a coding session
+RESULT=$(curl -s -X POST http://127.0.0.1:3000/api/v1/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Create a utility function that validates email addresses",
+    "allowedTools": ["Read", "Write", "Bash"],
+    "maxTurns": 10,
+    "cwd": "/path/to/project"
+  }')
+
+SESSION_ID=$(echo $RESULT | jq -r '.sessionId')
+echo "Session: $SESSION_ID"
+
+# 2. View the session messages
+curl -s http://127.0.0.1:3000/api/v1/sessions/$SESSION_ID/messages | jq '.messages'
+
+# 3. Resume with a follow-up
+curl -s -X POST http://127.0.0.1:3000/api/v1/sessions/$SESSION_ID/resume \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Now add unit tests for the email validator"}'
+
+# 4. Tag the session
+curl -s -X PUT http://127.0.0.1:3000/api/v1/sessions/$SESSION_ID \
+  -H "Content-Type: application/json" \
+  -d '{"tag": "utilities"}'
+
+# 5. Search for it later
+curl -s "http://127.0.0.1:3000/api/v1/search?q=email+validator"
+```

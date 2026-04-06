@@ -1,0 +1,176 @@
+---
+title: "Architecture"
+description: "System design and component overview for CC-Middleware"
+---
+
+# Architecture
+
+CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a unified API for session management, hook events, permissions, and agent orchestration.
+
+## System Diagram
+
+```
+                    +------------------------------------------+
+                    |           External Consumers              |
+                    |    (CLI, UI, Integrations, Webhooks)      |
+                    +--------+----------------+----------------+
+                             | REST/WS        | WebSocket
+                    +--------v----------------v----------------+
+                    |            API Layer (Fastify)            |
+                    |  Sessions | Events | Agents | Permissions |
+                    |  Search   | Config | Health | WebSocket   |
+                    +----+------+--------+-------+-------------+
+                         |      |        |       |
+          +--------------+      |        |       +--------------+
+          |              |      |        |       |              |
+  +-------v------+ +----v------v--+ +---v-------v--+ +--------v-------+
+  |   Session    | |  Event Bus   | |  Permission  | |    Agent       |
+  |   Manager    | |  + Blocking  | |   Manager    | |   Registry     |
+  |              | |    Hooks     | |   + Policy   | |   + Teams      |
+  +-------+------+ +------+------+ +------+-------+ +--------+-------+
+          |               |                |                   |
+          |          +----v----+      +----v----+              |
+          |          |  Hook   |      |  Ask    |              |
+          |          |  HTTP   |      |  User   |              |
+          |          |  Server |      |  Mgr    |              |
+          |          +---------+      +---------+              |
+          |                                                    |
+  +-------v----------------------------------------------------v--+
+  |               Agent SDK (@anthropic-ai/claude-agent-sdk)      |
+  |   query() | listSessions() | getSessionMessages() | hooks     |
+  +-------+-------------------------------------------------------+
+          |
+  +-------v---------------------------------+
+  |          Claude Code Runtime             |
+  |   Sessions | Tools | Agents             |
+  +---------------------------------------------+
+```
+
+## Component Overview
+
+<AccordionGroup>
+  <Accordion title="Session Manager" icon="display">
+    Central coordinator for all session operations. Tracks active sessions in a `Map<string, ActiveSession>`, handles launch/resume/abort, and emits lifecycle events (`session:started`, `session:completed`, `session:errored`, `session:aborted`).
+
+    Key capabilities:
+    - **Discovery**: Wraps `listSessions()` to enumerate sessions across all projects
+    - **Messages**: Wraps `getSessionMessages()` for reading session history with pagination
+    - **Launcher**: Wraps `query()` for single-turn, streaming, resume, continue, and fork operations
+    - **Abort**: Uses `AbortController` to cancel running sessions
+    - **Interrupt**: Uses `Query.interrupt()` for streaming input mode
+
+    Source: `src/sessions/manager.ts`, `src/sessions/discovery.ts`, `src/sessions/launcher.ts`, `src/sessions/messages.ts`
+  </Accordion>
+
+  <Accordion title="Event Bus & Blocking Hooks" icon="bolt">
+    Typed `EventEmitter` (via `eventemitter3`) supporting 25+ Claude Code hook event types plus a wildcard `*` listener.
+
+    The blocking registry provides handlers for events that can prevent an action (PreToolUse, Stop, TaskCompleted, etc.). All blocking events have stub handlers returning "allow" by default, making the middleware transparent until handlers are registered.
+
+    Source: `src/hooks/event-bus.ts`, `src/hooks/blocking.ts`, `src/hooks/sdk-bridge.ts`, `src/hooks/server.ts`
+  </Accordion>
+
+  <Accordion title="Permission System" icon="shield">
+    Policy engine with priority-ordered rules that match tool names via regex patterns. Supports Bash command conditions (e.g., `Bash(rm *)` to deny rm commands). When no rule matches, the default behavior (allow/deny/ask) applies.
+
+    For "ask" decisions, the system creates a pending permission request that can be resolved externally via the API or CLI.
+
+    Source: `src/permissions/policy.ts`, `src/permissions/handler.ts`, `src/permissions/ask-user.ts`
+  </Accordion>
+
+  <Accordion title="Agent Registry & Teams" icon="users">
+    Reads agent definitions from filesystem markdown files (`.claude/agents/` at project and user level), merges with runtime-registered agents, and exposes them through the API. Runtime agents override filesystem agents with the same name.
+
+    Team management provides read-only monitoring of Claude Code's experimental agent teams, including member status and task lists.
+
+    Source: `src/agents/registry.ts`, `src/agents/definitions.ts`, `src/agents/teams.ts`, `src/agents/launcher.ts`
+  </Accordion>
+
+  <Accordion title="Storage Layer" icon="database">
+    SQLite database (via `better-sqlite3`) providing a searchable session index with FTS5 full-text search. The `SessionIndexer` supports both full reindex and incremental indexing.
+
+    Source: `src/store/db.ts`, `src/store/indexer.ts`, `src/store/search.ts`
+  </Accordion>
+
+  <Accordion title="Configuration System" icon="gear">
+    Reads and writes Claude Code settings across four scopes: managed (read-only), user (`~/.claude/settings.json`), project (`.claude/settings.json`), and local (`.claude/settings.local.json`). Settings merge with managed having lowest precedence and local having highest.
+
+    Also discovers and manages plugins, MCP servers, skills, agent definitions, rules, CLAUDE.md files, and project memory.
+
+    Source: `src/config/settings.ts`, `src/config/settings-writer.ts`, `src/config/plugins.ts`, `src/config/mcp.ts`, `src/config/components.ts`, `src/config/memory.ts`
+  </Accordion>
+
+  <Accordion title="Plugin System" icon="plug">
+    CC-Middleware can be installed as a Claude Code plugin. The plugin defines HTTP hooks that route events to the middleware's hook server, and a `/cc-middleware` skill for in-session access to middleware functionality.
+
+    When the middleware server is not running, HTTP hooks timeout with a non-blocking error, so Claude Code continues normally.
+
+    Source: `src/plugin/`
+  </Accordion>
+</AccordionGroup>
+
+## Data Flow: Launching a Headless Session
+
+```
+Client                API Server           Session Manager         Agent SDK
+  |                      |                      |                     |
+  |--POST /sessions----->|                      |                     |
+  |                      |--launch()----------->|                     |
+  |                      |                      |--query({prompt})-->|
+  |                      |                      |                     |--Claude Code-->
+  |                      |                      |                     |<--Messages----
+  |                      |                      |<--SDKMessages------|
+  |                      |                      |                     |
+  |                      |   (events dispatched to event bus)         |
+  |                      |                      |                     |
+  |                      |<--LaunchResult------|                     |
+  |<--200 {result}------|                      |                     |
+```
+
+## Data Flow: Hook Events (Plugin Mode)
+
+```
+Claude Code          Plugin HTTP Hook        Hook Server          Event Bus
+  |                      |                      |                     |
+  |--PreToolUse--------->|                      |                     |
+  |                      |--POST /hooks/------> |                     |
+  |                      |  PreToolUse          |--dispatch()------->|
+  |                      |                      |                     |--handlers()
+  |                      |                      |                     |<--result--
+  |                      |                      |<--blocking result--|
+  |                      |<--200 {allow}--------|                     |
+  |<--allow/deny---------|                      |                     |
+```
+
+## Data Flow: Hook Events (SDK Mode)
+
+```
+Agent SDK            SDK Bridge              Event Bus          Blocking Registry
+  |                      |                      |                     |
+  |--HookCallback()----->|                      |                     |
+  |                      |--dispatch()--------->|                     |
+  |                      |--execute()------------------------------------>|
+  |                      |                      |                     |<--handler()
+  |                      |<--HookJSONOutput--------------------------------|
+  |<--HookJSONOutput-----|                      |                     |
+```
+
+## Server Startup
+
+The server entry point (`src/main.ts`) creates all components and starts both servers:
+
+1. Create core components: SessionManager, EventBus, BlockingRegistry, PolicyEngine, PermissionManager, AskUserQuestionManager, AgentRegistry, TeamManager
+2. Load agent definitions from filesystem
+3. Initialize SQLite store and session indexer
+4. Start the API server (Fastify with CORS, WebSocket, and all REST routes)
+5. Start the Hook server (separate port, receives plugin HTTP hooks)
+6. Register graceful shutdown handlers (SIGINT, SIGTERM)
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | API server port |
+| `HOOK_PORT` | `3001` | Hook HTTP server port |
+| `HOST` | `127.0.0.1` | Bind address |
+| `PROJECT_DIR` | `process.cwd()` | Project directory for config discovery |

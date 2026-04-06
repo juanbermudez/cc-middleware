@@ -1,0 +1,296 @@
+---
+title: "Working with Hook Events"
+description: "Register hook handlers, subscribe via WebSocket, and configure webhooks"
+---
+
+# Working with Hook Events
+
+This guide shows how to observe and control Claude Code sessions through the event system. You can listen to events passively, block specific actions, and deliver events to external systems.
+
+## Listening to Events via CLI
+
+The fastest way to see events is the CLI's live listener:
+
+```bash
+# Listen to all hook events
+ccm hooks listen
+
+# Listen to specific event types
+ccm hooks listen --events PreToolUse,PostToolUse,Stop
+
+# Filter by session ID
+ccm hooks listen --session abc123
+```
+
+Output streams in real-time:
+
+```
+14:23:01  PreToolUse         Read         src/main.ts
+14:23:01  PostToolUse        Read         (success)
+14:23:03  PreToolUse         Bash         npm test
+14:23:15  PostToolUse        Bash         (success)
+14:23:16  Stop                            Session ending
+```
+
+## WebSocket Subscriptions
+
+Connect to the WebSocket endpoint for programmatic event streaming:
+
+```typescript
+const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
+
+ws.onopen = () => {
+  // Subscribe to hook events
+  ws.send(JSON.stringify({
+    type: "subscribe",
+    events: ["hook:*"]       // All hook events
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+
+  if (msg.type === "hook:event") {
+    console.log(`Event: ${msg.eventType}`);
+    console.log(`Session: ${msg.input.session_id}`);
+    console.log(`Tool: ${msg.input.toolName ?? "N/A"}`);
+  }
+};
+```
+
+### Subscription Patterns
+
+| Pattern | Matches |
+|---------|---------|
+| `hook:*` | All hook events |
+| `hook:PreToolUse` | Only PreToolUse events |
+| `hook:Stop` | Only Stop events |
+| `session:*` | All session lifecycle events |
+| `session:started` | Only session started events |
+| `*` | Everything |
+
+### Client-to-Server Messages
+
+| Message | Description |
+|---------|-------------|
+| `{ type: "subscribe", events: [...] }` | Subscribe to event patterns |
+| `{ type: "unsubscribe", events: [...] }` | Unsubscribe from patterns |
+| `{ type: "ping" }` | Heartbeat check (server responds with `pong`) |
+
+## Webhook Subscriptions
+
+Register an HTTP endpoint to receive events as POST requests:
+
+<Steps>
+  <Step title="Register a webhook">
+    ```bash
+    curl -X POST http://127.0.0.1:3000/api/v1/events/subscribe \
+      -H "Content-Type: application/json" \
+      -d '{
+        "url": "https://your-server.com/hooks/claude",
+        "events": ["PreToolUse", "Stop", "SessionEnd"],
+        "headers": {
+          "Authorization": "Bearer your-token"
+        },
+        "secret": "webhook-signing-secret"
+      }'
+    ```
+
+    Response:
+    ```json
+    {
+      "id": "sub_abc123",
+      "events": ["PreToolUse", "Stop", "SessionEnd"],
+      "url": "https://your-server.com/hooks/claude"
+    }
+    ```
+  </Step>
+
+  <Step title="Receive events">
+    Your endpoint receives POST requests with this payload:
+
+    ```json
+    {
+      "eventType": "PreToolUse",
+      "input": {
+        "session_id": "abc123",
+        "toolName": "Bash",
+        "toolInput": "npm test",
+        "cwd": "/path/to/project",
+        "hook_event_name": "PreToolUse"
+      },
+      "subscriptionId": "sub_abc123",
+      "timestamp": 1704067200000
+    }
+    ```
+
+    If a `secret` was provided, the `X-Webhook-Secret` header is included.
+  </Step>
+
+  <Step title="Manage subscriptions">
+    ```bash
+    # List all subscriptions
+    curl http://127.0.0.1:3000/api/v1/events/subscriptions
+
+    # Remove a subscription
+    curl -X DELETE http://127.0.0.1:3000/api/v1/events/subscriptions/sub_abc123
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  Webhook subscriptions are stored in-memory and do not persist across server restarts. Re-register them after the server starts.
+</Note>
+
+## Listing Event Types
+
+Get the full list of supported event types:
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/events/types
+```
+
+```bash CLI
+ccm hooks list
+```
+</CodeGroup>
+
+The response includes all 25+ event types and any active webhook subscriptions.
+
+## SDK Mode: Registering Hook Handlers
+
+When using the middleware as a library, register handlers directly on the event bus and blocking registry:
+
+```typescript
+import { createEventBus } from "cc-middleware/hooks";
+import { createBlockingRegistry } from "cc-middleware/hooks";
+
+const eventBus = createEventBus();
+const blockingRegistry = createBlockingRegistry();
+
+// Passive observer - log all events
+eventBus.on("*", (eventType, input) => {
+  console.log(`[${eventType}] session=${input.session_id} tool=${input.toolName ?? ""}`);
+});
+
+// Blocking handler - deny dangerous Bash commands
+blockingRegistry.register("PreToolUse", {
+  matcher: /^Bash$/,
+  handler: async (input) => {
+    const command = String(input.toolInput ?? "");
+    if (command.includes("rm -rf") || command.includes("sudo")) {
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "deny",
+          permissionDecisionReason: "Dangerous command blocked by policy",
+        },
+      };
+    }
+    return {}; // Allow
+  },
+});
+
+// Blocking handler - prevent premature stops
+blockingRegistry.register("Stop", {
+  handler: async (input) => {
+    // Check if enough work was done
+    const turnCount = /* your logic */;
+    if (turnCount < 5) {
+      return {
+        decision: "block",
+        reason: "Please continue - more work is needed",
+      };
+    }
+    return {}; // Allow stop
+  },
+});
+```
+
+## Plugin Mode: HTTP Hook Server
+
+When CC-Middleware is installed as a Claude Code plugin, hook events arrive as HTTP POSTs to the hook server on port 3001:
+
+```
+Claude Code --> HTTP POST http://127.0.0.1:3001/hooks/PreToolUse --> Event Bus
+```
+
+The hook server:
+1. Parses the JSON body (same format as command hook stdin)
+2. Dispatches to the event bus
+3. For blocking events, runs the blocking handler
+4. Returns the `HookJSONOutput` as the HTTP response body
+
+### Graceful Degradation
+
+If the middleware server is not running:
+- HTTP hooks timeout or return non-2xx
+- Claude Code treats this as a non-blocking error
+- The session continues normally
+- No data is lost
+
+This means the plugin never breaks Claude Code, even if the middleware is offline.
+
+## Building an Audit Logger
+
+Here is a complete example that logs all tool usage to a file:
+
+```typescript
+import { createEventBus } from "cc-middleware/hooks";
+import { appendFile } from "node:fs/promises";
+
+const eventBus = createEventBus();
+const LOG_FILE = "/var/log/claude-audit.jsonl";
+
+// Log all tool uses
+eventBus.on("PostToolUse", async (_eventType, input) => {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    sessionId: input.session_id,
+    tool: input.toolName,
+    cwd: input.cwd,
+    agent: input.agent_id,
+  };
+  await appendFile(LOG_FILE, JSON.stringify(entry) + "\n");
+});
+
+// Log permission denials
+eventBus.on("PermissionDenied", async (_eventType, input) => {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    event: "permission_denied",
+    sessionId: input.session_id,
+    tool: input.toolName,
+  };
+  await appendFile(LOG_FILE, JSON.stringify(entry) + "\n");
+});
+```
+
+## Building a Tool Gate
+
+Block specific tools based on runtime conditions:
+
+```typescript
+blockingRegistry.register("PreToolUse", {
+  matcher: /^(Write|Edit)$/,
+  handler: async (input) => {
+    // Only allow writes to the src/ directory
+    const filePath = String(input.toolInput?.file_path ?? input.toolInput?.path ?? "");
+    if (!filePath.startsWith("/allowed/project/src/")) {
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "deny",
+          permissionDecisionReason: `Writes are only allowed in src/. Attempted: ${filePath}`,
+        },
+      };
+    }
+    return {};
+  },
+});
+```
+
+## Event Reference
+
+For the complete list of event types and their blocking behavior, see [Hook Events Concept](/concepts/hooks).
