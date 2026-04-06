@@ -62,27 +62,35 @@ Central coordinator that tracks active sessions and emits lifecycle events.
 
 ## Session Lifecycle States
 
-```
-                    ┌──────────┐
-                    │ Launching │
-                    └─────┬────┘
-                          │
-                    ┌─────▼────┐
-               ┌───>│  Active   │<────┐
-               │    └─────┬────┘     │
-               │          │          │
-          ┌────┴───┐ ┌───▼────┐ ┌──┴──────┐
-          │Streaming│ │Waiting │ │ Resumed │
-          │ Events  │ │ Input  │ │         │
-          └────┬───┘ └───┬────┘ └──┬──────┘
-               │         │         │
-               └────┬────┘─────────┘
-                    │
-          ┌─────────┼──────────┐
-          │         │          │
-    ┌─────▼───┐ ┌──▼─────┐ ┌─▼──────┐
-    │Completed│ │ Errored│ │Aborted │
-    └─────────┘ └────────┘ └────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Launching
+    Launching --> Active
+
+    Active --> Streaming
+    Active --> WaitingInput : waiting for input
+    Active --> Resumed
+
+    Streaming --> Active
+    WaitingInput --> Active
+    Resumed --> Active
+
+    Active --> Completed
+    Active --> Errored
+    Active --> Aborted
+    Streaming --> Completed
+    Streaming --> Errored
+    Streaming --> Aborted
+    WaitingInput --> Completed
+    WaitingInput --> Errored
+    WaitingInput --> Aborted
+    Resumed --> Completed
+    Resumed --> Errored
+    Resumed --> Aborted
+
+    Completed --> [*]
+    Errored --> [*]
+    Aborted --> [*]
 ```
 
 ## Session Storage

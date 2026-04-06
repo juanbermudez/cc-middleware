@@ -41,32 +41,19 @@ Used in **plugin mode** where Claude Code sends HTTP POST requests for each hook
 
 ## Event Flow Diagram
 
-```
-Event Sources:
-┌──────────────────┐  ┌────────────────────┐
-│  Agent SDK Hooks  │  │  HTTP Hook Server   │
-│  (SDK mode)       │  │  (Plugin mode)      │
-└────────┬─────────┘  └──────────┬──────────┘
-         │                       │
-         └───────────┬───────────┘
-                     │
-              ┌──────▼──────┐
-              │  Event Bus   │
-              │  (dispatch)  │
-              └──────┬──────┘
-                     │
-         ┌───────────┼───────────┐
-         │           │           │
-  ┌──────▼────┐ ┌───▼────┐ ┌───▼──────────┐
-  │ Registered │ │Wildcard│ │  Blocking    │
-  │ Handlers   │ │Listener│ │  Handler     │
-  │ (per event)│ │  (*)   │ │  (if needed) │
-  └────────────┘ └────────┘ └──────┬───────┘
-                                   │
-                            ┌──────▼──────┐
-                            │  Decision    │
-                            │  allow/deny  │
-                            └─────────────┘
+```mermaid
+graph TD
+    SDK["Agent SDK Hooks<br/>(SDK mode)"]
+    HTTP["HTTP Hook Server<br/>(Plugin mode)"]
+
+    SDK --> Bus["Event Bus<br/>(dispatch)"]
+    HTTP --> Bus
+
+    Bus --> RH["Registered Handlers<br/>(per event)"]
+    Bus --> WL["Wildcard Listener<br/>(*)"]
+    Bus --> BH["Blocking Handler<br/>(if needed)"]
+
+    BH --> Decision["Decision<br/>allow/deny"]
 ```
 
 ## Hook Input/Output Contracts

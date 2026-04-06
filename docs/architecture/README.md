@@ -4,41 +4,35 @@
 
 CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a unified API for session management, hook events, permissions, and agent orchestration.
 
-```
-                    ┌─────────────────────────────────────────┐
-                    │           External Consumers             │
-                    │    (Future CLI, UI, Integrations)         │
-                    └────────┬────────────────┬────────────────┘
-                             │ REST/WS        │ WebSocket
-                    ┌────────▼────────────────▼────────────────┐
-                    │            API Layer (Fastify)            │
-                    │  Sessions │ Events │ Agents │ Permissions │
-                    │  Search   │ Health │ WebSocket             │
-                    └────┬──────┬────────┬───────┬─────────────┘
-                         │      │        │       │
-          ┌──────────────┤      │        │       ├──────────────┐
-          │              │      │        │       │              │
-  ┌───────▼──────┐ ┌────▼──────▼──┐ ┌──▼───────▼──┐ ┌────────▼───────┐
-  │   Session    │ │  Event Bus   │ │  Permission  │ │    Agent       │
-  │   Manager    │ │  + Blocking  │ │   Manager    │ │   Registry     │
-  │              │ │    Hooks     │ │   + Policy   │ │   + Teams      │
-  └───────┬──────┘ └──────┬───────┘ └──────┬───────┘ └────────┬───────┘
-          │               │                │                   │
-          │          ┌────▼────┐      ┌────▼────┐              │
-          │          │  Hook   │      │  Ask    │              │
-          │          │  HTTP   │      │  User   │              │
-          │          │  Server │      │  Mgr    │              │
-          │          └─────────┘      └─────────┘              │
-          │                                                    │
-  ┌───────▼────────────────────────────────────────────────────▼──┐
-  │                    Agent SDK (@anthropic-ai/claude-agent-sdk)  │
-  │   query() │ listSessions() │ getSessionMessages() │ hooks     │
-  └───────┬───────────────────────────────────────────────────────┘
-          │
-  ┌───────▼──────────────────────────┐
-  │        Claude Code Runtime        │
-  │   Sessions │ Tools │ Agents       │
-  └──────────────────────────────────┘
+```mermaid
+graph TD
+    EC["External Consumers<br/>(Future CLI, UI, Integrations)"]
+    EC -->|"REST/WS"| API
+    EC -->|"WebSocket"| API
+
+    subgraph API["API Layer (Fastify)"]
+        direction LR
+        Sessions
+        Events
+        Agents
+        Permissions
+        Search
+        Health
+        WS["WebSocket"]
+    end
+
+    API --> SM["Session Manager"]
+    API --> EB["Event Bus<br/>+ Blocking Hooks"]
+    API --> PM["Permission Manager<br/>+ Policy"]
+    API --> AR["Agent Registry<br/>+ Teams"]
+
+    EB --> HookHTTP["Hook HTTP Server"]
+    PM --> AskUser["Ask User Mgr"]
+
+    SM --> SDK["Agent SDK (@anthropic-ai/claude-agent-sdk)<br/>query() | listSessions() | getSessionMessages() | hooks"]
+    AR --> SDK
+
+    SDK --> CC["Claude Code Runtime<br/>Sessions | Tools | Agents"]
 ```
 
 ## Component Details
@@ -90,48 +84,56 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
 
 ### Launching a Headless Session
 
-```
-Client                API Server           Session Manager         Agent SDK
-  │                      │                      │                     │
-  ├─POST /sessions──────>│                      │                     │
-  │                      ├─launch()────────────>│                     │
-  │                      │                      ├─query({prompt})────>│
-  │                      │                      │                     ├─Claude Code─>
-  │                      │                      │                     │<─Messages────
-  │                      │                      │<──SDKMessages───────│
-  │                      │                      │                     │
-  │                      │   (events dispatched to event bus)         │
-  │                      │                      │                     │
-  │                      │<──LaunchResult───────│                     │
-  │<──200 {result}───────│                      │                     │
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as API Server
+    participant SM as Session Manager
+    participant SDK as Agent SDK
+
+    Client->>API: POST /sessions
+    API->>SM: launch()
+    SM->>SDK: query({prompt})
+    SDK->>SDK: Claude Code
+    SDK-->>SM: SDKMessages
+    Note over API,SDK: events dispatched to event bus
+    SM-->>API: LaunchResult
+    API-->>Client: 200 {result}
 ```
 
 ### Hook Event Flow (Plugin Mode)
 
-```
-Claude Code          Plugin HTTP Hook        Hook Server          Event Bus
-  │                      │                      │                     │
-  ├─PreToolUse──────────>│                      │                     │
-  │                      ├─POST /hooks/──────>  │                     │
-  │                      │  PreToolUse          ├─dispatch()────────>│
-  │                      │                      │                     ├─handlers()
-  │                      │                      │                     │<─result──
-  │                      │                      │<─blocking result────│
-  │                      │<─200 {allow}─────────│                     │
-  │<─allow/deny──────────│                      │                     │
+```mermaid
+sequenceDiagram
+    participant CC as Claude Code
+    participant Hook as Plugin HTTP Hook
+    participant Server as Hook Server
+    participant Bus as Event Bus
+
+    CC->>Hook: PreToolUse
+    Hook->>Server: POST /hooks/PreToolUse
+    Server->>Bus: dispatch()
+    Bus->>Bus: handlers()
+    Bus-->>Server: blocking result
+    Server-->>Hook: 200 {allow}
+    Hook-->>CC: allow/deny
 ```
 
 ### Hook Event Flow (SDK Mode)
 
-```
-Agent SDK            SDK Bridge              Event Bus          Blocking Registry
-  │                      │                      │                     │
-  ├─HookCallback()──────>│                      │                     │
-  │                      ├─dispatch()──────────>│                     │
-  │                      ├─execute()───────────────────────────────>│
-  │                      │                      │                     │<─handler()
-  │                      │<──HookJSONOutput────────────────────────│
-  │<─HookJSONOutput──────│                      │                     │
+```mermaid
+sequenceDiagram
+    participant SDK as Agent SDK
+    participant Bridge as SDK Bridge
+    participant Bus as Event Bus
+    participant Reg as Blocking Registry
+
+    SDK->>Bridge: HookCallback()
+    Bridge->>Bus: dispatch()
+    Bridge->>Reg: execute()
+    Reg->>Reg: handler()
+    Reg-->>Bridge: HookJSONOutput
+    Bridge-->>SDK: HookJSONOutput
 ```
 
 ## Configuration

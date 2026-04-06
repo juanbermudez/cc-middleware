@@ -38,21 +38,20 @@ Rule-based evaluation engine for tool permission decisions.
 Implements `canUseTool` callback for the Agent SDK.
 
 **Flow**:
-```
-Tool call arrives
-  │
-  ├─ PolicyEngine.evaluate()
-  │    ├─ allow → return { behavior: "allow" }
-  │    ├─ deny  → return { behavior: "deny", message: "..." }
-  │    └─ ask   → continue to event-based flow
-  │
-  ├─ Emit PermissionRequest event on bus
-  │    └─ If event handler responds → return its result
-  │
-  ├─ Create PendingPermission
-  │    └─ Wait for external resolution (with timeout)
-  │
-  └─ Timeout → deny with message
+```mermaid
+graph TD
+    A["Tool call arrives"] --> B["PolicyEngine.evaluate()"]
+
+    B -->|"allow"| C["return { behavior: 'allow' }"]
+    B -->|"deny"| D["return { behavior: 'deny', message: '...' }"]
+    B -->|"ask"| E["Emit PermissionRequest event on bus"]
+
+    E -->|"event handler responds"| F["return its result"]
+    E -->|"no handler"| G["Create PendingPermission"]
+
+    G --> H["Wait for external resolution (with timeout)"]
+    H -->|"resolved"| I["return result"]
+    H -->|"timeout"| J["deny with message"]
 ```
 
 ### Permission Manager
