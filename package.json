@@ -5,6 +5,40 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./api": {
+      "import": "./dist/api/server.js",
+      "types": "./dist/api/server.d.ts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks/event-bus.js",
+      "types": "./dist/hooks/event-bus.d.ts"
+    },
+    "./sessions": {
+      "import": "./dist/sessions/manager.js",
+      "types": "./dist/sessions/manager.d.ts"
+    },
+    "./store": {
+      "import": "./dist/store/db.js",
+      "types": "./dist/store/db.d.ts"
+    },
+    "./config": {
+      "import": "./dist/config/settings.js",
+      "types": "./dist/config/settings.d.ts"
+    },
+    "./permissions": {
+      "import": "./dist/permissions/policy.js",
+      "types": "./dist/permissions/policy.d.ts"
+    },
+    "./agents": {
+      "import": "./dist/agents/registry.js",
+      "types": "./dist/agents/registry.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -13,7 +47,7 @@
     "test:e2e": "vitest run tests/e2e",
     "test:watch": "vitest",
     "lint": "eslint src/ tests/",
-    "start": "node dist/api/server.js"
+    "start": "node dist/main.js"
   },
   "engines": {
     "node": ">=20.0.0"
