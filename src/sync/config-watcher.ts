@@ -9,7 +9,7 @@ import { EventEmitter } from "eventemitter3";
 import { homedir } from "node:os";
 import { join, dirname, basename } from "node:path";
 import { stat, readdir } from "node:fs/promises";
-import chokidar from "chokidar";
+import { watch, type FSWatcher } from "chokidar";
 
 /** Options for the config watcher */
 export interface ConfigWatcherOptions {
@@ -73,7 +73,7 @@ export interface ConfigWatcherStatus {
  */
 export class ConfigWatcher extends EventEmitter<ConfigWatcherEvents> {
   private options: Required<ConfigWatcherOptions>;
-  private watcher: chokidar.FSWatcher | null = null;
+  private watcher: FSWatcher | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private knownFiles = new Map<string, number>(); // filePath -> mtime
   private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -105,10 +105,9 @@ export class ConfigWatcher extends EventEmitter<ConfigWatcherEvents> {
 
     // Start chokidar
     try {
-      this.watcher = chokidar.watch(this.watchPaths, {
+      this.watcher = watch(this.watchPaths, {
         ignoreInitial: true,
         persistent: true,
-        disableGlobbing: false,
         usePolling: false,
       });
 

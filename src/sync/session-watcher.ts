@@ -9,7 +9,7 @@ import { EventEmitter } from "eventemitter3";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
-import chokidar from "chokidar";
+import { watch, type FSWatcher } from "chokidar";
 
 /** Options for the session file watcher */
 export interface SessionWatcherOptions {
@@ -49,7 +49,7 @@ export interface SessionWatcherStatus {
  */
 export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
   private options: Required<SessionWatcherOptions>;
-  private watcher: chokidar.FSWatcher | null = null;
+  private watcher: FSWatcher | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private knownFiles = new Map<string, number>(); // filePath -> mtime
   private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -86,7 +86,7 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
 
     // Start chokidar watcher
     try {
-      this.watcher = chokidar.watch(
+      this.watcher = watch(
         this.watchDirs.map((d) => join(d, "*.jsonl")),
         {
           ignoreInitial: true,
@@ -95,7 +95,6 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
             stabilityThreshold: 500,
             pollInterval: 200,
           },
-          // Use polling as fallback on some platforms
           usePolling: false,
         },
       );
@@ -112,7 +111,7 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
         this.handleFileRemove(filePath);
       });
 
-      this.watcher.on("error", (_err: Error) => {
+      this.watcher.on("error", () => {
         // Silently handle watcher errors - polling will catch changes
       });
     } catch {
