@@ -41,17 +41,9 @@ The event bus supports all Claude Code hook event types plus a wildcard `*` list
 
 ## Event Flow
 
-```mermaid
-graph TD
-    SDK["Agent SDK Hooks<br/>(SDK mode)"] --> Bus["Event Bus<br/>(dispatch)"]
-    HTTP["HTTP Hook Server<br/>(Plugin mode)"] --> Bus
-
-    Bus --> RH["Registered Handlers<br/>(per event)"]
-    Bus --> WL["Wildcard Listener (*)"]
-    Bus --> BH["Blocking Handler<br/>(if needed)"]
-
-    BH --> Decision["Decision: allow/deny"]
-```
+<Frame>
+  <img className="diagram-expandable" src="/images/diagrams/concepts-hooks-0.svg" alt="concepts-hooks-0" style={{ width: '100%', cursor: 'pointer' }} />
+</Frame>
 
 ## Blocking Hooks
 

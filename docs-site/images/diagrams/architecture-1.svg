@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 710.9710000000001 445" width="100%" height="auto" style="--bg:#282a36;--fg:#f8f8f2;--line:#6272a4;--accent:#bd93f9;--muted:#6272a4">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="C" x1="70" y1="70" x2="70" y2="415" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="API" x1="210" y1="70" x2="210" y2="415" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="SM" x1="369.5355" y1="70" x2="369.5355" y2="415" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="SDK" x1="527.589" y1="70" x2="527.589" y2="415" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="C" data-to="API" data-label="POST /sessions" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="70" y1="90" x2="210" y2="90" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="140" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /sessions</text>
+</g>
+<g class="message" data-from="API" data-to="SM" data-label="launch()" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="210" y1="130" x2="369.5355" y2="130" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="289.76775" y="120" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">launch()</text>
+</g>
+<g class="message" data-from="SM" data-to="SDK" data-label="query({prompt})" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="369.5355" y1="170" x2="527.589" y2="170" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="448.56225000000006" y="160" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">query({prompt})</text>
+</g>
+<g class="message" data-from="SDK" data-to="SDK" data-label="Claude Code executes" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="527.589,210 557.589,210 557.589,230 527.589,230" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="565.589" y="220" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">Claude Code executes</text>
+</g>
+<g class="message" data-from="SDK" data-to="SM" data-label="SDKMessages stream" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="527.589" y1="280" x2="369.5355" y2="280" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="448.56225000000006" y="270" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">SDKMessages stream</text>
+</g>
+<g class="message" data-from="SM" data-to="API" data-label="LaunchResult" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="369.5355" y1="335" x2="210" y2="335" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="289.76775" y="325" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">LaunchResult</text>
+</g>
+<g class="message" data-from="API" data-to="C" data-label="200 {result}" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="210" y1="375" x2="70" y2="375" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="140" y="365" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">200 {result}</text>
+</g>
+<g class="note" data-position="over" data-actors="SM,SDK">
+  <polygon points="363.26925000000006,288 527.8552500000001,288 533.8552500000001,294 533.8552500000001,311 363.26925000000006,311" fill="var(--bg)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <polygon points="527.8552500000001,288 533.8552500000001,294 527.8552500000001,294" fill="var(--_inner-stroke)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="448.56225000000006" y="299.5" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">Events dispatched to event bus</text>
+</g>
+<g class="actor" data-id="C" data-label="Client" data-type="participant">
+  <rect x="30" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="70" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Client</text>
+</g>
+<g class="actor" data-id="API" data-label="API Server" data-type="participant">
+  <rect x="160.0505" y="30" width="99.899" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="210" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">API Server</text>
+</g>
+<g class="actor" data-id="SM" data-label="Session Manager" data-type="participant">
+  <rect x="299.9495" y="30" width="139.17200000000003" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="369.5355" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Session Manager</text>
+</g>
+<g class="actor" data-id="SDK" data-label="Agent SDK" data-type="participant">
+  <rect x="479.1215000000001" y="30" width="96.93499999999999" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="527.589" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Agent SDK</text>
+</g>
+</svg>

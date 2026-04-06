@@ -11,23 +11,9 @@ The session management layer provides a unified interface over Claude Code sessi
 
 Sessions progress through a well-defined set of states:
 
-```mermaid
-stateDiagram-v2
-    [*] --> Launching
-    Launching --> Active
-    Active --> Streaming: streaming events
-    Active --> WaitingInput: waiting for input
-    Active --> Resumed: resumed session
-    Streaming --> Active
-    WaitingInput --> Active
-    Resumed --> Active
-    Active --> Completed
-    Active --> Errored
-    Active --> Aborted
-    Completed --> [*]
-    Errored --> [*]
-    Aborted --> [*]
-```
+<Frame>
+  <img className="diagram-expandable" src="/images/diagrams/concepts-sessions-0.svg" alt="concepts-sessions-0" style={{ width: '100%', cursor: 'pointer' }} />
+</Frame>
 
 The Session Manager maintains a `Map<string, ActiveSession>` for sessions launched by the middleware instance and emits these lifecycle events:
 

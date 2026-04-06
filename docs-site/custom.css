@@ -1,0 +1,47 @@
+/* Expandable diagram overlay */
+.diagram-expandable {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  border-radius: 8px;
+}
+
+.diagram-expandable:hover {
+  opacity: 0.85;
+}
+
+.diagram-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  padding: 1.5rem;
+  animation: diagram-fade-in 0.2s ease;
+}
+
+.diagram-overlay img {
+  max-width: 95vw;
+  max-height: 92vh;
+  border-radius: 12px;
+  background: #282a36;
+  padding: 2rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+}
+
+.diagram-overlay .close-hint {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+  font-family: system-ui, sans-serif;
+  pointer-events: none;
+}
+
+@keyframes diagram-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

@@ -8,6 +8,10 @@
     "dark": "#5230CC"
   },
   "favicon": "/favicon.svg",
+  "css": "/custom.css",
+  "head": [
+    "<script src=\"/custom.js\" defer></script>"
+  ],
   "navigation": {
     "tabs": [
       {

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 718.4015 430" width="100%" height="auto" style="--bg:#282a36;--fg:#f8f8f2;--line:#6272a4;--accent:#bd93f9;--muted:#6272a4">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="CC" x1="84.3955" y1="70" x2="84.3955" y2="400" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Hook" x1="249.85899999999998" y1="70" x2="249.85899999999998" y2="400" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Server" x1="416.0635" y1="70" x2="416.0635" y2="400" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Bus" x1="558.1855" y1="70" x2="558.1855" y2="400" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="CC" data-to="Hook" data-label="PreToolUse event" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="84.3955" y1="90" x2="249.85899999999998" y2="90" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="167.12725" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">PreToolUse event</text>
+</g>
+<g class="message" data-from="Hook" data-to="Server" data-label="POST /hooks/PreToolUse" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="249.85899999999998" y1="130" x2="416.0635" y2="130" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="332.96124999999995" y="120" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /hooks/PreToolUse</text>
+</g>
+<g class="message" data-from="Server" data-to="Bus" data-label="dispatch()" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="416.0635" y1="170" x2="558.1855" y2="170" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="487.1245" y="160" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">dispatch()</text>
+</g>
+<g class="message" data-from="Bus" data-to="Bus" data-label="handlers execute" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="558.1855,210 588.1855,210 588.1855,230 558.1855,230" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="596.1855" y="220" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">handlers execute</text>
+</g>
+<g class="message" data-from="Bus" data-to="Server" data-label="blocking result" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="558.1855" y1="280" x2="416.0635" y2="280" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="487.1245" y="270" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">blocking result</text>
+</g>
+<g class="message" data-from="Server" data-to="Hook" data-label="200 {allow/deny}" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="416.0635" y1="320" x2="249.85899999999998" y2="320" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="332.96124999999995" y="310" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">200 {allow/deny}</text>
+</g>
+<g class="message" data-from="Hook" data-to="CC" data-label="allow or deny" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="249.85899999999998" y1="360" x2="84.3955" y2="360" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="167.12725" y="350" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">allow or deny</text>
+</g>
+<g class="actor" data-id="CC" data-label="Claude Code" data-type="participant">
+  <rect x="30.000000000000007" y="30" width="108.79099999999998" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="84.3955" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Claude Code</text>
+</g>
+<g class="actor" data-id="Hook" data-label="Plugin HTTP Hook" data-type="participant">
+  <rect x="178.791" y="30" width="142.13599999999997" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="249.85899999999998" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Plugin HTTP Hook</text>
+</g>
+<g class="actor" data-id="Server" data-label="Hook Server" data-type="participant">
+  <rect x="360.92699999999996" y="30" width="110.273" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="416.0635" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Hook Server</text>
+</g>
+<g class="actor" data-id="Bus" data-label="Event Bus" data-type="participant">
+  <rect x="511.20000000000005" y="30" width="93.971" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="558.1855" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Event Bus</text>
+</g>
+</svg>

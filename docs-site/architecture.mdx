@@ -9,45 +9,9 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
 
 ## System Diagram
 
-```mermaid
-graph TD
-    EC["External Consumers<br/>(CLI, UI, Integrations)"]
-    EC -->|"REST/WS"| API
-
-    subgraph API["API Layer (Fastify)"]
-        Sessions
-        Events
-        Agents
-        Permissions
-        Search
-        Config
-        Sync
-        WebSocket
-    end
-
-    API --> SM["Session Manager"]
-    API --> EB["Event Bus + Blocking Hooks"]
-    API --> PM["Permission Manager + Policy"]
-    API --> AR["Agent Registry + Teams"]
-
-    SM --> SDK["Agent SDK<br/>query() | listSessions() | hooks"]
-    AR --> SDK
-    EB --> HS["Hook HTTP Server"]
-    PM --> AUM["Ask User Manager"]
-
-    subgraph SYNC["Real-Time Sync"]
-        SW["Session Watcher"]
-        CW["Config Watcher"]
-        AI["Auto-Indexer"]
-    end
-
-    SW -->|"session events"| EB
-    CW -->|"config events"| EB
-    SW --> AI
-    AI --> Store["SQLite FTS5"]
-
-    SDK --> CC["Claude Code Runtime"]
-```
+<Frame>
+  <img className="diagram-expandable" src="/images/diagrams/architecture-0.svg" alt="architecture-0" style={{ width: '100%', cursor: 'pointer' }} />
+</Frame>
 
 ## Component Overview
 
@@ -128,40 +92,15 @@ graph TD
 
 ## Data Flow: Launching a Headless Session
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant API as API Server
-    participant SM as Session Manager
-    participant SDK as Agent SDK
-
-    C->>API: POST /sessions
-    API->>SM: launch()
-    SM->>SDK: query({prompt})
-    SDK->>SDK: Claude Code executes
-    SDK-->>SM: SDKMessages stream
-    Note over SM,SDK: Events dispatched to event bus
-    SM-->>API: LaunchResult
-    API-->>C: 200 {result}
-```
+<Frame>
+  <img className="diagram-expandable" src="/images/diagrams/architecture-1.svg" alt="architecture-1" style={{ width: '100%', cursor: 'pointer' }} />
+</Frame>
 
 ## Data Flow: Hook Events (Plugin Mode)
 
-```mermaid
-sequenceDiagram
-    participant CC as Claude Code
-    participant Hook as Plugin HTTP Hook
-    participant Server as Hook Server
-    participant Bus as Event Bus
-
-    CC->>Hook: PreToolUse event
-    Hook->>Server: POST /hooks/PreToolUse
-    Server->>Bus: dispatch()
-    Bus->>Bus: handlers execute
-    Bus-->>Server: blocking result
-    Server-->>Hook: 200 {allow/deny}
-    Hook-->>CC: allow or deny
-```
+<Frame>
+  <img className="diagram-expandable" src="/images/diagrams/architecture-2.svg" alt="architecture-2" style={{ width: '100%', cursor: 'pointer' }} />
+</Frame>
 
 ## Data Flow: Hook Events (SDK Mode)
 
