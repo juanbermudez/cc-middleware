@@ -5,3 +5,13 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# Local AI/dev tooling
+.claude/
+.codex/
+AGENTS.md
+skill.md
+
+# Local loop helpers
+loop-prompt.md
+run-loop.sh
