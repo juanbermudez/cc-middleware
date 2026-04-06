@@ -145,7 +145,7 @@ The response includes:
 
 ## Streaming
 
-For long-running sessions, streaming provides real-time output:
+For long-running sessions, you can stream output over WebSocket:
 
 <CodeGroup>
 ```bash CLI
@@ -156,13 +156,11 @@ ccm sessions launch "Implement a REST API for user management" --stream
 const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
 
 ws.onopen = () => {
-  // Subscribe to session events
   ws.send(JSON.stringify({
     type: "subscribe",
     events: ["session:*"]
   }));
 
-  // Launch with streaming
   ws.send(JSON.stringify({
     type: "launch",
     options: {
@@ -177,38 +175,26 @@ ws.onmessage = (event) => {
 
   switch (msg.type) {
     case "session:stream":
-      if (msg.event?.type === "text_delta") {
+      if (msg.event?.type === "text_delta" || msg.event?.type === "text") {
         process.stdout.write(msg.event.text);
       }
       break;
     case "session:completed":
-      console.log("\nDone!", msg.result);
-      ws.close();
+      console.log("\\nDone:", msg.sessionId);
       break;
     case "session:errored":
       console.error("Error:", msg.error);
-      ws.close();
       break;
   }
 };
 ```
 </CodeGroup>
 
-### Stream Event Types
+You can also resume an existing session over WebSocket with:
 
-| Event Type | Description |
-|------------|-------------|
-| `text_delta` | Incremental text output from Claude |
-| `text` | Complete text block |
-| `tool_use` | Tool invocation (name, input) |
-| `tool_result` | Tool execution result |
-| `tool_progress` | Progress update for long-running tools |
-| `rate_limit` | Rate limit information |
-| `compact_boundary` | Context compaction occurred |
-
-<Warning>
-  Streaming is incompatible with extended thinking (`maxThinkingTokens`) and structured output JSON streaming.
-</Warning>
+```json
+{ "type": "resume", "sessionId": "sess_abc123", "prompt": "Now add tests" }
+```
 
 ## Resuming Sessions
 

@@ -9,20 +9,56 @@
 
 import type { FastifyInstance } from "fastify";
 import type WebSocket from "ws";
+import { z } from "zod";
 import type { MiddlewareContext } from "./server.js";
 import type { HookEventType, HookInput } from "../types/hooks.js";
 import type { LaunchResult } from "../sessions/launcher.js";
 import type { TrackedSession } from "../sessions/manager.js";
+import type { SessionStreamEvent } from "../sessions/streaming.js";
 
 /** Client -> Server messages */
 export type WSClientMessage =
   | { type: "subscribe"; events: string[] }
   | { type: "unsubscribe"; events: string[] }
-  | { type: "ping" };
+  | { type: "ping" }
+  | {
+      type: "launch";
+      options: {
+        prompt: string;
+        allowedTools?: string[];
+        disallowedTools?: string[];
+        permissionMode?: "default" | "acceptEdits" | "plan" | "dontAsk" | "bypassPermissions" | "auto";
+        maxTurns?: number;
+        maxBudgetUsd?: number;
+        systemPrompt?: string;
+        cwd?: string;
+        effort?: "low" | "medium" | "high" | "max";
+        model?: string;
+        agent?: string;
+        persistSession?: boolean;
+      };
+    }
+  | {
+      type: "resume";
+      sessionId: string;
+      prompt: string;
+      maxTurns?: number;
+      model?: string;
+    };
+
+export type WSSessionStreamEvent =
+  | { type: "text_delta"; text: string }
+  | { type: "text"; text: string }
+  | { type: "tool_use"; name: string; id: string }
+  | { type: "tool_result"; name: string; result: unknown }
+  | { type: "tool_progress"; name: string; toolUseId: string; elapsedSeconds: number }
+  | { type: "system"; subtype: string; data: unknown }
+  | { type: "unknown"; rawType: string; data: unknown };
 
 /** Server -> Client messages */
 export type WSServerMessage =
   | { type: "session:started"; sessionId: string; timestamp: number }
+  | { type: "session:stream"; sessionId: string; event: WSSessionStreamEvent }
   | { type: "session:completed"; sessionId: string; result: LaunchResult }
   | { type: "session:errored"; sessionId: string; error: string }
   | { type: "session:aborted"; sessionId: string }
@@ -40,7 +76,6 @@ export type WSServerMessage =
   | { type: "team:updated"; teamName: string; timestamp: number }
   | { type: "team:task-updated"; path: string; timestamp: number }
   | { type: "hook:event"; eventType: string; input: HookInput }
-  | { type: "permission:pending"; id: string; toolName: string; toolUseID: string }
   | { type: "pong" }
   | { type: "error"; message: string };
 
@@ -49,6 +84,30 @@ interface WSClient {
   socket: WebSocket;
   subscriptions: Set<string>;
 }
+
+const LaunchSessionSchema = z.object({
+  prompt: z.string().min(1),
+  allowedTools: z.array(z.string()).optional(),
+  disallowedTools: z.array(z.string()).optional(),
+  permissionMode: z
+    .enum(["default", "acceptEdits", "plan", "dontAsk", "bypassPermissions", "auto"])
+    .optional(),
+  maxTurns: z.number().int().positive().optional(),
+  maxBudgetUsd: z.number().positive().optional(),
+  systemPrompt: z.string().optional(),
+  cwd: z.string().optional(),
+  effort: z.enum(["low", "medium", "high", "max"]).optional(),
+  model: z.string().optional(),
+  agent: z.string().optional(),
+  persistSession: z.boolean().optional(),
+});
+
+const ResumeSessionSchema = z.object({
+  sessionId: z.string().min(1),
+  prompt: z.string().min(1),
+  maxTurns: z.number().int().positive().optional(),
+  model: z.string().optional(),
+});
 
 /** A handle to the WebSocket broadcast system */
 export interface WebSocketBroadcaster {
@@ -160,6 +219,44 @@ export function registerWebSocketRoutes(
             sendToClient(client, { type: "pong" });
             break;
 
+          case "launch": {
+            const parsed = LaunchSessionSchema.safeParse(msg.options);
+            if (!parsed.success) {
+              sendToClient(client, {
+                type: "error",
+                message: `Invalid launch message: ${parsed.error.issues[0]?.message ?? "validation error"}`,
+              });
+              break;
+            }
+
+            void startStreamingSession(parsed.data);
+            break;
+          }
+
+          case "resume": {
+            const parsed = ResumeSessionSchema.safeParse({
+              sessionId: msg.sessionId,
+              prompt: msg.prompt,
+              maxTurns: msg.maxTurns,
+              model: msg.model,
+            });
+            if (!parsed.success) {
+              sendToClient(client, {
+                type: "error",
+                message: `Invalid resume message: ${parsed.error.issues[0]?.message ?? "validation error"}`,
+              });
+              break;
+            }
+
+            void startStreamingSession({
+              prompt: parsed.data.prompt,
+              resume: parsed.data.sessionId,
+              maxTurns: parsed.data.maxTurns,
+              model: parsed.data.model,
+            }, parsed.data.sessionId);
+            break;
+          }
+
           default:
             sendToClient(client, {
               type: "error",
@@ -183,8 +280,63 @@ export function registerWebSocketRoutes(
     });
   });
 
+  async function startStreamingSession(
+    options: Parameters<typeof ctx.sessionManager.launchStreaming>[0],
+    resumeSessionId?: string
+  ): Promise<void> {
+    try {
+      const streamingSession = await ctx.sessionManager.launchStreaming(options);
+
+      for await (const event of streamingSession.events) {
+        const sessionId = streamingSession.sessionId || resumeSessionId || "pending";
+        const wsEvent = toWSSessionStreamEvent(event);
+        if (!wsEvent) continue;
+
+        broadcast("session:stream", {
+          type: "session:stream",
+          sessionId,
+          event: wsEvent,
+        });
+      }
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      broadcast("session:*", {
+        type: "session:errored",
+        sessionId: resumeSessionId ?? "unknown",
+        error: err.message,
+      });
+    }
+  }
+
   // Return broadcaster for external use (sync events)
   return { broadcast };
+}
+
+function toWSSessionStreamEvent(event: SessionStreamEvent): WSSessionStreamEvent | null {
+  switch (event.type) {
+    case "text_delta":
+      return { type: "text_delta", text: event.text };
+    case "assistant_message":
+      return { type: "text", text: event.content };
+    case "tool_use_start":
+      return { type: "tool_use", name: event.toolName, id: event.toolId };
+    case "tool_result":
+      return { type: "tool_result", name: event.toolName, result: event.result };
+    case "tool_progress":
+      return {
+        type: "tool_progress",
+        name: event.toolName,
+        toolUseId: event.toolUseId,
+        elapsedSeconds: event.elapsedSeconds,
+      };
+    case "system":
+      return { type: "system", subtype: event.subtype, data: event.data };
+    case "unknown":
+      return { type: "unknown", rawType: event.rawType, data: event.data };
+    case "tool_use_end":
+    case "result":
+      return null;
+  }
 }
 
 /**

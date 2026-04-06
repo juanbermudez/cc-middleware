@@ -1,0 +1,121 @@
+---
+title: "AsyncAPI Specification"
+description: "Machine-readable AsyncAPI 3.1 specification for WebSocket events and HTTP hook callbacks."
+---
+
+## AsyncAPI 3.1 Spec
+
+The CC-Middleware real-time event system is described by an [AsyncAPI 3.1.0](https://www.asyncapi.com/docs/reference/specification/latest) specification file at `docs-site/asyncapi.json`.
+
+This spec covers two distinct event systems:
+
+### 1. WebSocket Server
+
+**Endpoint:** `ws://127.0.0.1:3000/api/v1/ws`
+
+Clients connect to the WebSocket server, subscribe to event patterns, and can also launch or resume streaming sessions directly over the socket.
+
+#### Client Messages
+
+| Message | Description |
+|---------|-------------|
+| `subscribe` | Subscribe to event patterns (e.g., `session:*`, `hook:PreToolUse`, `*`) |
+| `unsubscribe` | Unsubscribe from event patterns |
+| `ping` | Keepalive ping (server responds with `pong`) |
+| `launch` | Launch a streaming session over WebSocket |
+| `resume` | Resume a streaming session over WebSocket |
+
+#### Server Event Categories
+
+| Category | Events | Description |
+|----------|--------|-------------|
+| Session Lifecycle | `session:started`, `session:completed`, `session:errored`, `session:aborted` | Events from active sessions managed by the middleware |
+| Session Stream | `session:stream` | Text deltas and other streaming output from WebSocket-launched or resumed sessions |
+| Real-Time Sync | `session:discovered`, `session:updated`, `session:removed` | File system changes detected by the session watcher |
+| Config Sync | `config:changed`, `config:mcp-changed`, `config:agent-changed`, `config:skill-changed`, `config:rule-changed`, `config:plugin-changed`, `config:memory-changed` | Configuration file changes detected by the config watcher |
+| Team Sync | `team:created`, `team:updated`, `team:task-updated` | Team configuration changes |
+| Hook Events | `hook:event` | Hook events forwarded from the event bus |
+
+#### Subscription Patterns
+
+```json
+{ "type": "subscribe", "events": ["session:*"] }
+{ "type": "subscribe", "events": ["hook:PreToolUse", "hook:PostToolUse"] }
+{ "type": "subscribe", "events": ["*"] }
+{ "type": "subscribe", "events": ["config:*", "team:*"] }
+{ "type": "launch", "options": { "prompt": "Explain this repo", "maxTurns": 3 } }
+{ "type": "resume", "sessionId": "sess_abc123", "prompt": "Now add tests" }
+```
+
+### 2. HTTP Hook Server
+
+**Endpoint:** `http://127.0.0.1:3001/hooks/:eventType`
+
+The HTTP hook server receives POST requests from external Claude Code sessions. Claude Code sends hook events to this endpoint, and the server returns a JSON response that controls behavior.
+
+**Protocol rules:**
+- Always returns HTTP 200 (non-2xx is treated as a non-blocking error by Claude Code)
+- An empty response body `{}` means "proceed with no changes"
+- For blocking events, the response body may contain permission decisions
+
+#### Hook Event Types
+
+| Event Type | Blocking | Description |
+|-----------|----------|-------------|
+| `PreToolUse` | Yes | Before a tool is executed; can allow, deny, or modify input |
+| `PostToolUse` | No | After successful tool execution |
+| `PostToolUseFailure` | No | After failed tool execution |
+| `SessionStart` | No | When a session starts |
+| `SessionEnd` | No | When a session ends |
+| `UserPromptSubmit` | Yes | When a user submits a prompt |
+| `Stop` | Yes | When a session is about to stop |
+| `StopFailure` | No | When a stop attempt fails |
+| `SubagentStart` | No | When a sub-agent starts |
+| `SubagentStop` | Yes | When a sub-agent is about to stop |
+| `TaskCreated` | Yes | When a team task is created |
+| `TaskCompleted` | Yes | When a team task completes |
+| `TeammateIdle` | Yes | When a teammate becomes idle |
+| `PermissionRequest` | Yes | When a permission is requested |
+| `PermissionDenied` | No | When a permission is denied |
+| `Notification` | No | General notification |
+| `ConfigChange` | Yes | When configuration changes |
+| `CwdChanged` | No | When working directory changes |
+| `FileChanged` | No | When a file changes |
+| `WorktreeCreate` | Yes | When a worktree is created |
+| `WorktreeRemove` | No | When a worktree is removed |
+| `PreCompact` | No | Before context compaction |
+| `PostCompact` | No | After context compaction |
+| `Elicitation` | Yes | When elicitation is requested |
+| `ElicitationResult` | Yes | When elicitation result is received |
+| `Setup` | No | During setup phase |
+
+#### Hook Input Format
+
+All hook inputs share base fields:
+
+```json
+{
+  "session_id": "sess_abc123",
+  "cwd": "/Users/dev/my-project",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "npm test" }
+}
+```
+
+#### Hook Output Format
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "updatedInput": { "command": "npm test -- --coverage" },
+    "additionalContext": "Added coverage flag"
+  }
+}
+```
+
+### Viewing the Spec
+
+You can use the [AsyncAPI Studio](https://studio.asyncapi.com/) to visualize the spec. Paste the contents of `docs-site/asyncapi.json` to explore channels, messages, and schemas interactively.

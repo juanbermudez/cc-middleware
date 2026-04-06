@@ -1,8 +1,8 @@
 # CC-Middleware
 
-A Node/TypeScript middleware for managing and observing Claude Code sessions through a REST API, WebSocket streams, a CLI, and plugin hooks.
+An early alpha `v0.1.0` Node/TypeScript middleware for managing and observing Claude Code sessions through a REST API, WebSocket streams, a CLI, and plugin hooks.
 
-CC-Middleware sits between your application and Claude Code so you can launch and resume sessions programmatically, subscribe to lifecycle events, manage permissions, search session history, and expose agent or team metadata from one place.
+CC-Middleware sits between your application and Claude Code so you can launch and resume sessions programmatically, subscribe to lifecycle events, manage permissions, search session history, and expose agent or team metadata from one place. The API is already useful for real workflows, but the release should still be treated as early alpha software.
 
 ## What You Can Build With It
 
@@ -159,7 +159,9 @@ If you want to contribute:
 
 ## Status
 
-The codebase is active and includes unit, integration, and E2E coverage, along with a Mintlify docs site and generated API reference assets.
+This repository is published as early alpha `v0.1.0`.
+
+The codebase is active and includes unit, integration, and E2E coverage, along with a Mintlify docs site and generated API reference assets. Expect the API and docs surface to keep evolving as the project matures.
 
 ## Repository
 

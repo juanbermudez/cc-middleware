@@ -285,14 +285,21 @@ The stream displays text output as it arrives, and shows tool usage in a compact
 
 ### API Equivalent
 
-Connect to the WebSocket and subscribe to session events:
+Connect to the WebSocket, subscribe to session events, and send a `launch` message:
 
 ```javascript
 const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
 ws.onopen = () => {
   ws.send(JSON.stringify({
     type: "subscribe",
-    events: ["session:stream", "session:completed", "session:errored"]
+    events: ["session:*"]
+  }));
+
+  ws.send(JSON.stringify({
+    type: "launch",
+    options: {
+      prompt: "Implement a REST API for user management"
+    }
   }));
 };
 ```

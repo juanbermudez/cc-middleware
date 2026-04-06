@@ -53,8 +53,11 @@
     "start": "node dist/main.js",
     "ccm": "node dist/cli/index.js",
     "render-diagrams": "tsx scripts/render-diagrams.ts",
-    "docs:dev": "cd docs-site && mint dev",
-    "docs:build": "npm run render-diagrams && cd docs-site && mint build"
+    "docs:dev": "cd docs-site && npx --yes mint dev",
+    "validate:openapi": "npx @redocly/cli lint docs-site/openapi.json",
+    "validate:asyncapi": "npx @asyncapi/cli validate docs-site/asyncapi.json",
+    "docs:validate": "npm run render-diagrams && cd docs-site && npx --yes mint validate",
+    "docs:build": "npm run docs:validate"
   },
   "engines": {
     "node": ">=20.0.0"

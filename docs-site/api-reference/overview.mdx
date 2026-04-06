@@ -3,6 +3,10 @@ title: "API Overview"
 description: "Base URL, error handling, authentication, pagination, and WebSocket connection details for the CC-Middleware API."
 ---
 
+<Info>
+  The API in this early alpha `v0.1.0` release is stable enough for integration work, but individual endpoints and event shapes may still evolve.
+</Info>
+
 ## Base URL
 
 All API endpoints are served from the middleware server, which defaults to:
@@ -168,18 +172,26 @@ ws://127.0.0.1:3000/api/v1/ws
 { "type": "unsubscribe", "events": ["hook:PreToolUse"] }
 ```
 
+```json Ping
+{ "type": "ping" }
+```
+
 ```json Launch Session
 {
   "type": "launch",
   "options": {
     "prompt": "Refactor the auth module",
-    "allowedTools": ["Read", "Edit", "Bash"]
+    "maxTurns": 3
   }
 }
 ```
 
 ```json Resume Session
-{ "type": "resume", "sessionId": "abc-123", "prompt": "Continue with tests" }
+{
+  "type": "resume",
+  "sessionId": "abc-123",
+  "prompt": "Continue with tests"
+}
 ```
 
 </CodeGroup>
@@ -189,7 +201,7 @@ ws://127.0.0.1:3000/api/v1/ws
 | Type | Description |
 |------|-------------|
 | `session:started` | A new session has started |
-| `session:stream` | Streaming output from the session (text deltas, tool use) |
+| `session:stream` | Streaming output from a WebSocket-launched or resumed session |
 | `session:completed` | Session finished successfully |
 | `session:errored` | Session encountered an error |
 | `session:aborted` | Session was aborted |
@@ -207,8 +219,14 @@ ws://127.0.0.1:3000/api/v1/ws
 | `team:updated` | Team config updated (real-time sync) |
 | `team:task-updated` | Team task file updated (real-time sync) |
 | `hook:event` | A hook event was emitted (PreToolUse, PostToolUse, etc.) |
-| `permission:pending` | A permission request needs resolution |
-| `question:pending` | A user question needs answering |
+
+```json Example: session:started
+{
+  "type": "session:started",
+  "sessionId": "sess_abc123",
+  "timestamp": 1712419200000
+}
+```
 
 ```json Example: session:stream
 {

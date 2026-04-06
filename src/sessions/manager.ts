@@ -133,10 +133,18 @@ export class SessionManager extends EventEmitter<SessionManagerEvents> {
       .then((result) => {
         this.sessions.delete(tempId);
         tracked.sessionId = result.sessionId;
-        tracked.status = "completed";
         tracked.result = result;
         this.sessions.set(result.sessionId, tracked);
-        this.emit("session:completed", result, tracked);
+
+        if (result.isError) {
+          const errorMessage = result.errors?.join("; ") || result.result || "Streaming session failed";
+          tracked.status = "errored";
+          tracked.error = new Error(errorMessage);
+          this.emit("session:errored", tracked.error, tracked);
+        } else {
+          tracked.status = "completed";
+          this.emit("session:completed", result, tracked);
+        }
       })
       .catch((error) => {
         const err = toError(error);

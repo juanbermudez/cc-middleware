@@ -78,7 +78,7 @@ function main() {
         writeFileSync(svgPath, svg, "utf-8");
 
         // Replace mermaid block with image (no Frame wrapper - our custom.js handles the overlay)
-        const replacement = `<img className="diagram-expandable" src="${relativeSvgPath}" alt="${id}" style={{ width: '100%', cursor: 'pointer' }} />`;
+        const replacement = `<img className="diagram-expandable" data-zoom-disabled="true" data-zoomable="false" src="${relativeSvgPath}" alt="${id}" style={{ width: '100%', cursor: 'pointer' }} />`;
 
         modified = modified.replace(match[0], replacement);
         totalRendered++;

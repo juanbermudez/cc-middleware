@@ -168,9 +168,6 @@ export function registerSessionCommands(parent: Command): void {
 
         try {
           await wsClient.connect();
-          wsClient.subscribe(["session:*"]);
-          wsClient.send({ type: "launch", options: body });
-
           wsClient.onMessage((msg) => {
             if (msg.type === "session:stream") {
               const event = msg.event as Record<string, unknown>;
@@ -193,6 +190,9 @@ export function registerSessionCommands(parent: Command): void {
               process.exit(1);
             }
           });
+
+          wsClient.subscribe(["session:*"]);
+          wsClient.send({ type: "launch", options: body });
 
           // Handle Ctrl+C
           process.on("SIGINT", () => {
@@ -248,6 +248,10 @@ export function registerSessionCommands(parent: Command): void {
 
       const body: Record<string, unknown> = {};
       if (opts.prompt) body.prompt = opts.prompt;
+      if (!opts.prompt) {
+        printError("Missing prompt", "Use --prompt to provide the follow-up instruction.");
+        process.exit(1);
+      }
 
       if (opts.stream) {
         const wsUrl = globalOpts.server.replace(/^http/, "ws") + "/api/v1/ws";
@@ -255,14 +259,13 @@ export function registerSessionCommands(parent: Command): void {
 
         try {
           await wsClient.connect();
-          wsClient.subscribe(["session:*"]);
-          wsClient.send({ type: "resume", sessionId: id, ...body });
-
           wsClient.onMessage((msg) => {
             if (msg.type === "session:stream") {
               const event = msg.event as Record<string, unknown>;
               if (event?.type === "text_delta" || event?.type === "text") {
                 process.stdout.write(String(event.text ?? ""));
+              } else if (event?.type === "tool_use") {
+                console.log(chalk.dim(`\n[Tool: ${String(event.name ?? "")}]`));
               }
             } else if (msg.type === "session:completed") {
               console.log("");
@@ -277,6 +280,9 @@ export function registerSessionCommands(parent: Command): void {
               process.exit(1);
             }
           });
+
+          wsClient.subscribe(["session:*"]);
+          wsClient.send({ type: "resume", sessionId: id, ...body });
 
           process.on("SIGINT", () => {
             wsClient.close();
@@ -324,17 +330,13 @@ export function registerSessionCommands(parent: Command): void {
 
       try {
         await wsClient.connect();
-        wsClient.subscribe(["session:stream", "session:completed", "session:errored"]);
-
-        console.log(chalk.dim(`Streaming session ${truncate(id, 12)}... (Ctrl+C to stop)\n`));
-
         wsClient.onMessage((msg) => {
           if (msg.type === "session:stream" && msg.sessionId === id) {
             const event = msg.event as Record<string, unknown>;
             if (event?.type === "text_delta" || event?.type === "text") {
               process.stdout.write(String(event.text ?? ""));
             } else if (event?.type === "tool_use") {
-              console.log(chalk.dim(`  [Tool: ${event.name}] ${truncate(String(event.input ?? ""), 60)}`));
+              console.log(chalk.dim(`  [Tool: ${String(event.name ?? "")}]`));
             }
           } else if (msg.type === "session:completed" && msg.sessionId === id) {
             console.log(chalk.dim("\nSession completed."));
@@ -346,6 +348,10 @@ export function registerSessionCommands(parent: Command): void {
             process.exit(1);
           }
         });
+
+        wsClient.subscribe(["session:*"]);
+
+        console.log(chalk.dim(`Streaming session ${truncate(id, 12)}... (Ctrl+C to stop)\n`));
 
         process.on("SIGINT", () => {
           wsClient.close();

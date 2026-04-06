@@ -8,6 +8,19 @@ import { describe, it, expect } from "vitest";
 import type { WSServerMessage, WSClientMessage } from "../../src/api/websocket.js";
 
 describe("WebSocket sync event types", () => {
+  it("should support session:stream event type", () => {
+    const msg: WSServerMessage = {
+      type: "session:stream",
+      sessionId: "test-session-stream",
+      event: {
+        type: "text_delta",
+        text: "hello",
+      },
+    };
+    expect(msg.type).toBe("session:stream");
+    expect(msg.event.type).toBe("text_delta");
+  });
+
   it("should support session:discovered event type", () => {
     const msg: WSServerMessage = {
       type: "session:discovered",
@@ -157,5 +170,28 @@ describe("WebSocket sync event types", () => {
     expect(msg.events).toContain("session:*");
     expect(msg.events).toContain("config:*");
     expect(msg.events).toContain("team:*");
+  });
+
+  it("should support launching a streaming session over WebSocket", () => {
+    const msg: WSClientMessage = {
+      type: "launch",
+      options: {
+        prompt: "Say hello",
+        maxTurns: 1,
+      },
+    };
+    expect(msg.type).toBe("launch");
+    expect(msg.options.prompt).toBe("Say hello");
+  });
+
+  it("should support resuming a streaming session over WebSocket", () => {
+    const msg: WSClientMessage = {
+      type: "resume",
+      sessionId: "sess_123",
+      prompt: "Continue",
+      maxTurns: 1,
+    };
+    expect(msg.type).toBe("resume");
+    expect(msg.sessionId).toBe("sess_123");
   });
 });

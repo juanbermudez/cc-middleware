@@ -194,25 +194,16 @@ perm_456  Write       abc12345   14:23:15    {"path":"/etc/config.json","content
 
 ### Real-Time Notification
 
-Pending permissions are broadcast via WebSocket:
+Pending permissions are exposed through the REST API:
 
 ```typescript
-const ws = new WebSocket("ws://127.0.0.1:3000/api/v1/ws");
+const response = await fetch("http://127.0.0.1:3000/api/v1/permissions/pending");
+const { pending } = await response.json();
 
-ws.onopen = () => {
-  ws.send(JSON.stringify({
-    type: "subscribe",
-    events: ["permission:pending"]
-  }));
-};
-
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  if (msg.type === "permission:pending") {
-    console.log(`Permission needed: ${msg.toolName} (ID: ${msg.id})`);
-    // Present to user or auto-resolve based on your logic
-  }
-};
+for (const req of pending) {
+  console.log(`Permission needed: ${req.toolName} (ID: ${req.id})`);
+  // Present to user or auto-resolve based on your logic
+}
 ```
 
 ## Answering Questions

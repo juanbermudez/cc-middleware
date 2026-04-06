@@ -55,7 +55,9 @@
           {
             "group": "Overview",
             "pages": [
-              "api-reference/overview"
+              "api-reference/overview",
+              "api-reference/openapi",
+              "api-reference/asyncapi"
             ]
           },
           {
@@ -142,6 +144,10 @@
         ]
       }
     ]
+  },
+  "api": {
+    "openapi": "openapi.json",
+    "asyncapi": "asyncapi.json"
   },
   "footerSocials": {
     "github": "https://github.com/cc-middleware"

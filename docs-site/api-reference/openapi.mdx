@@ -1,0 +1,55 @@
+---
+title: "OpenAPI Specification"
+description: "Machine-readable OpenAPI 3.1 specification for the CC-Middleware REST API."
+---
+
+## OpenAPI 3.1 Spec
+
+The CC-Middleware REST API is described by an [OpenAPI 3.1.0](https://spec.openapis.org/oas/v3.1.0) specification file. It covers the published REST surface across health, sessions, events, agents, teams, permissions, search, sync, and configuration.
+
+### Accessing the Spec
+
+The spec file is located at `docs-site/openapi.json` in the repository. You can use it with any OpenAPI-compatible tool:
+
+- **Swagger UI / Redocly** for interactive API exploration
+- **Code generators** (openapi-generator, orval, etc.) to generate typed clients
+- **Testing tools** (Postman, Insomnia) for import and testing
+- **Validation** via `npx @redocly/cli lint docs-site/openapi.json`
+
+### Spec Contents
+
+The spec documents:
+
+| Section | Coverage | Description |
+|---------|-----------|-------------|
+| Health | Health and status endpoints | Health check and middleware status |
+| Sessions | Session lifecycle endpoints | List, get, launch, resume, abort, update, messages |
+| Events | Subscription endpoints | Event types, subscribe, list subscriptions, unsubscribe |
+| Agents | Runtime agent endpoints | List, get, register, delete runtime agents |
+| Teams | Team discovery endpoints | List teams, get team details, get team tasks |
+| Permissions | Permission resolution endpoints | Policies CRUD, pending permissions, questions |
+| Search | Search endpoints | Full-text search, reindex, statistics |
+| Sync | Sync status endpoint | Real-time sync watcher status |
+| Config | Configuration endpoints | Settings, plugins, skills, agents, rules, MCP, memory, CLAUDE.md |
+
+### Request/Response Schemas
+
+All request bodies, query parameters, path parameters, and response schemas are fully typed in `components/schemas`. Error responses follow a consistent format:
+
+```json
+{
+  "error": {
+    "code": "SESSION_NOT_FOUND",
+    "message": "Session abc123 not found",
+    "details": null
+  }
+}
+```
+
+### Validation
+
+Run the following to validate the spec:
+
+```bash
+npm run validate:openapi
+```

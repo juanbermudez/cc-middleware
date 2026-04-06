@@ -1,0 +1,775 @@
+{
+  "asyncapi": "3.1.0",
+  "info": {
+    "title": "CC-Middleware Async API",
+    "version": "0.1.0",
+    "description": "WebSocket events and HTTP hook callback formats for the CC-Middleware real-time event system. Covers the WebSocket server for subscribing to live events and the HTTP hook server that receives events from Claude Code sessions."
+  },
+  "servers": {
+    "websocket": {
+      "host": "127.0.0.1:3000",
+      "pathname": "/api/v1/ws",
+      "protocol": "ws",
+      "description": "WebSocket server for real-time event streaming. Clients connect and send subscribe/unsubscribe messages to control which events they receive."
+    },
+    "hookServer": {
+      "host": "127.0.0.1:3001",
+      "pathname": "/hooks/{eventType}",
+      "protocol": "http",
+      "description": "HTTP hook server that receives POST requests from Claude Code sessions. Always returns HTTP 200; the JSON body determines allow/deny behavior."
+    }
+  },
+  "channels": {
+    "wsClientMessages": {
+      "address": "/api/v1/ws",
+      "servers": [{ "$ref": "#/servers/websocket" }],
+      "description": "Messages sent from client to WebSocket server",
+      "messages": {
+        "subscribe": { "$ref": "#/components/messages/WSSubscribe" },
+        "unsubscribe": { "$ref": "#/components/messages/WSUnsubscribe" },
+        "ping": { "$ref": "#/components/messages/WSPing" },
+        "launch": { "$ref": "#/components/messages/WSLaunch" },
+        "resume": { "$ref": "#/components/messages/WSResume" }
+      }
+    },
+    "wsServerMessages": {
+      "address": "/api/v1/ws",
+      "servers": [{ "$ref": "#/servers/websocket" }],
+      "description": "Messages sent from WebSocket server to client",
+      "messages": {
+        "sessionStarted": { "$ref": "#/components/messages/SessionStarted" },
+        "sessionStream": { "$ref": "#/components/messages/SessionStream" },
+        "sessionCompleted": { "$ref": "#/components/messages/SessionCompleted" },
+        "sessionErrored": { "$ref": "#/components/messages/SessionErrored" },
+        "sessionAborted": { "$ref": "#/components/messages/SessionAborted" },
+        "sessionDiscovered": { "$ref": "#/components/messages/SessionDiscovered" },
+        "sessionUpdated": { "$ref": "#/components/messages/SessionUpdated" },
+        "sessionRemoved": { "$ref": "#/components/messages/SessionRemoved" },
+        "configChanged": { "$ref": "#/components/messages/ConfigChanged" },
+        "configMcpChanged": { "$ref": "#/components/messages/ConfigMcpChanged" },
+        "configAgentChanged": { "$ref": "#/components/messages/ConfigAgentChanged" },
+        "configSkillChanged": { "$ref": "#/components/messages/ConfigSkillChanged" },
+        "configRuleChanged": { "$ref": "#/components/messages/ConfigRuleChanged" },
+        "configPluginChanged": { "$ref": "#/components/messages/ConfigPluginChanged" },
+        "configMemoryChanged": { "$ref": "#/components/messages/ConfigMemoryChanged" },
+        "teamCreated": { "$ref": "#/components/messages/TeamCreated" },
+        "teamUpdated": { "$ref": "#/components/messages/TeamUpdated" },
+        "teamTaskUpdated": { "$ref": "#/components/messages/TeamTaskUpdated" },
+        "hookEvent": { "$ref": "#/components/messages/HookEvent" },
+        "pong": { "$ref": "#/components/messages/WSPong" },
+        "error": { "$ref": "#/components/messages/WSError" }
+      }
+    },
+    "hookInput": {
+      "address": "/hooks/{eventType}",
+      "servers": [{ "$ref": "#/servers/hookServer" }],
+      "description": "HTTP POST requests sent by Claude Code to the hook server. The eventType path parameter determines the event type.",
+      "parameters": {
+        "eventType": {
+          "description": "Hook event type",
+          "enum": [
+            "PreToolUse", "PostToolUse", "PostToolUseFailure",
+            "SessionStart", "SessionEnd", "UserPromptSubmit",
+            "Stop", "StopFailure", "SubagentStart", "SubagentStop",
+            "TaskCreated", "TaskCompleted", "TeammateIdle",
+            "PermissionRequest", "PermissionDenied", "Notification",
+            "ConfigChange", "CwdChanged", "FileChanged",
+            "WorktreeCreate", "WorktreeRemove",
+            "PreCompact", "PostCompact",
+            "Elicitation", "ElicitationResult", "Setup"
+          ]
+        }
+      },
+      "messages": {
+        "hookInput": { "$ref": "#/components/messages/HookInput" }
+      }
+    },
+    "hookOutput": {
+      "address": "/hooks/{eventType}",
+      "servers": [{ "$ref": "#/servers/hookServer" }],
+      "description": "HTTP response body returned by the hook server. Always HTTP 200; the JSON body controls behavior.",
+      "messages": {
+        "hookOutput": { "$ref": "#/components/messages/HookOutput" }
+      }
+    }
+  },
+  "operations": {
+    "clientSubscribe": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/wsClientMessages" },
+      "summary": "Client subscribes to event patterns",
+      "description": "Client sends a subscribe message with an array of event patterns. Supports wildcards: 'session:*', 'hook:*', 'config:*', 'team:*', or '*' for all events."
+    },
+    "clientLaunchSession": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/wsClientMessages" },
+      "summary": "Client launches a streaming session",
+      "description": "Client sends a launch message with the same session options used by the REST API. The server executes the session and emits `session:stream` followed by a terminal lifecycle event."
+    },
+    "clientResumeSession": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/wsClientMessages" },
+      "summary": "Client resumes a streaming session",
+      "description": "Client sends a resume message with a session ID and follow-up prompt. The server resumes the session and emits `session:stream` events and a terminal lifecycle event."
+    },
+    "serverBroadcast": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/wsServerMessages" },
+      "summary": "Server broadcasts events to subscribed clients",
+      "description": "The server pushes events to all connected WebSocket clients whose subscriptions match the event type."
+    },
+    "receiveHookEvent": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/hookInput" },
+      "summary": "Receive hook event from Claude Code",
+      "description": "Claude Code sends POST requests to /hooks/:eventType with a JSON body containing the hook input. The server dispatches the event to the event bus and, for blocking events, returns a decision in the response body."
+    },
+    "respondToHookEvent": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/hookOutput" },
+      "summary": "Return hook response to Claude Code",
+      "description": "For blocking events (PreToolUse, PermissionRequest, Stop, etc.), the response body contains allow/deny decisions. For non-blocking events, an empty object {} is returned. HTTP status is always 200."
+    }
+  },
+  "components": {
+    "messages": {
+      "WSSubscribe": {
+        "name": "subscribe",
+        "summary": "Subscribe to events",
+        "payload": {
+          "type": "object",
+          "required": ["type", "events"],
+          "properties": {
+            "type": { "type": "string", "const": "subscribe" },
+            "events": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Event patterns to subscribe to. Examples: 'session:*', 'hook:PreToolUse', 'config:*', '*'",
+              "examples": [["session:*", "hook:PreToolUse"]]
+            }
+          }
+        }
+      },
+      "WSUnsubscribe": {
+        "name": "unsubscribe",
+        "summary": "Unsubscribe from events",
+        "payload": {
+          "type": "object",
+          "required": ["type", "events"],
+          "properties": {
+            "type": { "type": "string", "const": "unsubscribe" },
+            "events": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Event patterns to unsubscribe from"
+            }
+          }
+        }
+      },
+      "WSPing": {
+        "name": "ping",
+        "summary": "Keepalive ping",
+        "payload": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "const": "ping" }
+          }
+        }
+      },
+      "WSLaunch": {
+        "name": "launch",
+        "summary": "Launch a streaming session",
+        "payload": {
+          "type": "object",
+          "required": ["type", "options"],
+          "properties": {
+            "type": { "type": "string", "const": "launch" },
+            "options": {
+              "type": "object",
+              "required": ["prompt"],
+              "properties": {
+                "prompt": { "type": "string" },
+                "allowedTools": { "type": "array", "items": { "type": "string" } },
+                "disallowedTools": { "type": "array", "items": { "type": "string" } },
+                "permissionMode": { "type": "string", "enum": ["default", "acceptEdits", "plan", "dontAsk", "bypassPermissions", "auto"] },
+                "maxTurns": { "type": "integer" },
+                "maxBudgetUsd": { "type": "number" },
+                "systemPrompt": { "type": "string" },
+                "cwd": { "type": "string" },
+                "effort": { "type": "string", "enum": ["low", "medium", "high", "max"] },
+                "model": { "type": "string" },
+                "agent": { "type": "string" },
+                "persistSession": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      },
+      "WSResume": {
+        "name": "resume",
+        "summary": "Resume a streaming session",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId", "prompt"],
+          "properties": {
+            "type": { "type": "string", "const": "resume" },
+            "sessionId": { "type": "string" },
+            "prompt": { "type": "string" },
+            "maxTurns": { "type": "integer" },
+            "model": { "type": "string" }
+          }
+        }
+      },
+      "WSPong": {
+        "name": "pong",
+        "summary": "Keepalive pong response",
+        "payload": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "const": "pong" }
+          }
+        }
+      },
+      "WSError": {
+        "name": "error",
+        "summary": "Error message from server",
+        "payload": {
+          "type": "object",
+          "required": ["type", "message"],
+          "properties": {
+            "type": { "type": "string", "const": "error" },
+            "message": { "type": "string" }
+          }
+        }
+      },
+      "SessionStarted": {
+        "name": "session:started",
+        "summary": "A new session has started",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "session:started" },
+            "sessionId": { "type": "string" },
+            "timestamp": { "type": "number", "description": "Unix timestamp in ms" }
+          }
+        }
+      },
+      "SessionStream": {
+        "name": "session:stream",
+        "summary": "Streaming output event from an active session",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId", "event"],
+          "properties": {
+            "type": { "type": "string", "const": "session:stream" },
+            "sessionId": { "type": "string" },
+            "event": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["type", "text"],
+                  "properties": {
+                    "type": { "type": "string", "const": "text_delta" },
+                    "text": { "type": "string" }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "text"],
+                  "properties": {
+                    "type": { "type": "string", "const": "text" },
+                    "text": { "type": "string" }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "name", "id"],
+                  "properties": {
+                    "type": { "type": "string", "const": "tool_use" },
+                    "name": { "type": "string" },
+                    "id": { "type": "string" }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "name", "result"],
+                  "properties": {
+                    "type": { "type": "string", "const": "tool_result" },
+                    "name": { "type": "string" },
+                    "result": {}
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "name", "toolUseId", "elapsedSeconds"],
+                  "properties": {
+                    "type": { "type": "string", "const": "tool_progress" },
+                    "name": { "type": "string" },
+                    "toolUseId": { "type": "string" },
+                    "elapsedSeconds": { "type": "number" }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "subtype", "data"],
+                  "properties": {
+                    "type": { "type": "string", "const": "system" },
+                    "subtype": { "type": "string" },
+                    "data": {}
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "rawType", "data"],
+                  "properties": {
+                    "type": { "type": "string", "const": "unknown" },
+                    "rawType": { "type": "string" },
+                    "data": {}
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "SessionCompleted": {
+        "name": "session:completed",
+        "summary": "Session finished successfully",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId", "result"],
+          "properties": {
+            "type": { "type": "string", "const": "session:completed" },
+            "sessionId": { "type": "string" },
+            "result": { "$ref": "#/components/schemas/LaunchResult" }
+          }
+        }
+      },
+      "SessionErrored": {
+        "name": "session:errored",
+        "summary": "Session encountered an error",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId", "error"],
+          "properties": {
+            "type": { "type": "string", "const": "session:errored" },
+            "sessionId": { "type": "string" },
+            "error": { "type": "string" }
+          }
+        }
+      },
+      "SessionAborted": {
+        "name": "session:aborted",
+        "summary": "Session was aborted by the user",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId"],
+          "properties": {
+            "type": { "type": "string", "const": "session:aborted" },
+            "sessionId": { "type": "string" }
+          }
+        }
+      },
+      "SessionDiscovered": {
+        "name": "session:discovered",
+        "summary": "New session file detected on disk (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "session:discovered" },
+            "sessionId": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "SessionUpdated": {
+        "name": "session:updated",
+        "summary": "Session file modified on disk (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "session:updated" },
+            "sessionId": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "SessionRemoved": {
+        "name": "session:removed",
+        "summary": "Session file deleted from disk (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "sessionId", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "session:removed" },
+            "sessionId": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "ConfigChanged": {
+        "name": "config:changed",
+        "summary": "Settings file changed (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "scope", "path", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "config:changed" },
+            "scope": { "type": "string", "description": "Settings scope: user, project, local, managed" },
+            "path": { "type": "string", "description": "File path that changed" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "ConfigMcpChanged": {
+        "name": "config:mcp-changed",
+        "summary": "MCP config changed (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "path", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "config:mcp-changed" },
+            "path": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "ConfigAgentChanged": {
+        "name": "config:agent-changed",
+        "summary": "Agent definition file changed (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "name", "action", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "config:agent-changed" },
+            "name": { "type": "string" },
+            "action": { "type": "string", "enum": ["created", "modified", "removed"] },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "ConfigSkillChanged": {
+        "name": "config:skill-changed",
+        "summary": "Skill definition file changed (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "name", "action", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "config:skill-changed" },
+            "name": { "type": "string" },
+            "action": { "type": "string", "enum": ["created", "modified", "removed"] },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "ConfigRuleChanged": {
+        "name": "config:rule-changed",
+        "summary": "Rule definition file changed (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "name", "action", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "config:rule-changed" },
+            "name": { "type": "string" },
+            "action": { "type": "string", "enum": ["created", "modified", "removed"] },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "ConfigPluginChanged": {
+        "name": "config:plugin-changed",
+        "summary": "Plugin state changed (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "path", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "config:plugin-changed" },
+            "path": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "ConfigMemoryChanged": {
+        "name": "config:memory-changed",
+        "summary": "Memory file changed (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "path", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "config:memory-changed" },
+            "path": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "TeamCreated": {
+        "name": "team:created",
+        "summary": "New team detected (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "teamName", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "team:created" },
+            "teamName": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "TeamUpdated": {
+        "name": "team:updated",
+        "summary": "Team config updated (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "teamName", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "team:updated" },
+            "teamName": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "TeamTaskUpdated": {
+        "name": "team:task-updated",
+        "summary": "Team task file updated (real-time sync)",
+        "payload": {
+          "type": "object",
+          "required": ["type", "path", "timestamp"],
+          "properties": {
+            "type": { "type": "string", "const": "team:task-updated" },
+            "path": { "type": "string" },
+            "timestamp": { "type": "number" }
+          }
+        }
+      },
+      "HookEvent": {
+        "name": "hook:event",
+        "summary": "A hook event was emitted",
+        "payload": {
+          "type": "object",
+          "required": ["type", "eventType", "input"],
+          "properties": {
+            "type": { "type": "string", "const": "hook:event" },
+            "eventType": { "type": "string", "description": "The hook event type (e.g., PreToolUse, PostToolUse)" },
+            "input": { "$ref": "#/components/schemas/HookInputPayload" }
+          }
+        }
+      },
+      "HookInput": {
+        "name": "hookInput",
+        "summary": "Hook event input sent by Claude Code to the hook server",
+        "description": "POST body sent by Claude Code. Contains base fields (session_id, cwd, hook_event_name) plus event-specific fields depending on the event type.",
+        "payload": {
+          "oneOf": [
+            { "$ref": "#/components/schemas/PreToolUseInput" },
+            { "$ref": "#/components/schemas/PostToolUseInput" },
+            { "$ref": "#/components/schemas/PostToolUseFailureInput" },
+            { "$ref": "#/components/schemas/SessionStartInput" },
+            { "$ref": "#/components/schemas/SessionEndInput" },
+            { "$ref": "#/components/schemas/StopInput" },
+            { "$ref": "#/components/schemas/UserPromptSubmitInput" },
+            { "$ref": "#/components/schemas/BaseHookInput" }
+          ]
+        }
+      },
+      "HookOutput": {
+        "name": "hookOutput",
+        "summary": "Hook response returned by the hook server",
+        "description": "HTTP 200 response body. An empty object {} means 'proceed with no changes'. For blocking events, the body may contain permission decisions, system messages, or stop decisions.",
+        "payload": {
+          "$ref": "#/components/schemas/HookJSONOutput"
+        }
+      }
+    },
+    "schemas": {
+      "LaunchResult": {
+        "type": "object",
+        "required": ["sessionId", "subtype", "isError", "durationMs", "durationApiMs", "totalCostUsd", "numTurns"],
+        "properties": {
+          "sessionId": { "type": "string" },
+          "subtype": { "type": "string", "enum": ["success", "error_max_turns", "error_during_execution", "error_max_budget_usd", "error_max_structured_output_retries"] },
+          "isError": { "type": "boolean" },
+          "result": { "type": "string" },
+          "errors": { "type": "array", "items": { "type": "string" } },
+          "durationMs": { "type": "number" },
+          "durationApiMs": { "type": "number" },
+          "totalCostUsd": { "type": "number" },
+          "numTurns": { "type": "integer" },
+          "stopReason": { "type": ["string", "null"] },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "input_tokens": { "type": "integer" },
+              "output_tokens": { "type": "integer" },
+              "cache_creation_input_tokens": { "type": "integer" },
+              "cache_read_input_tokens": { "type": "integer" }
+            }
+          },
+          "modelUsage": { "type": "object", "additionalProperties": true },
+          "permissionDenials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tool_name": { "type": "string" },
+                "tool_use_id": { "type": "string" },
+                "tool_input": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      },
+      "HookInputPayload": {
+        "type": "object",
+        "description": "Hook input payload containing session_id, cwd, hook_event_name, and event-specific fields",
+        "required": ["session_id", "cwd", "hook_event_name"],
+        "properties": {
+          "session_id": { "type": "string" },
+          "cwd": { "type": "string" },
+          "hook_event_name": { "type": "string" },
+          "tool_name": { "type": "string" },
+          "tool_input": { "type": "object", "additionalProperties": true },
+          "tool_output": {}
+        },
+        "additionalProperties": true
+      },
+      "BaseHookInput": {
+        "type": "object",
+        "description": "Common fields present in all hook inputs",
+        "required": ["session_id", "cwd", "hook_event_name"],
+        "properties": {
+          "session_id": { "type": "string", "description": "The Claude Code session ID" },
+          "cwd": { "type": "string", "description": "Working directory of the session" },
+          "hook_event_name": { "type": "string", "description": "The hook event type name" }
+        }
+      },
+      "PreToolUseInput": {
+        "type": "object",
+        "description": "Input for PreToolUse hook events. Sent before a tool is executed, allowing the hook to allow, deny, or modify the tool input.",
+        "required": ["session_id", "cwd", "hook_event_name", "tool_name", "tool_input"],
+        "properties": {
+          "session_id": { "type": "string" },
+          "cwd": { "type": "string" },
+          "hook_event_name": { "type": "string", "const": "PreToolUse" },
+          "tool_name": { "type": "string", "description": "Name of the tool being invoked (e.g., Bash, Read, Edit)" },
+          "tool_input": { "type": "object", "additionalProperties": true, "description": "The tool's input parameters" }
+        }
+      },
+      "PostToolUseInput": {
+        "type": "object",
+        "description": "Input for PostToolUse hook events. Sent after a tool has executed successfully.",
+        "required": ["session_id", "cwd", "hook_event_name", "tool_name", "tool_input", "tool_output"],
+        "properties": {
+          "session_id": { "type": "string" },
+          "cwd": { "type": "string" },
+          "hook_event_name": { "type": "string", "const": "PostToolUse" },
+          "tool_name": { "type": "string" },
+          "tool_input": { "type": "object", "additionalProperties": true },
+          "tool_output": { "description": "Output from the tool execution" }
+        }
+      },
+      "PostToolUseFailureInput": {
+        "type": "object",
+        "description": "Input for PostToolUseFailure hook events. Sent when a tool execution fails.",
+        "required": ["session_id", "cwd", "hook_event_name", "tool_name", "tool_input", "error"],
+        "properties": {
+          "session_id": { "type": "string" },
+          "cwd": { "type": "string" },
+          "hook_event_name": { "type": "string", "const": "PostToolUseFailure" },
+          "tool_name": { "type": "string" },
+          "tool_input": { "type": "object", "additionalProperties": true },
+          "error": { "type": "string", "description": "Error message from the failed tool execution" }
+        }
+      },
+      "SessionStartInput": {
+        "type": "object",
+        "description": "Input for SessionStart hook events.",
+        "required": ["session_id", "cwd", "hook_event_name"],
+        "properties": {
+          "session_id": { "type": "string" },
+          "cwd": { "type": "string" },
+          "hook_event_name": { "type": "string", "const": "SessionStart" }
+        }
+      },
+      "SessionEndInput": {
+        "type": "object",
+        "description": "Input for SessionEnd hook events.",
+        "required": ["session_id", "cwd", "hook_event_name"],
+        "properties": {
+          "session_id": { "type": "string" },
+          "cwd": { "type": "string" },
+          "hook_event_name": { "type": "string", "const": "SessionEnd" }
+        }
+      },
+      "StopInput": {
+        "type": "object",
+        "description": "Input for Stop hook events. Sent when a session is about to stop. Blocking: the hook can prevent the stop.",
+        "required": ["session_id", "cwd", "hook_event_name", "stop_reason"],
+        "properties": {
+          "session_id": { "type": "string" },
+          "cwd": { "type": "string" },
+          "hook_event_name": { "type": "string", "const": "Stop" },
+          "stop_reason": { "type": "string", "description": "Reason the session is stopping" }
+        }
+      },
+      "UserPromptSubmitInput": {
+        "type": "object",
+        "description": "Input for UserPromptSubmit hook events. Sent when a user submits a prompt.",
+        "required": ["session_id", "cwd", "hook_event_name", "prompt"],
+        "properties": {
+          "session_id": { "type": "string" },
+          "cwd": { "type": "string" },
+          "hook_event_name": { "type": "string", "const": "UserPromptSubmit" },
+          "prompt": { "type": "string", "description": "The submitted prompt text" }
+        }
+      },
+      "HookJSONOutput": {
+        "type": "object",
+        "description": "Output format for hook callbacks. An empty object {} means 'proceed with no changes'. Fields are optional and event-specific.",
+        "properties": {
+          "systemMessage": { "type": "string", "description": "System message to inject into the conversation context" },
+          "continue": { "type": "boolean", "description": "Whether to continue the session" },
+          "suppressOutput": { "type": "boolean", "description": "Whether to suppress the tool output" },
+          "stopReason": { "type": "string", "description": "Custom stop reason" },
+          "decision": {
+            "type": "string",
+            "enum": ["approve", "block"],
+            "description": "For Stop/TaskCompleted/TeammateIdle: approve or block the action"
+          },
+          "reason": { "type": "string", "description": "Reason for the decision" },
+          "hookSpecificOutput": {
+            "type": "object",
+            "description": "Event-specific output fields",
+            "required": ["hookEventName"],
+            "properties": {
+              "hookEventName": { "type": "string" },
+              "permissionDecision": {
+                "type": "string",
+                "enum": ["allow", "deny", "ask", "defer"],
+                "description": "For PreToolUse/PermissionRequest: permission decision"
+              },
+              "permissionDecisionReason": { "type": "string" },
+              "updatedInput": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "For PreToolUse with permissionDecision 'allow': modified tool input"
+              },
+              "additionalContext": { "type": "string", "description": "Additional context message visible to the model" },
+              "decision": {
+                "type": "object",
+                "properties": {
+                  "behavior": { "type": "string", "enum": ["allow", "deny"] }
+                },
+                "description": "For PermissionRequest: structured decision"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

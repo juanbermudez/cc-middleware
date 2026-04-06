@@ -163,5 +163,5 @@ ccm sessions launch "Fix the failing tests" --agent test-fixer
 ```
 
 <Note>
-  For real-time output streaming, use the `--stream` flag with the CLI or connect via [WebSocket](/api-reference/overview#websocket) and send a `launch` message.
+  This REST endpoint launches a session and waits for the final result. For real-time output, you can also use the WebSocket `launch` message described in the [AsyncAPI spec](/api-reference/asyncapi).
 </Note>

@@ -7,6 +7,10 @@ description: "A Node/TypeScript middleware for managing and observing Claude Cod
 
 CC-Middleware is a central API layer that wraps Claude Code, providing clean programmatic access to sessions, hook events, permissions, agents, and configuration.
 
+<Info>
+  This project is in early alpha release `v0.1.0`, so the API and docs may still evolve as the surface stabilizes.
+</Info>
+
 <CardGroup cols={2}>
   <Card title="Quick Start" icon="rocket" href="/quickstart">
     Get up and running in minutes
@@ -48,7 +52,7 @@ CC-Middleware sits between your application and Claude Code, exposing every aspe
 
 CC-Middleware supports three integration modes that can be mixed freely:
 
-<CardGroup cols={3}>
+<CardGroup cols={1}>
   <Card title="SDK Mode" icon="code">
     Launch sessions via the Agent SDK. Hooks are registered as TypeScript callbacks in-process. Tightest integration and lowest latency. Best for building automation and programmatic workflows.
   </Card>

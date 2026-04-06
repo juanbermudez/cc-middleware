@@ -152,4 +152,5 @@ describe("CLI integration", () => {
     const result = (await runCliJson(["permissions", "pending"])) as Record<string, unknown>;
     expect(result.pending).toBeInstanceOf(Array);
   });
+
 });

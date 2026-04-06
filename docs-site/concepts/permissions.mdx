@@ -11,7 +11,7 @@ The permission system provides programmatic control over tool approvals and user
 
 When Claude Code attempts to use a tool, the permission system evaluates the request through a multi-stage pipeline:
 
-<img className="diagram-expandable" src="/images/diagrams/concepts-permissions-0.svg" alt="concepts-permissions-0" style={{ width: '100%', cursor: 'pointer' }} />
+<img className="diagram-expandable" data-zoom-disabled="true" data-zoomable="false" src="/images/diagrams/concepts-permissions-0.svg" alt="concepts-permissions-0" style={{ width: '100%', cursor: 'pointer' }} />
 
 ## Policy Engine
 
@@ -121,7 +121,7 @@ Each pending permission includes:
 | `input` | Tool input parameters |
 
 <Tip>
-  Pending permissions are also broadcast via WebSocket as `permission:pending` events, so you can build real-time approval UIs.
+  Pending permissions are available through the REST API at `/api/v1/permissions/pending`. The current WebSocket protocol does not emit a dedicated `permission:pending` event.
 </Tip>
 
 ## AskUserQuestion

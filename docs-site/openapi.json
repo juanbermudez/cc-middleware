@@ -1,0 +1,3934 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CC-Middleware API",
+    "description": "REST API for managing and observing Claude Code sessions, agents, permissions, hooks, configuration, and search.",
+    "version": "0.1.0",
+    "contact": {
+      "name": "CC-Middleware"
+    },
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000",
+      "description": "Local development server"
+    }
+  ],
+  "security": [],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Health check and status endpoints"
+    },
+    {
+      "name": "Sessions",
+      "description": "Session CRUD, launch, resume, and abort"
+    },
+    {
+      "name": "Events",
+      "description": "Webhook subscriptions and event type listing"
+    },
+    {
+      "name": "Agents",
+      "description": "Runtime agent registration and team management"
+    },
+    {
+      "name": "Teams",
+      "description": "Team discovery and task listing"
+    },
+    {
+      "name": "Permissions",
+      "description": "Policy rules, pending permissions, and question answering"
+    },
+    {
+      "name": "Search",
+      "description": "Full-text session search, reindexing, and statistics"
+    },
+    {
+      "name": "Sync",
+      "description": "Real-time sync watcher status"
+    },
+    {
+      "name": "Config - Settings",
+      "description": "Settings read/write across scopes"
+    },
+    {
+      "name": "Config - Plugins",
+      "description": "Plugin discovery, enable, and disable"
+    },
+    {
+      "name": "Config - Agents",
+      "description": "File-based agent definition CRUD"
+    },
+    {
+      "name": "Config - Skills & Rules",
+      "description": "Skill and rule discovery"
+    },
+    {
+      "name": "Config - MCP",
+      "description": "MCP server discovery"
+    },
+    {
+      "name": "Config - Memory",
+      "description": "Project memory and CLAUDE.md files"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "healthCheck",
+        "summary": "Health check",
+        "description": "Returns server health status, version, and uptime in seconds.",
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/status": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getStatus",
+        "summary": "Middleware status",
+        "description": "Returns a summary of active sessions, registered agents, hook handlers, pending permissions, and policy rules.",
+        "responses": {
+          "200": {
+            "description": "Current middleware status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "listSessions",
+        "summary": "List sessions",
+        "description": "Retrieve a paginated list of Claude Code sessions, optionally filtered by project directory.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            },
+            "description": "Maximum number of sessions to return"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Number of sessions to skip"
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter sessions by project directory path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated session list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "sessions",
+                    "total"
+                  ],
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SessionInfo"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "launchSession",
+        "summary": "Launch new session",
+        "description": "Launch a new headless Claude Code session with the given prompt and options.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session launched successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Session launch failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}": {
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "getSession",
+        "summary": "Get session details",
+        "description": "Retrieve detailed information about a specific session by its ID.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInfo"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "updateSession",
+        "summary": "Update session (rename/tag)",
+        "description": "Update a session's title or tag. Pass `null` for tag to clear it.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated session details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/messages": {
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "getSessionMessages",
+        "summary": "Get session messages",
+        "description": "Retrieve the message transcript for a session, with pagination support.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session ID"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            },
+            "description": "Maximum number of messages to return"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Number of messages to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "messages",
+                    "total"
+                  ],
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SessionMessage"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/resume": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "resumeSession",
+        "summary": "Resume session",
+        "description": "Resume an existing session with a new prompt, continuing from where it left off.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session ID to resume"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session resumed and completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Session resume failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/abort": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "abortSession",
+        "summary": "Abort active session",
+        "description": "Abort a currently running session. The session must be in the `running` state.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session ID to abort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session aborted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "sessionId"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "aborted"
+                      ]
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Active session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Session not in running state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/types": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "operationId": "listEventTypes",
+        "summary": "List event types",
+        "description": "Returns all supported hook event type strings.",
+        "responses": {
+          "200": {
+            "description": "List of event types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "eventTypes",
+                    "total"
+                  ],
+                  "properties": {
+                    "eventTypes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/events/subscribe": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "operationId": "createSubscription",
+        "summary": "Register webhook",
+        "description": "Register a webhook URL to receive events. Use `*` in the events array to subscribe to all event types.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubscriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "events",
+                    "url"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/subscriptions": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "operationId": "listSubscriptions",
+        "summary": "List subscriptions",
+        "description": "List all registered webhook subscriptions.",
+        "responses": {
+          "200": {
+            "description": "List of subscriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "subscriptions",
+                    "total"
+                  ],
+                  "properties": {
+                    "subscriptions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SubscriptionSummary"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/events/subscriptions/{id}": {
+      "delete": {
+        "tags": [
+          "Events"
+        ],
+        "operationId": "deleteSubscription",
+        "summary": "Remove subscription",
+        "description": "Delete a webhook subscription by its ID. Stops event delivery to the registered URL.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Subscription ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "id"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "deleted"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subscription not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents": {
+      "get": {
+        "tags": [
+          "Agents"
+        ],
+        "operationId": "listAgents",
+        "summary": "List agents",
+        "description": "List all registered runtime agents.",
+        "responses": {
+          "200": {
+            "description": "List of agents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "agents",
+                    "total"
+                  ],
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AgentSummary"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Agents"
+        ],
+        "operationId": "registerAgent",
+        "summary": "Register runtime agent",
+        "description": "Register a new runtime agent definition. Runtime agents are stored in memory and not persisted to disk.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterAgentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Agent registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "description",
+                    "source"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "runtime"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{name}": {
+      "get": {
+        "tags": [
+          "Agents"
+        ],
+        "operationId": "getAgent",
+        "summary": "Get agent details",
+        "description": "Retrieve full details of a registered agent including its prompt.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Agent name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Agents"
+        ],
+        "operationId": "deleteAgent",
+        "summary": "Remove runtime agent",
+        "description": "Unregister a runtime agent by name.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Agent name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "name"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "deleted"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "listTeams",
+        "summary": "List teams",
+        "description": "Discover and list all configured teams.",
+        "responses": {
+          "200": {
+            "description": "List of teams",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "teams",
+                    "total"
+                  ],
+                  "properties": {
+                    "teams": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TeamSummary"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{name}": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "getTeam",
+        "summary": "Get team details",
+        "description": "Retrieve full details of a team including its members.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Team name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Team details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamConfig"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Team not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{name}/tasks": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "getTeamTasks",
+        "summary": "Get team tasks",
+        "description": "Retrieve all tasks assigned to a team.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Team name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Team tasks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "tasks",
+                    "total"
+                  ],
+                  "properties": {
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TeamTask"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Team not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/permissions/policies": {
+      "get": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "listPolicies",
+        "summary": "List policies",
+        "description": "List all policy rules in the permission engine.",
+        "responses": {
+          "200": {
+            "description": "Policy rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "rules",
+                    "total"
+                  ],
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PolicyRule"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "addPolicyRule",
+        "summary": "Add policy rule",
+        "description": "Add a new policy rule to the permission engine. Rules are evaluated by priority (higher priority wins).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPolicyRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Rule added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "toolName",
+                    "behavior",
+                    "priority"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "toolName": {
+                      "type": "string"
+                    },
+                    "behavior": {
+                      "type": "string",
+                      "enum": [
+                        "allow",
+                        "deny"
+                      ]
+                    },
+                    "priority": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rule with this ID already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/permissions/policies/{id}": {
+      "delete": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "deletePolicyRule",
+        "summary": "Remove policy rule",
+        "description": "Remove a policy rule by its ID.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Policy rule ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "id"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "deleted"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rule not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/permissions/pending": {
+      "get": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "listPendingPermissions",
+        "summary": "List pending permission requests",
+        "description": "List all pending permission requests awaiting resolution.",
+        "responses": {
+          "200": {
+            "description": "Pending permission requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "pending",
+                    "total"
+                  ],
+                  "properties": {
+                    "pending": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PendingPermission"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/permissions/pending/{id}/resolve": {
+      "post": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "resolvePermission",
+        "summary": "Resolve permission request",
+        "description": "Allow or deny a pending permission request.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Pending permission request ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolvePermissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permission resolved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "id",
+                    "behavior"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "resolved"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "behavior": {
+                      "type": "string",
+                      "enum": [
+                        "allow",
+                        "deny"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pending permission not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/permissions/questions": {
+      "get": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "listPendingQuestions",
+        "summary": "List pending questions",
+        "description": "List all pending questions from Claude Code sessions that need user answers.",
+        "responses": {
+          "200": {
+            "description": "Pending questions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "questions",
+                    "total"
+                  ],
+                  "properties": {
+                    "questions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PendingQuestion"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/permissions/questions/{id}/answer": {
+      "post": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "answerQuestion",
+        "summary": "Answer pending question",
+        "description": "Provide answers to a pending question. The answers map is keyed by question ID.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Pending question ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerQuestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Question answered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "id"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "answered"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pending question not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "operationId": "searchSessions",
+        "summary": "Search sessions",
+        "description": "Full-text search across session content with filtering by project, date range, tags, and status.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": ""
+            },
+            "description": "Search query string"
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by project directory"
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Filter by start date (ms since epoch)"
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Filter by end date (ms since epoch)"
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of tags to filter by"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by session status"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            },
+            "description": "Maximum number of results"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Number of results to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResults"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/search/reindex": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "operationId": "reindexSessions",
+        "summary": "Trigger reindex",
+        "description": "Trigger a full reindex of all sessions. This can take a while for large session histories.",
+        "responses": {
+          "200": {
+            "description": "Reindex completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReindexResult"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/search/stats": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "operationId": "getSearchStats",
+        "summary": "Index statistics",
+        "description": "Returns statistics about the search index including session and message counts.",
+        "responses": {
+          "200": {
+            "description": "Index statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexStats"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/sync/status": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "operationId": "getSyncStatus",
+        "summary": "Get sync status",
+        "description": "Returns the status of all real-time sync watchers: session watcher, config watcher, and auto-indexer.",
+        "responses": {
+          "200": {
+            "description": "Sync watcher status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/settings": {
+      "get": {
+        "tags": [
+          "Config - Settings"
+        ],
+        "operationId": "getMergedSettings",
+        "summary": "Get merged effective settings",
+        "description": "Returns the merged effective settings from all scopes (managed, user, project, local).",
+        "responses": {
+          "200": {
+            "description": "Merged settings object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/settings/{scope}": {
+      "get": {
+        "tags": [
+          "Config - Settings"
+        ],
+        "operationId": "getScopedSettings",
+        "summary": "Get settings for scope",
+        "description": "Get settings for a specific scope.",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "project",
+                "local",
+                "managed"
+              ]
+            },
+            "description": "Settings scope"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scoped settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    },
+                    "content": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Config - Settings"
+        ],
+        "operationId": "updateSetting",
+        "summary": "Update a setting value",
+        "description": "Set a specific setting value at the given scope. The key uses dot-notation for nested paths.",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "project",
+                "local"
+              ]
+            },
+            "description": "Writable settings scope (managed is read-only)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Setting updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid scope or validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config/settings/{scope}/permissions": {
+      "post": {
+        "tags": [
+          "Config - Settings"
+        ],
+        "operationId": "addPermissionRule",
+        "summary": "Add a permission rule",
+        "description": "Add a permission rule to the settings file at the given scope.",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "project",
+                "local"
+              ]
+            },
+            "description": "Writable settings scope"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Permission rule added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "rule",
+                    "behavior",
+                    "scope"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "added"
+                      ]
+                    },
+                    "rule": {
+                      "type": "string"
+                    },
+                    "behavior": {
+                      "type": "string",
+                      "enum": [
+                        "allow",
+                        "deny",
+                        "ask"
+                      ]
+                    },
+                    "scope": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid scope or validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Config - Settings"
+        ],
+        "operationId": "removePermissionRule",
+        "summary": "Remove a permission rule",
+        "description": "Remove a permission rule from the settings file at the given scope.",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "project",
+                "local"
+              ]
+            },
+            "description": "Writable settings scope"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permission rule removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "rule",
+                    "behavior",
+                    "scope"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "removed"
+                      ]
+                    },
+                    "rule": {
+                      "type": "string"
+                    },
+                    "behavior": {
+                      "type": "string",
+                      "enum": [
+                        "allow",
+                        "deny",
+                        "ask"
+                      ]
+                    },
+                    "scope": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid scope or validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config/plugins": {
+      "get": {
+        "tags": [
+          "Config - Plugins"
+        ],
+        "operationId": "listPlugins",
+        "summary": "List all plugins",
+        "description": "List all installed plugins across all scopes.",
+        "responses": {
+          "200": {
+            "description": "Plugin list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "plugins",
+                    "total"
+                  ],
+                  "properties": {
+                    "plugins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/plugins/{name}": {
+      "get": {
+        "tags": [
+          "Config - Plugins"
+        ],
+        "operationId": "getPlugin",
+        "summary": "Get plugin details",
+        "description": "Get detailed information about a specific plugin.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plugin details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plugin not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config/plugins/{name}/enable": {
+      "post": {
+        "tags": [
+          "Config - Plugins"
+        ],
+        "operationId": "enablePlugin",
+        "summary": "Enable a plugin",
+        "description": "Enable a plugin at the specified scope.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnablePluginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plugin enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "name",
+                    "scope"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "enabled"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/plugins/{name}/disable": {
+      "post": {
+        "tags": [
+          "Config - Plugins"
+        ],
+        "operationId": "disablePlugin",
+        "summary": "Disable a plugin",
+        "description": "Disable a plugin at the specified scope.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Plugin name"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnablePluginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plugin disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "name",
+                    "scope"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "disabled"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/skills": {
+      "get": {
+        "tags": [
+          "Config - Skills & Rules"
+        ],
+        "operationId": "listSkills",
+        "summary": "List all skills",
+        "description": "Discover and list all skill definitions from project and user scopes.",
+        "responses": {
+          "200": {
+            "description": "Skills list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "skills",
+                    "total"
+                  ],
+                  "properties": {
+                    "skills": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/agents": {
+      "get": {
+        "tags": [
+          "Config - Agents"
+        ],
+        "operationId": "listConfigAgents",
+        "summary": "List file-based agent definitions",
+        "description": "Discover and list all agent definitions from configuration files.",
+        "responses": {
+          "200": {
+            "description": "Agent definitions list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "agents",
+                    "total"
+                  ],
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Config - Agents"
+        ],
+        "operationId": "createConfigAgent",
+        "summary": "Create agent definition file",
+        "description": "Create a new agent definition file at the specified scope (user or project).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateConfigAgentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Agent definition created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "path",
+                    "name"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "created"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config/agents/{name}": {
+      "put": {
+        "tags": [
+          "Config - Agents"
+        ],
+        "operationId": "updateConfigAgent",
+        "summary": "Update agent definition",
+        "description": "Update an existing agent definition file.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Agent name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConfigAgentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "name"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "updated"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Config - Agents"
+        ],
+        "operationId": "deleteConfigAgent",
+        "summary": "Delete agent definition",
+        "description": "Delete an agent definition file.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Agent name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "name"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "deleted"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config/rules": {
+      "get": {
+        "tags": [
+          "Config - Skills & Rules"
+        ],
+        "operationId": "listRules",
+        "summary": "List all rules",
+        "description": "Discover and list all rule definitions from configuration files.",
+        "responses": {
+          "200": {
+            "description": "Rules list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "rules",
+                    "total"
+                  ],
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/mcp": {
+      "get": {
+        "tags": [
+          "Config - MCP"
+        ],
+        "operationId": "listMcpServers",
+        "summary": "List all MCP servers",
+        "description": "Discover and list all configured MCP (Model Context Protocol) servers.",
+        "responses": {
+          "200": {
+            "description": "MCP servers list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "servers",
+                    "total"
+                  ],
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/memory": {
+      "get": {
+        "tags": [
+          "Config - Memory"
+        ],
+        "operationId": "getProjectMemory",
+        "summary": "Get project memory index",
+        "description": "Returns the project memory index including the memory directory path, index content, and file count.",
+        "responses": {
+          "200": {
+            "description": "Project memory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectMemory"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/memory/files": {
+      "get": {
+        "tags": [
+          "Config - Memory"
+        ],
+        "operationId": "listMemoryFiles",
+        "summary": "List memory files",
+        "description": "List all files in the project memory directory.",
+        "responses": {
+          "200": {
+            "description": "Memory file list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "files",
+                    "total"
+                  ],
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MemoryFileSummary"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/memory/files/{name}": {
+      "get": {
+        "tags": [
+          "Config - Memory"
+        ],
+        "operationId": "getMemoryFile",
+        "summary": "Read a memory file",
+        "description": "Read the contents of a specific memory file by name.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Memory file name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory file contents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Memory file not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config/memory/projects": {
+      "get": {
+        "tags": [
+          "Config - Memory"
+        ],
+        "operationId": "listProjectMemories",
+        "summary": "List all project memories",
+        "description": "List memory entries for all known projects.",
+        "responses": {
+          "200": {
+            "description": "All project memories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "projects",
+                    "total"
+                  ],
+                  "properties": {
+                    "projects": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    },
+    "/api/v1/config/claude-md": {
+      "get": {
+        "tags": [
+          "Config - Memory"
+        ],
+        "operationId": "listClaudeMd",
+        "summary": "List all CLAUDE.md files",
+        "description": "Discover and list all CLAUDE.md files from user and project scopes.",
+        "responses": {
+          "200": {
+            "description": "CLAUDE.md file list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "files",
+                    "total"
+                  ],
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Generic4xxError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Machine-readable error code"
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable error description"
+              },
+              "details": {
+                "description": "Additional details (e.g., Zod validation issues)"
+              }
+            }
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "uptime"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "0.1.0"
+          },
+          "uptime": {
+            "type": "integer",
+            "description": "Server uptime in seconds"
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "required": [
+          "activeSessions",
+          "registeredAgents",
+          "hookHandlerCount",
+          "registeredEvents",
+          "pendingPermissions",
+          "pendingQuestions",
+          "policyRuleCount"
+        ],
+        "properties": {
+          "activeSessions": {
+            "type": "integer"
+          },
+          "registeredAgents": {
+            "type": "integer"
+          },
+          "hookHandlerCount": {
+            "type": "integer"
+          },
+          "registeredEvents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pendingPermissions": {
+            "type": "integer"
+          },
+          "pendingQuestions": {
+            "type": "integer"
+          },
+          "policyRuleCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "SessionInfo": {
+        "type": "object",
+        "required": [
+          "sessionId",
+          "summary",
+          "lastModified"
+        ],
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "lastModified": {
+            "type": "number",
+            "description": "Timestamp in ms since epoch"
+          },
+          "fileSize": {
+            "type": "integer"
+          },
+          "customTitle": {
+            "type": "string"
+          },
+          "firstPrompt": {
+            "type": "string"
+          },
+          "gitBranch": {
+            "type": "string"
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "tag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "number"
+          }
+        }
+      },
+      "SessionMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "uuid",
+          "session_id",
+          "message",
+          "parent_tool_use_id"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ]
+          },
+          "uuid": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "message": {
+            "description": "Raw message payload from the transcript (opaque)"
+          },
+          "parent_tool_use_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "LaunchSessionRequest": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The prompt to send to Claude Code"
+          },
+          "allowedTools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of allowed tool names"
+          },
+          "disallowedTools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of disallowed tool names"
+          },
+          "permissionMode": {
+            "type": "string",
+            "enum": [
+              "default",
+              "acceptEdits",
+              "plan",
+              "dontAsk",
+              "bypassPermissions",
+              "auto"
+            ],
+            "description": "Permission handling mode"
+          },
+          "maxTurns": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Maximum number of turns"
+          },
+          "maxBudgetUsd": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Maximum budget in USD"
+          },
+          "systemPrompt": {
+            "type": "string",
+            "description": "Custom system prompt override"
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory for the session"
+          },
+          "effort": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "max"
+            ],
+            "description": "Effort level"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model to use (e.g., claude-sonnet-4-20250514)"
+          },
+          "agent": {
+            "type": "string",
+            "description": "Agent name to use for the session"
+          }
+        }
+      },
+      "ResumeSessionRequest": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The prompt to continue with"
+          },
+          "maxTurns": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Maximum number of turns"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model to use for this continuation"
+          }
+        }
+      },
+      "UpdateSessionRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "New title for the session"
+          },
+          "tag": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Tag to assign (null to clear)"
+          }
+        }
+      },
+      "LaunchResult": {
+        "type": "object",
+        "required": [
+          "sessionId",
+          "subtype",
+          "isError",
+          "durationMs",
+          "durationApiMs",
+          "totalCostUsd",
+          "numTurns",
+          "usage",
+          "modelUsage",
+          "permissionDenials"
+        ],
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "subtype": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error_max_turns",
+              "error_during_execution",
+              "error_max_budget_usd",
+              "error_max_structured_output_retries"
+            ],
+            "description": "Result subtype"
+          },
+          "isError": {
+            "type": "boolean"
+          },
+          "result": {
+            "type": "string",
+            "description": "Final text result from the session"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "durationMs": {
+            "type": "number",
+            "description": "Total wall-clock duration"
+          },
+          "durationApiMs": {
+            "type": "number",
+            "description": "Time spent in API calls"
+          },
+          "totalCostUsd": {
+            "type": "number",
+            "description": "Total cost in USD"
+          },
+          "numTurns": {
+            "type": "integer",
+            "description": "Number of turns completed"
+          },
+          "stopReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "usage": {
+            "$ref": "#/components/schemas/SessionUsage"
+          },
+          "modelUsage": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "permissionDenials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tool_name": {
+                  "type": "string"
+                },
+                "tool_use_id": {
+                  "type": "string"
+                },
+                "tool_input": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "structuredOutput": {
+            "description": "Structured output if outputFormat was specified"
+          }
+        }
+      },
+      "SessionUsage": {
+        "type": "object",
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "cache_creation_input_tokens",
+          "cache_read_input_tokens"
+        ],
+        "properties": {
+          "input_tokens": {
+            "type": "integer"
+          },
+          "output_tokens": {
+            "type": "integer"
+          },
+          "cache_creation_input_tokens": {
+            "type": "integer"
+          },
+          "cache_read_input_tokens": {
+            "type": "integer"
+          }
+        }
+      },
+      "CreateSubscriptionRequest": {
+        "type": "object",
+        "required": [
+          "url",
+          "events"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Webhook delivery URL"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "Event types to subscribe to (use '*' for all)"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Custom headers to include in webhook delivery"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Shared secret for webhook signature verification"
+          }
+        }
+      },
+      "SubscriptionSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "events",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "number"
+          }
+        }
+      },
+      "RegisterAgentRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "prompt"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "System prompt for the agent"
+          },
+          "model": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed tools"
+          },
+          "disallowedTools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxTurns": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "AgentSummary": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "source"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "disallowedTools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxTurns": {
+            "type": "integer"
+          }
+        }
+      },
+      "AgentDetail": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "prompt",
+          "source"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "disallowedTools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxTurns": {
+            "type": "integer"
+          }
+        }
+      },
+      "TeamSummary": {
+        "type": "object",
+        "required": [
+          "name",
+          "memberCount"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "memberCount": {
+            "type": "integer"
+          },
+          "configPath": {
+            "type": "string"
+          }
+        }
+      },
+      "TeamConfig": {
+        "type": "object",
+        "required": [
+          "name",
+          "members"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMember"
+            }
+          },
+          "taskListPath": {
+            "type": "string"
+          }
+        }
+      },
+      "TeamMember": {
+        "type": "object",
+        "required": [
+          "name",
+          "agentId",
+          "agentType",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "agentType": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "working",
+              "stopped",
+              "error"
+            ]
+          }
+        }
+      },
+      "TeamTask": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed",
+              "failed"
+            ]
+          },
+          "assignee": {
+            "type": "string"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PolicyRule": {
+        "type": "object",
+        "required": [
+          "id",
+          "toolName",
+          "behavior",
+          "priority"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "toolName": {
+            "type": "string"
+          },
+          "behavior": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny"
+            ]
+          },
+          "condition": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          }
+        }
+      },
+      "AddPolicyRuleRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "toolName",
+          "behavior",
+          "priority"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "toolName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "behavior": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny"
+            ]
+          },
+          "condition": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          }
+        }
+      },
+      "PendingPermission": {
+        "type": "object",
+        "required": [
+          "id",
+          "toolName",
+          "toolUseID",
+          "agentID",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "toolName": {
+            "type": "string"
+          },
+          "toolUseID": {
+            "type": "string"
+          },
+          "agentID": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "input": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ResolvePermissionRequest": {
+        "type": "object",
+        "required": [
+          "behavior"
+        ],
+        "properties": {
+          "behavior": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Optional message (used for deny)"
+          }
+        }
+      },
+      "PendingQuestion": {
+        "type": "object",
+        "required": [
+          "id",
+          "createdAt",
+          "questions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "toolUseID": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          }
+        }
+      },
+      "AnswerQuestionRequest": {
+        "type": "object",
+        "required": [
+          "answers"
+        ],
+        "properties": {
+          "answers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Map of question ID to answer string"
+          }
+        }
+      },
+      "SearchResults": {
+        "type": "object",
+        "required": [
+          "results",
+          "total"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "query": {
+            "type": "string"
+          }
+        }
+      },
+      "ReindexResult": {
+        "type": "object",
+        "required": [
+          "status",
+          "sessionsIndexed",
+          "messagesIndexed",
+          "errors",
+          "durationMs"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "sessionsIndexed": {
+            "type": "integer"
+          },
+          "messagesIndexed": {
+            "type": "integer"
+          },
+          "errors": {
+            "type": "integer"
+          },
+          "durationMs": {
+            "type": "number"
+          }
+        }
+      },
+      "IndexStats": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Index statistics from the session indexer"
+      },
+      "SyncStatus": {
+        "type": "object",
+        "required": [
+          "sessionWatcher",
+          "configWatcher",
+          "autoIndexer"
+        ],
+        "properties": {
+          "sessionWatcher": {
+            "type": "object",
+            "properties": {
+              "watching": {
+                "type": "boolean"
+              },
+              "dirs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "knownFiles": {
+                "type": "integer"
+              },
+              "lastPoll": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          },
+          "configWatcher": {
+            "type": "object",
+            "properties": {
+              "watching": {
+                "type": "boolean"
+              },
+              "watchedPaths": {
+                "type": "integer"
+              },
+              "lastPoll": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          },
+          "autoIndexer": {
+            "type": "object",
+            "properties": {
+              "running": {
+                "type": "boolean"
+              },
+              "sessionsIndexed": {
+                "type": "integer"
+              },
+              "indexErrors": {
+                "type": "integer"
+              },
+              "lastIndexTime": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "pendingBatch": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "UpdateSettingRequest": {
+        "type": "object",
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Dot-notation key path (e.g., 'preferences.theme')"
+          },
+          "value": {
+            "description": "The value to set"
+          }
+        }
+      },
+      "PermissionRuleRequest": {
+        "type": "object",
+        "required": [
+          "rule",
+          "behavior"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Permission rule pattern"
+          },
+          "behavior": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny",
+              "ask"
+            ]
+          }
+        }
+      },
+      "EnablePluginRequest": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "user",
+              "project",
+              "local"
+            ],
+            "default": "user"
+          },
+          "marketplace": {
+            "type": "string",
+            "default": "claude-plugins-official"
+          }
+        }
+      },
+      "CreateConfigAgentRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "prompt"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "project",
+              "user"
+            ],
+            "default": "project"
+          },
+          "model": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxTurns": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "effort": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateConfigAgentRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxTurns": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "effort": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectMemory": {
+        "type": "object",
+        "required": [
+          "projectKey",
+          "memoryDir",
+          "hasIndex",
+          "indexContent",
+          "fileCount"
+        ],
+        "properties": {
+          "projectKey": {
+            "type": "string"
+          },
+          "memoryDir": {
+            "type": "string"
+          },
+          "hasIndex": {
+            "type": "boolean"
+          },
+          "indexContent": {
+            "type": "string"
+          },
+          "fileCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "MemoryFileSummary": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "lastModified",
+          "path"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lastModified": {
+            "type": "number"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Generic4xxError": {
+        "description": "Client error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}

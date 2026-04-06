@@ -184,3 +184,38 @@ Each entry should include:
 - **Context**: Phase 12 Task 12.2 Config watcher
 - **Learning**: Chokidar handles glob patterns natively for its fs.watch-based detection, but the polling fallback needs to manually expand glob patterns like `*.md` and `*/SKILL.md` by reading directories. Without this, the poll-based scanner only checks literal file paths and misses new files matching glob patterns.
 - **Impact**: Implemented `expandGlobs()` method that handles `dir/*.ext` and `dir/*/file` patterns for the polling scanner.
+
+### 2026-04-06 - OpenAPI 3.1 uses JSON Schema null unions, not `nullable`
+- **Context**: Docs API spec compliance work
+- **Learning**: Redocly lint rejects OpenAPI 3.1 schemas that still use the OpenAPI 3.0-style `nullable: true` keyword in component schemas. In 3.1, nullable fields should be expressed with JSON Schema unions such as `"type": ["string", "null"]` or `"type": ["number", "null"]`.
+- **Impact**: Hand-authored OpenAPI specs in this repo should use JSON Schema null unions so `npm run validate:openapi` passes.
+
+### 2026-04-06 - Async specs must document emitted events, not just typed possibilities
+- **Context**: Docs API spec compliance work
+- **Learning**: It is easy for documentation and hand-authored AsyncAPI files to drift toward "events the codebase has types for" instead of "events the runtime actually emits." In this case, `permission:pending` existed in docs/spec text but had no broadcaster wiring.
+- **Impact**: When documenting WebSocket or hook protocols, verify against the actual broadcast/dispatch paths in `src/api/websocket.ts` and `src/main.ts`, not just shared TypeScript unions.
+
+### 2026-04-06 - Current Mint config expects API specs under `api`, not top-level `openapi`
+- **Context**: Docs API spec compliance work
+- **Learning**: The current Mint CLI validates API specs from the `api.openapi` and `api.asyncapi` fields in `docs.json`. A legacy top-level `openapi` key can cause `mint validate` to misinterpret the config and fail even when the spec file itself is valid.
+- **Impact**: Keep API spec wiring in `docs-site/docs.json` under the `api` object, and use `mint validate` as the working docs verification command.
+
+### 2026-04-06 - CLI WebSocket handlers must be registered before sending launch/resume
+- **Context**: CLI/WebSocket session streaming alignment
+- **Learning**: The CLI's `sessions launch --stream` and `sessions resume --stream` paths were missing early stream output because they sent the WebSocket `launch`/`resume` message before registering the message handler. Fast servers or deterministic test doubles can emit `session:stream` immediately, so the handler must be attached first.
+- **Impact**: For streaming CLI flows, register `onMessage` before calling `subscribe()` or `send()`.
+
+### 2026-04-06 - Broadcaster wildcard patterns are one-way
+- **Context**: CLI/WebSocket session streaming alignment
+- **Learning**: The WebSocket broadcaster matches exact subscriptions and `prefix:*` wildcards against the emitted broadcast pattern. A client subscribed to `session:completed` will NOT automatically receive a message broadcast as `session:*`; only clients subscribed to `session:*` or `*` will.
+- **Impact**: CLI listeners that need all session lifecycle events should subscribe to `session:*`, not a hand-picked set of exact session event names.
+
+### 2026-04-06 - Redocly accepts a shared 4XX response per operation
+- **Context**: Docs API spec cleanup
+- **Learning**: Redocly's `operation-4xx-response` warning is satisfied by adding a `4XX` response entry to each operation, and that response can point at a shared reusable component. This keeps the spec compact while still clearing the lint warning.
+- **Impact**: Future OpenAPI maintenance can use a single reusable 4XX response component instead of duplicating the same error schema on every route.
+
+### 2026-04-06 - CardGroup cols=1 is the simplest stacked layout
+- **Context**: Docs introduction layout cleanup
+- **Learning**: The Mintlify `CardGroup` component keeps the same card styling while stacking vertically when `cols={1}` is used.
+- **Impact**: For “same content, stacked instead of side-by-side” docs changes, `CardGroup cols={1}` is a low-risk option.
