@@ -16,6 +16,7 @@ import { registerHookCommands } from "./commands/hooks.js";
 import { registerAgentCommands, registerTeamCommands } from "./commands/agents.js";
 import { registerPermissionCommands } from "./commands/permissions.js";
 import { registerConfigCommands } from "./commands/config.js";
+import { registerSyncCommands } from "./commands/sync.js";
 import { registerCompletionCommand } from "./completion.js";
 
 const program = new Command();
@@ -38,6 +39,7 @@ registerAgentCommands(program);
 registerTeamCommands(program);
 registerPermissionCommands(program);
 registerConfigCommands(program);
+registerSyncCommands(program);
 registerCompletionCommand(program);
 
 /** Get a MiddlewareClient from the global options */

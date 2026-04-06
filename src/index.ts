@@ -124,3 +124,18 @@ export type { SkillInfo, AgentFileInfo, RuleInfo, ClaudeMdInfo } from "./config/
 
 // === Plugin ===
 export { createMiddlewareMcpServer } from "./plugin/mcp-server.js";
+
+// === Sync ===
+export { SessionWatcher } from "./sync/session-watcher.js";
+export type { SessionWatcherOptions, SessionWatchEvent, SessionWatcherStatus } from "./sync/session-watcher.js";
+export { ConfigWatcher } from "./sync/config-watcher.js";
+export type {
+  ConfigWatcherOptions,
+  ConfigChangeEvent,
+  SettingsChangeEvent,
+  ComponentChangeEvent,
+  TeamChangeEvent,
+  ConfigWatcherStatus,
+} from "./sync/config-watcher.js";
+export { AutoIndexer } from "./sync/auto-indexer.js";
+export type { AutoIndexerOptions, AutoIndexerStats } from "./sync/auto-indexer.js";
