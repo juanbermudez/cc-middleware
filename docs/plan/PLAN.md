@@ -27,6 +27,7 @@ Build a Node/TypeScript middleware that wraps Claude Code to provide a clean, un
 | 8 | [Plugin Integration](phases/08-plugin.md) | Phase 4, 7 | Claude Code plugin packaging |
 | 9 | [Search & Indexing](phases/09-search-index.md) | Phase 2, 7 | SQLite full-text search for sessions |
 | 10 | [Configuration Management](phases/10-configuration.md) | Phase 1, 7 | Read/manage CC settings, plugins, skills, agents, MCP, memory |
+| 11 | [CLI Control Surface](phases/11-cli.md) | Phase 7, 9, 10 | Terminal CLI (`ccm`) wrapping the middleware API |
 
 ## Dependency Graph
 
@@ -42,8 +43,12 @@ Phase 1 (Foundation)
   │     └── Phase 8 (Plugin) ←── also depends on Phase 7
   └── Phase 10 (Configuration) ←── also depends on Phase 7
 
+Phase 7 (API Layer) + Phase 9 (Search) + Phase 10 (Configuration)
+  └── Phase 11 (CLI Control Surface)
+
 Phase 6.5 (Integration Tests) depends on Phases 3-6
 Phase 7 (API Layer) depends on Phase 6.5
+Phase 11 (CLI) depends on Phases 7, 9, 10
 ```
 
 ---
@@ -487,13 +492,89 @@ These tests wire the separately-built systems together and prove the middleware 
 
 ---
 
+## Phase 11: CLI Control Surface
+**File**: [phases/11-cli.md](phases/11-cli.md)
+
+### Task 11.1: CLI scaffold and client
+- `src/cli/index.ts` - Commander setup with global flags (`--json`, `--server`, `--verbose`, `--no-color`, `--auto-start`)
+- `src/cli/client.ts` - HTTP client wrapper (fetch-based, talks to middleware API)
+- `src/cli/ws-client.ts` - WebSocket client for streaming/events
+- `src/cli/output.ts` - Output formatters (table, JSON, streaming text)
+- `src/cli/auto-start.ts` - Server health check and auto-start logic
+- Add `commander`, `chalk`, `cli-table3`, `ora` dependencies
+- Add `bin.ccm` entry to package.json
+
+**Verify**: `npm run build` succeeds, `ccm --help` shows program info, `ccm --version` outputs version
+
+### Task 11.2: Server commands
+- `ccm server start` - Fork middleware as background process, write PID file, wait for health
+- `ccm server stop` - Read PID file, send SIGTERM, clean up
+- `ccm server status` - Call `/health` + `/api/v1/status`, display formatted info
+
+**Verify**: E2E test of full lifecycle: start -> status (running) -> stop -> status (not running)
+
+### Task 11.3: Session commands
+- `ccm sessions list` - Table of sessions via `GET /api/v1/sessions`
+- `ccm sessions show <id>` - Session details + chat log via `GET /sessions/:id` + `/messages`
+- `ccm sessions launch <prompt>` - Launch via `POST /api/v1/sessions`, support `--stream`
+- `ccm sessions resume <id>` - Resume via `POST /sessions/:id/resume`
+- `ccm sessions stream <id>` - Real-time WebSocket stream of active session
+- `ccm sessions search <query>` - Search via `GET /api/v1/search`
+
+**Verify**: E2E test: list sessions, show a session, search sessions, verify table and JSON output
+
+### Task 11.4: Hook commands
+- `ccm hooks listen` - Live WebSocket stream of hook events (like `tail -f`)
+- `ccm hooks list` - List event types and webhook subscriptions
+
+**Verify**: E2E test: list hooks, verify event types shown
+
+### Task 11.5: Agent and team commands
+- `ccm agents list/show/create` - Agent CRUD via `/api/v1/agents` and `/api/v1/config/agents`
+- `ccm teams list/show` - Team info via `/api/v1/teams`
+
+**Verify**: E2E test: list agents, list teams, verify formatted output
+
+### Task 11.6: Permission commands
+- `ccm permissions list` - List policies via `GET /permissions/policies`
+- `ccm permissions add` - Add policy via `POST /permissions/policies`
+- `ccm permissions pending` - Show pending requests via `GET /permissions/pending`
+- `ccm permissions approve/deny <id>` - Resolve via `POST /permissions/pending/:id/resolve`
+
+**Verify**: E2E test: add policy, list policies, verify it appears
+
+### Task 11.7: Configuration commands
+- `ccm config show/get/set` - Settings via `/api/v1/config/settings`
+- `ccm config plugins/mcp/skills/agents/memory` - Component listing via `/api/v1/config/*`
+
+**Verify**: E2E test: show config, list plugins, list MCP servers
+
+### Task 11.8: Tab completion and polish
+- Shell completion generation (bash, zsh, fish)
+- Dynamic completions for session IDs, agent names
+- Graceful error handling (friendly messages, not stack traces)
+- Signal handling for streaming commands
+
+**Verify**: `ccm --help` shows all commands, `ccm completion bash` generates script, error messages are user-friendly
+
+### Task 11.9: Integration tests
+- Full CLI integration tests against running middleware server
+- Session workflow: list -> launch -> show -> search
+- Config workflow: show -> plugins -> MCP
+- Permissions workflow: add -> list -> verify
+
+**Verify**: All integration tests pass with `npx vitest run tests/e2e/cli-integration.test.ts`
+
+---
+
 ## Completion Criteria
 
 The middleware is considered complete when:
-1. All 10 phases pass verification
+1. All 11 phases pass verification
 2. All E2E tests pass in a clean run (`npm run test:e2e`)
 3. API documentation in `docs/api/` is current
 4. Architecture documentation in `docs/architecture/` is current
 5. The plugin loads successfully in Claude Code
 6. The middleware can be started as a standalone server
 7. Configuration reading covers all Claude Code config systems
+8. The `ccm` CLI can start the server and execute all command groups

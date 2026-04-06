@@ -78,6 +78,17 @@
 - [x] Task 10.6: Memory reader
 - [x] Task 10.7: Configuration API endpoints
 
+## Phase 11: CLI Control Surface
+- [ ] Task 11.1: CLI scaffold and client
+- [ ] Task 11.2: Server commands
+- [ ] Task 11.3: Session commands
+- [ ] Task 11.4: Hook commands
+- [ ] Task 11.5: Agent and team commands
+- [ ] Task 11.6: Permission commands
+- [ ] Task 11.7: Configuration commands
+- [ ] Task 11.8: Tab completion and polish
+- [ ] Task 11.9: Integration tests
+
 ---
 
 ## Completion Log
