@@ -58,14 +58,18 @@ If a skill and command share the same name, the skill takes precedence.
 ## Skill Format (SKILL.md)
 
 ### Directory Structure
-```
-my-skill/
-├── SKILL.md           # Main instructions (required)
-├── template.md        # Template for Claude to fill in (optional)
-├── examples/
-│   └── sample.md      # Example output (optional)
-└── scripts/
-    └── validate.sh    # Script Claude can execute (optional)
+```mermaid
+flowchart TD
+    skill["my-skill/"]
+    main["SKILL.md<br/>Main instructions (required)"]
+    template["template.md<br/>Template for Claude to fill in (optional)"]
+    example["examples/sample.md<br/>Example output (optional)"]
+    script["scripts/validate.sh<br/>Script Claude can execute (optional)"]
+
+    skill --> main
+    skill --> template
+    skill --> example
+    skill --> script
 ```
 
 ### Frontmatter Reference

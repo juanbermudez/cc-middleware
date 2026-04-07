@@ -14,28 +14,43 @@ Make the middleware automatically detect and react to changes from external Clau
 
 ## Architecture
 
-```
-Filesystem Watchers
-├── Session watcher (~/.claude/projects/*/*.jsonl)
-│   ├── New session file → index + emit session:discovered
-│   ├── Modified session file → re-index + emit session:updated
-│   └── Polling fallback for large dirs
-├── Team watcher (~/.claude/teams/)
-│   ├── New team config → emit team:created
-│   ├── Modified team config → emit team:updated
-│   └── Task file changes → emit team:task-updated
-├── Config watcher
-│   ├── ~/.claude/settings.json → emit config:changed
-│   ├── .claude/settings.json → emit config:changed
-│   ├── ~/.claude.json → emit config:changed (MCP, global)
-│   └── .mcp.json → emit config:changed
-└── Component watcher
-    ├── .claude/agents/*.md → emit agent:changed
-    ├── .claude/skills/*/SKILL.md → emit skill:changed
-    └── .claude/rules/*.md → emit rule:changed
+```mermaid
+flowchart TD
+    watchers["Filesystem Watchers"]
+    session["Session watcher<br/>~/.claude/projects/*/*.jsonl"]
+    team["Team watcher<br/>~/.claude/teams/"]
+    config["Config watcher"]
+    component["Component watcher"]
+    ws["WebSocket broadcast<br/>connected clients"]
+    index["Incremental search index update"]
 
-All events → WebSocket broadcast to connected clients
-All session events → Incremental search index update
+    watchers --> session
+    watchers --> team
+    watchers --> config
+    watchers --> component
+
+    session --> sessionNew["New session file<br/>index and emit session:discovered"]
+    session --> sessionUpdated["Modified session file<br/>re-index and emit session:updated"]
+    session --> sessionPoll["Polling fallback for large dirs"]
+
+    team --> teamCreated["New team config<br/>emit team:created"]
+    team --> teamUpdated["Modified team config<br/>emit team:updated"]
+    team --> teamTask["Task file changes<br/>emit team:task-updated"]
+
+    config --> cfgUser["~/.claude/settings.json<br/>emit config:changed"]
+    config --> cfgProject[".claude/settings.json<br/>emit config:changed"]
+    config --> cfgGlobal["~/.claude.json<br/>emit config:changed (MCP, global)"]
+    config --> cfgMcp[".mcp.json<br/>emit config:changed"]
+
+    component --> compAgent[".claude/agents/*.md<br/>emit agent:changed"]
+    component --> compSkill[".claude/skills/*/SKILL.md<br/>emit skill:changed"]
+    component --> compRule[".claude/rules/*.md<br/>emit rule:changed"]
+
+    session --> ws
+    team --> ws
+    config --> ws
+    component --> ws
+    session --> index
 ```
 
 ## Approach: `fs.watch` + Polling Hybrid

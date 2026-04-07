@@ -87,25 +87,36 @@ The manifest is **optional**. If omitted, Claude Code auto-discovers components 
 
 ## Plugin Directory Structure
 
-```
-my-plugin/
-├── .claude-plugin/           # Metadata (optional)
-│   └── plugin.json
-├── commands/                 # Skill markdown files (legacy)
-├── agents/                   # Agent markdown files
-├── skills/                   # Skills with SKILL.md
-│   └── my-skill/
-│       └── SKILL.md
-├── output-styles/            # Output style definitions
-├── hooks/                    # Hook configurations
-│   └── hooks.json
-├── bin/                      # Executables added to Bash PATH
-├── settings.json             # Default settings (only `agent` key supported)
-├── .mcp.json                 # MCP server definitions
-├── .lsp.json                 # LSP server configurations
-├── scripts/                  # Utility scripts
-├── LICENSE
-└── CHANGELOG.md
+```mermaid
+flowchart TD
+    plugin["my-plugin/"]
+    manifest[".claude-plugin/plugin.json<br/>Metadata (optional)"]
+    commands["commands/<br/>Skill markdown files (legacy)"]
+    agents["agents/<br/>Agent markdown files"]
+    skills["skills/my-skill/SKILL.md<br/>Skills with SKILL.md"]
+    styles["output-styles/<br/>Output style definitions"]
+    hooks["hooks/hooks.json<br/>Hook configurations"]
+    bin["bin/<br/>Executables added to Bash PATH"]
+    settings["settings.json<br/>Default settings"]
+    mcp[".mcp.json<br/>MCP server definitions"]
+    lsp[".lsp.json<br/>LSP server configurations"]
+    scripts["scripts/<br/>Utility scripts"]
+    license["LICENSE"]
+    changelog["CHANGELOG.md"]
+
+    plugin --> manifest
+    plugin --> commands
+    plugin --> agents
+    plugin --> skills
+    plugin --> styles
+    plugin --> hooks
+    plugin --> bin
+    plugin --> settings
+    plugin --> mcp
+    plugin --> lsp
+    plugin --> scripts
+    plugin --> license
+    plugin --> changelog
 ```
 
 **Important**: Components go at the plugin root, NOT inside `.claude-plugin/`. Only `plugin.json` goes in `.claude-plugin/`.
@@ -278,13 +289,20 @@ Edit `extraKnownMarketplaces` in settings.json, OR use CLI `/plugin marketplace 
 - `claude-plugins-official` from `anthropics/claude-plugins-official` on GitHub
 
 ### Plugin Cache Structure
-```
-~/.claude/plugins/cache/claude-plugins-official/
-├── agent-sdk-dev/unknown/     (agents/, commands/, .claude-plugin/)
-├── claude-md-management/1.0.0/
-├── plugin-dev/unknown/        (agents/, skills/, hooks/, commands/, .claude-plugin/)
-├── skill-creator/unknown/
-└── supabase/27d2b86d72da/
+```mermaid
+flowchart TD
+    cache["~/.claude/plugins/cache/claude-plugins-official/"]
+    agentSdk["agent-sdk-dev/unknown/<br/>agents, commands, .claude-plugin"]
+    claudeMd["claude-md-management/1.0.0/"]
+    pluginDev["plugin-dev/unknown/<br/>agents, skills, hooks, commands, .claude-plugin"]
+    skillCreator["skill-creator/unknown/"]
+    supabase["supabase/27d2b86d72da/"]
+
+    cache --> agentSdk
+    cache --> claudeMd
+    cache --> pluginDev
+    cache --> skillCreator
+    cache --> supabase
 ```
 
 ## API Implications

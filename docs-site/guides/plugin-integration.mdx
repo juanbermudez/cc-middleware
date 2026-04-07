@@ -21,19 +21,7 @@ Both modes dispatch to the same event bus, so consumers do not need to know the 
 
 ## Plugin Structure
 
-```
-src/plugin/
-  .claude-plugin/
-    plugin.json           # Plugin manifest
-  hooks/
-    hooks.json            # HTTP hooks pointing to middleware server
-  skills/
-    cc-middleware/
-      SKILL.md            # In-session middleware commands
-  bin/
-    start-server.sh       # Helper to start middleware
-  settings.json           # Default environment variables
-```
+<img className="diagram-expandable" data-zoom-disabled="true" data-zoomable="false" src="/images/diagrams/guides-plugin-integration-0.svg" alt="guides-plugin-integration-0" style={{ width: '100%', cursor: 'pointer' }} />
 
 ## Installation
 

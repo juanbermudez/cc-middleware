@@ -18,18 +18,20 @@ Both modes dispatch to the same event bus, so consumers don't need to know the s
 
 ## Plugin Structure
 
-```
-src/plugin/
-├── .claude-plugin/
-│   └── plugin.json         # Manifest
-├── hooks/
-│   └── hooks.json          # HTTP hooks → middleware server
-├── skills/
-│   └── cc-middleware/
-│       └── SKILL.md        # In-session middleware commands
-├── bin/
-│   └── start-server.sh     # Helper to start middleware
-└── settings.json           # Default env vars
+```mermaid
+flowchart TD
+    plugin["src/plugin/"]
+    manifest[".claude-plugin/plugin.json<br/>Manifest"]
+    hooks["hooks/hooks.json<br/>HTTP hooks to middleware server"]
+    skill["skills/cc-middleware/SKILL.md<br/>In-session middleware commands"]
+    bin["bin/start-server.sh<br/>Helper to start middleware"]
+    settings["settings.json<br/>Default env vars"]
+
+    plugin --> manifest
+    plugin --> hooks
+    plugin --> skill
+    plugin --> bin
+    plugin --> settings
 ```
 
 ## HTTP Hook Flow

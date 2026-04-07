@@ -118,12 +118,18 @@ Files discovered recursively. Subdirectories supported. Symlinks supported for s
 
 ### Storage Location
 
-```
-~/.claude/projects/<project-key>/memory/
-├── MEMORY.md          # Index file, loaded every session
-├── debugging.md       # Topic file (loaded on demand)
-├── api-conventions.md # Topic file (loaded on demand)
-└── ...
+```mermaid
+flowchart TD
+    memory["~/.claude/projects/<project-key>/memory/"]
+    index["MEMORY.md<br/>Index file loaded every session"]
+    debugging["debugging.md<br/>Topic file loaded on demand"]
+    api["api-conventions.md<br/>Topic file loaded on demand"]
+    more["..."]
+
+    memory --> index
+    memory --> debugging
+    memory --> api
+    memory --> more
 ```
 
 The `<project-key>` is derived from the **git repository root**, so all worktrees and subdirectories within the same repo share one memory directory. Outside a git repo, the project root path is used.

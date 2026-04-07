@@ -82,17 +82,4 @@ CC-Middleware supports three integration modes that can be mixed freely:
 
 ## Project Structure
 
-```
-src/
-  sessions/    Session discovery, launching, streaming, indexing
-  hooks/       Event bus, HTTP hook server, handler registration
-  permissions/ Permission policy manager, canUseTool implementation
-  agents/      Agent definition reader, team launcher, team monitor
-  api/         REST/WebSocket API server, route handlers
-  plugin/      Claude Code plugin manifest, hook configs, skills
-  store/       SQLite session index store
-  sync/        Real-time file watchers and auto-indexer
-  config/      Settings reader/writer, plugin/MCP/memory management
-  cli/         CLI entry point and command handlers
-  types/       Shared TypeScript type definitions
-```
+<img className="diagram-expandable" data-zoom-disabled="true" data-zoomable="false" src="/images/diagrams/introduction-0.svg" alt="introduction-0" style={{ width: '100%', cursor: 'pointer' }} />

@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3689.8609999999994 327.6" width="100%" height="auto" style="--bg:#282a36;--fg:#f8f8f2;--line:#6272a4;--accent:#bd93f9;--muted:#6272a4">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="root" data-to="src" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999997,76.9 1974.2349999999994,124.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="sessions" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 207.69299999999993,185.8 207.69299999999993,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="hooks" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 572.5609999999999,185.8 572.5609999999999,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="permissions" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 962.9934999999998,185.8 962.9934999999998,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="agents" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 1353.4259999999997,185.8 1353.4259999999997,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="api" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 1668.2764999999997,185.8 1668.2764999999997,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="plugin" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 1974.2349999999997,185.8 1974.2349999999997,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="store" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 2262.4094999999998,185.8 2262.4094999999998,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="sync" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 2526.1309999999994,185.8 2526.1309999999994,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="config" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 2888.0349999999994,185.8 2888.0349999999994,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="cli" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 3245.8634999999995,185.8 3245.8634999999995,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="types" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1974.2349999999994,161.8 1974.2349999999994,185.8 3527.7394999999997,185.8 3527.7394999999997,209.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="node" data-id="root" data-label="CC-Middleware" data-shape="rectangle">
+  <rect x="1908.0589999999997" y="40" width="132.352" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1974.2349999999997" y="58.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">CC-Middleware</text>
+</g>
+<g class="node" data-id="src" data-label="src/" data-shape="rectangle">
+  <rect x="1941.0334999999995" y="124.9" width="66.40299999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1974.2349999999994" y="143.35000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">src/</text>
+</g>
+<g class="node" data-id="sessions" data-label="sessions/
+Session discovery, launching, streaming, indexing" data-shape="rectangle">
+  <rect x="40" y="209.8" width="335.38599999999985" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="207.69299999999993" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="207.69299999999993" dy="-3.9000000000000012">sessions/</tspan><tspan x="207.69299999999993" dy="16.900000000000002">Session discovery, launching, streaming, indexing</tspan></text>
+</g>
+<g class="node" data-id="hooks" data-label="hooks/
+Event bus, HTTP hook server, handler registration" data-shape="rectangle">
+  <rect x="403.3859999999999" y="209.8" width="338.3499999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="572.5609999999999" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="572.5609999999999" dy="-3.9000000000000012">hooks/</tspan><tspan x="572.5609999999999" dy="16.900000000000002">Event bus, HTTP hook server, handler registration</tspan></text>
+</g>
+<g class="node" data-id="permissions" data-label="permissions/
+Permission policy manager and canUseTool implementation" data-shape="rectangle">
+  <rect x="769.7359999999999" y="209.8" width="386.515" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="962.9934999999998" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="962.9934999999998" dy="-3.9000000000000012">permissions/</tspan><tspan x="962.9934999999998" dy="16.900000000000002">Permission policy manager and canUseTool implementation</tspan></text>
+</g>
+<g class="node" data-id="agents" data-label="agents/
+Agent definition reader, team launcher, team monitor" data-shape="rectangle">
+  <rect x="1184.2509999999997" y="209.8" width="338.34999999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1353.4259999999997" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1353.4259999999997" dy="-3.9000000000000012">agents/</tspan><tspan x="1353.4259999999997" dy="16.900000000000002">Agent definition reader, team launcher, team monitor</tspan></text>
+</g>
+<g class="node" data-id="api" data-label="api/
+REST and WebSocket API routes" data-shape="rectangle">
+  <rect x="1550.6009999999997" y="209.8" width="235.35099999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1668.2764999999997" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1668.2764999999997" dy="-3.9000000000000012">api/</tspan><tspan x="1668.2764999999997" dy="16.900000000000002">REST and WebSocket API routes</tspan></text>
+</g>
+<g class="node" data-id="plugin" data-label="plugin/
+Claude Code plugin manifest, hook configs, skills" data-shape="rectangle">
+  <rect x="1813.9519999999998" y="209.8" width="320.56599999999986" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1974.2349999999997" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1974.2349999999997" dy="-3.9000000000000012">plugin/</tspan><tspan x="1974.2349999999997" dy="16.900000000000002">Claude Code plugin manifest, hook configs, skills</tspan></text>
+</g>
+<g class="node" data-id="store" data-label="store/
+SQLite session index store" data-shape="rectangle">
+  <rect x="2162.5179999999996" y="209.8" width="199.783" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="2262.4094999999998" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="2262.4094999999998" dy="-3.9000000000000012">store/</tspan><tspan x="2262.4094999999998" dy="16.900000000000002">SQLite session index store</tspan></text>
+</g>
+<g class="node" data-id="sync" data-label="sync/
+Real-time file watchers and auto-indexer" data-shape="rectangle">
+  <rect x="2390.3009999999995" y="209.8" width="271.65999999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="2526.1309999999994" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="2526.1309999999994" dy="-3.9000000000000012">sync/</tspan><tspan x="2526.1309999999994" dy="16.900000000000002">Real-time file watchers and auto-indexer</tspan></text>
+</g>
+<g class="node" data-id="config" data-label="config/
+Settings reader/writer, plugin, MCP, and memory management" data-shape="rectangle">
+  <rect x="2689.9609999999993" y="209.8" width="396.14799999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="2888.0349999999994" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="2888.0349999999994" dy="-3.9000000000000012">config/</tspan><tspan x="2888.0349999999994" dy="16.900000000000002">Settings reader/writer, plugin, MCP, and memory management</tspan></text>
+</g>
+<g class="node" data-id="cli" data-label="cli/
+CLI entry point and command handlers" data-shape="rectangle">
+  <rect x="3114.1089999999995" y="209.8" width="263.50899999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="3245.8634999999995" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="3245.8634999999995" dy="-3.9000000000000012">cli/</tspan><tspan x="3245.8634999999995" dy="16.900000000000002">CLI entry point and command handlers</tspan></text>
+</g>
+<g class="node" data-id="types" data-label="types/
+Shared TypeScript type definitions" data-shape="rectangle">
+  <rect x="3405.6179999999995" y="209.8" width="244.24299999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="3527.7394999999997" y="236.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="3527.7394999999997" dy="-3.9000000000000012">types/</tspan><tspan x="3527.7394999999997" dy="16.900000000000002">Shared TypeScript type definitions</tspan></text>
+</g>
+</svg>

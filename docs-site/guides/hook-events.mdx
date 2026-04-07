@@ -212,9 +212,7 @@ blockingRegistry.register("Stop", {
 
 When CC-Middleware is installed as a Claude Code plugin, hook events arrive as HTTP POSTs to the hook server on port 3001:
 
-```
-Claude Code --> HTTP POST http://127.0.0.1:3001/hooks/PreToolUse --> Event Bus
-```
+<img className="diagram-expandable" data-zoom-disabled="true" data-zoomable="false" src="/images/diagrams/guides-hook-events-0.svg" alt="guides-hook-events-0" style={{ width: '100%', cursor: 'pointer' }} />
 
 The hook server:
 1. Parses the JSON body (same format as command hook stdin)

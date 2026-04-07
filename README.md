@@ -27,22 +27,33 @@ CC-Middleware sits between your application and Claude Code so you can launch an
 
 ## Project Structure
 
-```text
-src/
-  api/         REST and WebSocket routes
-  agents/      Agent definition reader and team launcher
-  cli/         Command-line interface
-  config/      Settings, plugins, MCP, memory, components
-  hooks/       Event bus and hook server
-  permissions/ Tool approval and policy handling
-  sessions/    Session discovery, launch, resume, messages, streaming
-  store/       SQLite session index
-  sync/        Real-time file watchers and auto-indexer
-  types/       Shared TypeScript types
+```mermaid
+flowchart TD
+    root["CC-Middleware"]
+    src["src/"]
+    docsSite["docs-site/"]
+    docs["docs/"]
+    tests["tests/"]
 
-docs-site/     Mintlify documentation source
-docs/          Architecture notes, research, and planning docs
-tests/         Unit, integration, and E2E coverage
+    root --> src
+    root --> docsSite
+    root --> docs
+    root --> tests
+
+    src --> api["api/ - REST and WebSocket routes"]
+    src --> agents["agents/ - Agent definition reader and team launcher"]
+    src --> cli["cli/ - Command-line interface"]
+    src --> config["config/ - Settings, plugins, MCP, memory, components"]
+    src --> hooks["hooks/ - Event bus and hook server"]
+    src --> permissions["permissions/ - Tool approval and policy handling"]
+    src --> sessions["sessions/ - Session discovery, launch, resume, messages, streaming"]
+    src --> store["store/ - SQLite session index"]
+    src --> sync["sync/ - Real-time file watchers and auto-indexer"]
+    src --> types["types/ - Shared TypeScript types"]
+
+    docsSite --> docsSiteDesc["Mintlify documentation source"]
+    docs --> docsDesc["Architecture notes, research, and planning docs"]
+    tests --> testsDesc["Unit, integration, and E2E coverage"]
 ```
 
 ## Requirements

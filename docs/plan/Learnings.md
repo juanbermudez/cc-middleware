@@ -219,3 +219,8 @@ Each entry should include:
 - **Context**: Docs introduction layout cleanup
 - **Learning**: The Mintlify `CardGroup` component keeps the same card styling while stacking vertically when `cols={1}` is used.
 - **Impact**: For “same content, stacked instead of side-by-side” docs changes, `CardGroup cols={1}` is a low-risk option.
+
+### 2026-04-06 - Mintlify Mermaid rendering is destructive to source blocks
+- **Context**: Docs diagram cleanup
+- **Learning**: The `render-diagrams.ts` step does not leave Mermaid fences in `docs-site/*.mdx`. It renders Mermaid to SVG under `docs-site/images/diagrams/` and replaces the original code block with an `<img>` tag in-place.
+- **Impact**: For published docs, Mermaid-backed diagrams should be treated as generated assets in the committed MDX, and future edits need to account for the corresponding SVG outputs as part of the docs build workflow.

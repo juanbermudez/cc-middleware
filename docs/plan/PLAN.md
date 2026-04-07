@@ -32,24 +32,44 @@ Build a Node/TypeScript middleware that wraps Claude Code to provide a clean, un
 
 ## Dependency Graph
 
-```
-Phase 1 (Foundation)
-  ├── Phase 2 (Session Discovery)
-  │     ├── Phase 3 (Session Launching)
-  │     │     ├── Phase 5 (Permissions)
-  │     │     └── Phase 6 (Agents & Teams) ←── also depends on Phase 4
-  │     └── Phase 9 (Search & Index) ←── also depends on Phase 7
-  ├── Phase 4 (Event System)
-  │     ├── Phase 6 (Agents & Teams)
-  │     └── Phase 8 (Plugin) ←── also depends on Phase 7
-  └── Phase 10 (Configuration) ←── also depends on Phase 7
+```mermaid
+flowchart TD
+    p1["Phase 1<br/>Foundation"]
+    p2["Phase 2<br/>Session Discovery"]
+    p3["Phase 3<br/>Session Launching"]
+    p4["Phase 4<br/>Event System"]
+    p5["Phase 5<br/>Permission Handling"]
+    p6["Phase 6<br/>Agent and Team Management"]
+    p65["Phase 6.5<br/>Integration Tests"]
+    p7["Phase 7<br/>API Layer"]
+    p8["Phase 8<br/>Plugin Integration"]
+    p9["Phase 9<br/>Search and Indexing"]
+    p10["Phase 10<br/>Configuration Management"]
+    p11["Phase 11<br/>CLI Control Surface"]
+    p12["Phase 12<br/>Real-Time Sync"]
 
-Phase 7 (API Layer) + Phase 9 (Search) + Phase 10 (Configuration)
-  └── Phase 11 (CLI Control Surface)
-
-Phase 6.5 (Integration Tests) depends on Phases 3-6
-Phase 7 (API Layer) depends on Phase 6.5
-Phase 11 (CLI) depends on Phases 7, 9, 10
+    p1 --> p2
+    p1 --> p4
+    p1 --> p10
+    p2 --> p3
+    p2 --> p9
+    p3 --> p5
+    p3 --> p6
+    p3 --> p65
+    p4 --> p6
+    p4 --> p8
+    p4 --> p65
+    p5 --> p65
+    p6 --> p65
+    p65 --> p7
+    p7 --> p8
+    p7 --> p9
+    p7 --> p10
+    p7 --> p11
+    p7 --> p12
+    p9 --> p11
+    p9 --> p12
+    p10 --> p11
 ```
 
 ---

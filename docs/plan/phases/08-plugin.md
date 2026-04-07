@@ -10,18 +10,20 @@ Package the middleware as an installable Claude Code plugin that integrates with
 
 ## Plugin Structure
 
-```
-src/plugin/
-├── .claude-plugin/
-│   └── plugin.json           # Plugin manifest
-├── hooks/
-│   └── hooks.json            # Hook configurations
-├── skills/
-│   └── cc-middleware/
-│       └── SKILL.md          # Middleware interaction skill
-├── bin/
-│   └── start-server.sh       # Script to start middleware server
-└── settings.json             # Default settings
+```mermaid
+flowchart TD
+    plugin["src/plugin/"]
+    manifest[".claude-plugin/plugin.json<br/>Plugin manifest"]
+    hooks["hooks/hooks.json<br/>Hook configurations"]
+    skill["skills/cc-middleware/SKILL.md<br/>Middleware interaction skill"]
+    bin["bin/start-server.sh<br/>Script to start middleware server"]
+    settings["settings.json<br/>Default settings"]
+
+    plugin --> manifest
+    plugin --> hooks
+    plugin --> skill
+    plugin --> bin
+    plugin --> settings
 ```
 
 ---
