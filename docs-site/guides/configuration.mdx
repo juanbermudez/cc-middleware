@@ -190,6 +190,39 @@ github      stdio       user      npx @modelcontextprotocol/ser...
 database    sse         project   http://localhost:8080/sse
 ```
 
+## Runtime Inventory
+
+Filesystem discovery and Claude's effective runtime can diverge, especially when plugins contribute skills, commands, or agents. The runtime endpoints ask Claude what is actually loaded for the current project session.
+
+<CodeGroup>
+```bash API
+curl http://127.0.0.1:3000/api/v1/config/runtime
+```
+
+```bash Filtered runtime tools
+curl "http://127.0.0.1:3000/api/v1/config/runtime/tools?q=read"
+```
+
+```bash CLI
+ccm config runtime
+```
+</CodeGroup>
+
+The runtime surface currently includes:
+
+- `/api/v1/config/runtime` for the full snapshot
+- `/api/v1/config/runtime/tools`
+- `/api/v1/config/runtime/commands`
+- `/api/v1/config/runtime/skills`
+- `/api/v1/config/runtime/plugins`
+- `/api/v1/config/runtime/mcp`
+- `/api/v1/config/runtime/agents`
+- `/api/v1/config/runtime/models`
+
+<Note>
+  These routes are live runtime inspections, not cached filesystem reads. They are ideal for validating what Claude actually loaded in the current project, which is why the playground uses them for its runtime pages.
+</Note>
+
 ## Skills
 
 List all discovered skills:

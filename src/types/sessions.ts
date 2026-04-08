@@ -26,6 +26,8 @@ export interface SessionMessage {
   /** Raw message payload from the transcript (opaque, must be parsed) */
   message: unknown;
   parent_tool_use_id: null;
+  /** Optional ISO timestamp when available in the source transcript */
+  timestamp?: string;
 }
 
 /** Filters for listing sessions */

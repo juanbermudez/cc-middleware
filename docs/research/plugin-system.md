@@ -13,6 +13,8 @@ Claude Code's plugin system allows extending functionality with skills, agents, 
 | `~/.claude/plugins/blocklist.json` | Centrally-blocked plugins | No (fetched) |
 | `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` | Cached plugin files | No |
 | `~/.claude/plugins/marketplaces/<marketplace>/` | Cloned marketplace repos | No |
+| `~/.claude/plugins/marketplaces/<marketplace>/plugins/` | First-party marketplace plugin source directories | No |
+| `~/.claude/plugins/marketplaces/<marketplace>/external_plugins/` | External/third-party plugin source directories | No |
 | `~/.claude/plugins/data/<plugin-id>/` | Persistent plugin data (`${CLAUDE_PLUGIN_DATA}`) | No |
 | `~/.claude/plugins/install-counts-cache.json` | Plugin popularity data | No |
 | `~/.claude/settings.json` → `enabledPlugins` | User-scope plugin enable/disable | No |
@@ -140,6 +142,37 @@ Format: `"enabledPlugins": { "plugin-name@marketplace-name": true/false }`
 4. Plugin enabled in appropriate `enabledPlugins` in settings.json
 5. On session start, enabled plugins are loaded from cache
 
+## Three Distinct Plugin Inventories
+
+Claude Code exposes three different views of plugins, and the middleware should keep them separate:
+
+1. **Installed registry**
+   - Source of truth: `~/.claude/plugins/installed_plugins.json`
+   - CLI equivalent: `claude plugin list --json`
+   - Answers: "What is installed, in which scope, and where is the cache path?"
+
+2. **Available marketplace catalog**
+   - Source of truth: configured marketplace repos plus the CLI resolver
+   - CLI equivalent: `claude plugin list --json --available`
+   - Answers: "What can be installed from currently known marketplaces?"
+
+3. **Active runtime inventory**
+   - Source of truth: current Claude runtime for a specific cwd/session
+   - SDK/CLI equivalents: Agent SDK `system/init` + `initializationResult()`, `claude agents`
+   - Answers: "What is actually loaded and available right now for this project?"
+
+These inventories do **not** always match. On this machine:
+- `agent-sdk-dev@claude-plugins-official`, `plugin-dev@claude-plugins-official`, and `skill-creator@claude-plugins-official` are installed
+- They are **not** present in the current `claude plugin list --json --available` catalog
+- Yet the runtime still loads plugin-provided agents such as `agent-sdk-dev:agent-sdk-verifier-ts` and `plugin-dev:agent-creator`
+
+So the middleware should expose:
+- installed plugins
+- available marketplace plugins
+- active runtime plugins/agents/commands/skills
+
+as separate endpoints, not one merged list
+
 ### Installed Plugins Registry Format
 
 ```json
@@ -223,9 +256,39 @@ claude plugin enable <plugin> [-s scope]
 claude plugin disable <plugin> [-s scope]
 claude plugin update <plugin> [-s scope]
 claude plugin validate   # Validate plugin structure
+claude plugin list --json
+claude plugin list --json --available
+claude plugin marketplace list --json
+claude plugin marketplace add <source> [--scope user|project|local]
+claude plugin marketplace remove <name>
+claude plugin marketplace update [name]
 ```
 
 Interactive: `/plugin` command in REPL provides browse, install, enable/disable, details UI.
+
+## Recommended Management Rules
+
+### Safe to manage directly
+- `enabledPlugins` in `settings.json`
+- `extraKnownMarketplaces` in `settings.json`
+
+These are declarative settings surfaces and can be managed via JSON edits or mirrored higher-level middleware endpoints.
+
+### Prefer CLI-backed management
+- Install / uninstall plugins
+- Update plugins
+- Add / remove / update marketplaces
+
+These operations update cache directories and registries in addition to settings, so the middleware should wrap Claude's CLI rather than editing registry files directly.
+
+### Read-only exposure
+- `installed_plugins.json`
+- `known_marketplaces.json`
+- `blocklist.json`
+- cache directories
+- marketplace clone directories
+
+These are best treated as operational state and inventory, not user-editable config.
 
 ## Environment Variables
 

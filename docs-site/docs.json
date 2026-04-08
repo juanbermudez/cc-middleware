@@ -44,6 +44,7 @@
               "guides/search-indexing",
               "guides/plugin-integration",
               "guides/configuration",
+              "guides/playground",
               "guides/realtime-monitoring"
             ]
           }
@@ -64,6 +65,8 @@
             "group": "Sessions",
             "pages": [
               "api-reference/sessions/list",
+              "api-reference/sessions/directories",
+              "api-reference/sessions/metadata",
               "api-reference/sessions/get",
               "api-reference/sessions/messages",
               "api-reference/sessions/launch",
@@ -120,6 +123,7 @@
               "api-reference/config/plugins",
               "api-reference/config/mcp",
               "api-reference/config/agents-skills",
+              "api-reference/config/runtime",
               "api-reference/config/memory"
             ]
           }

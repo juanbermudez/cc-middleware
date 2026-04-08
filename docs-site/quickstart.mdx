@@ -5,7 +5,7 @@ description: "Get CC-Middleware up and running in minutes"
 
 # Quick Start
 
-This guide walks you through installing CC-Middleware, starting the server, and making your first API call.
+This guide walks you through installing CC-Middleware, starting the server, making your first API call, and opening the local playground.
 
 ## Prerequisites
 
@@ -65,6 +65,14 @@ This guide walks you through installing CC-Middleware, starting the server, and 
       ```
     </CodeGroup>
   </Step>
+
+  <Step title="Start the local playground">
+    ```bash
+    npm run playground:dev
+    ```
+
+    The playground runs on `http://127.0.0.1:4173` and proxies API/WebSocket traffic to the middleware server. Set `PLAYGROUND_MIDDLEWARE_URL` if your middleware is running elsewhere.
+  </Step>
 </Steps>
 
 ## Environment Variables
@@ -121,7 +129,7 @@ The session runs to completion and returns:
 {
   "sessionId": "abc123...",
   "result": "2 + 2 = 4",
-  "costUsd": 0.003,
+  "totalCostUsd": 0.003,
   "durationMs": 1200
 }
 ```
@@ -150,6 +158,10 @@ npx ccm sessions search "fibonacci" --limit 10
   Search requires the session index to be built first. With real-time sync enabled (the default), new and modified sessions are auto-indexed as they appear on disk. You can also trigger a full reindex manually with `POST /api/v1/search/reindex` or `ccm sync reindex`.
 </Note>
 
+<Note>
+  The playground's sessions page intentionally distinguishes the raw session catalog (`GET /api/v1/sessions`) from indexed search (`GET /api/v1/search`). A session can appear in the catalog before it is searchable if the auto-indexer has not processed it yet.
+</Note>
+
 ## Using as a Library
 
 CC-Middleware exports its core modules for use as an npm package:
@@ -170,6 +182,7 @@ For active development with auto-rebuild:
 
 ```bash
 npm run dev     # Watch mode - rebuilds on file changes
+npm run playground:dev
 npm test        # Run all tests
 npm run lint    # Lint code
 ```
@@ -182,6 +195,9 @@ npm run lint    # Lint code
   </Card>
   <Card title="Launching Sessions" icon="play" href="/guides/launching-sessions">
     Deep dive into session launch options
+  </Card>
+  <Card title="Playground" icon="monitor" href="/guides/playground">
+    Explore the local UI and the endpoints it exercises
   </Card>
   <Card title="Hook Events" icon="bolt" href="/guides/hook-events">
     Set up event handlers and webhooks

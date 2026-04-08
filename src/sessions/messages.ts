@@ -35,6 +35,7 @@ export async function readSessionMessages(
     session_id: msg.session_id,
     message: msg.message,
     parent_tool_use_id: msg.parent_tool_use_id ?? null,
+    timestamp: "timestamp" in msg && typeof msg.timestamp === "string" ? msg.timestamp : undefined,
   }));
 }
 

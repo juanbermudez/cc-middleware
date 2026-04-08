@@ -1,0 +1,43 @@
+name: Mintlify Docs
+
+on:
+  pull_request:
+    paths:
+      - "docs-site/**"
+      - "scripts/render-diagrams.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/mintlify-docs.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "docs-site/**"
+      - "scripts/render-diagrams.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/mintlify-docs.yml"
+
+concurrency:
+  group: mintlify-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Mintlify docs
+        run: npm run docs:validate

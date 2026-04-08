@@ -60,6 +60,7 @@ export interface MiddlewareContext {
   teamManager: TeamManager;
   permissionManager: PermissionManager;
   askUserManager: AskUserQuestionManager;
+  sessionStore?: SessionStore;
 }
 
 /** The middleware server instance */
@@ -97,6 +98,7 @@ export async function createMiddlewareServer(
     teamManager: options.teamManager,
     permissionManager: options.permissionManager,
     askUserManager: options.askUserManager,
+    sessionStore: options.sessionStore,
   };
 
   // Decorate Fastify with context so routes can access it
@@ -149,6 +151,7 @@ export async function createMiddlewareServer(
     const searchCtx: SearchContext = {
       store: options.sessionStore,
       indexer: options.sessionIndexer,
+      teamManager: options.teamManager,
     };
     registerSearchRoutes(app, searchCtx);
   }

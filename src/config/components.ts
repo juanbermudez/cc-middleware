@@ -6,27 +6,54 @@
 
 import { readdir, writeFile, mkdir, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, basename } from "node:path";
+import { join, basename, dirname } from "node:path";
 import { homedir } from "node:os";
 import matter from "gray-matter";
+import { listInstalledPlugins } from "./plugins.js";
+import {
+  findPluginMarkdownComponentFiles,
+  findPluginSkillFiles,
+} from "./plugin-components.js";
 import { readFileSafe as readFileSafeUtil } from "../utils/fs.js";
 
 /** Skill information */
 export interface SkillInfo {
   name: string;
+  qualifiedName?: string;
   description: string;
   scope: "project" | "user" | "plugin";
   path: string;
+  pluginId?: string;
+  pluginName?: string;
+  pluginMarketplace?: string;
   disableModelInvocation?: boolean;
+  content: string;
+}
+
+/** Legacy slash command information */
+export interface CommandInfo {
+  name: string;
+  qualifiedName?: string;
+  description: string;
+  scope: "project" | "user" | "plugin";
+  path: string;
+  pluginId?: string;
+  pluginName?: string;
+  pluginMarketplace?: string;
+  argumentHint?: string | string[];
   content: string;
 }
 
 /** Agent file information */
 export interface AgentFileInfo {
   name: string;
+  qualifiedName?: string;
   description: string;
   scope: "project" | "user" | "plugin";
   path: string;
+  pluginId?: string;
+  pluginName?: string;
+  pluginMarketplace?: string;
   model?: string;
   maxTurns?: number;
   tools?: string[];
@@ -92,11 +119,33 @@ async function listDirs(dir: string): Promise<string[]> {
 /** Read file content safely */
 const readFileSafe = readFileSafeUtil;
 
+function parsePluginId(pluginId: string): { pluginName: string; pluginMarketplace: string } {
+  const atIdx = pluginId.lastIndexOf("@");
+  if (atIdx > 0) {
+    return {
+      pluginName: pluginId.slice(0, atIdx),
+      pluginMarketplace: pluginId.slice(atIdx + 1),
+    };
+  }
+  return { pluginName: pluginId, pluginMarketplace: "unknown" };
+}
+
+function parseToolList(val: unknown): string[] | undefined {
+  if (typeof val === "string") {
+    return val.split(",").map((t) => t.trim()).filter(Boolean);
+  }
+  if (Array.isArray(val)) {
+    return val.map(String);
+  }
+  return undefined;
+}
+
 /**
  * Discover all skills from standard locations.
  */
 export async function discoverSkills(options?: {
   projectDir?: string;
+  pluginDirs?: Array<string | { id: string; root: string; manifest?: Record<string, unknown> }>;
 }): Promise<SkillInfo[]> {
   const project = options?.projectDir ?? process.cwd();
   const home = homedir();
@@ -105,40 +154,136 @@ export async function discoverSkills(options?: {
   // User skills: ~/.claude/skills/*/SKILL.md
   const userSkillDirs = await listDirs(join(home, ".claude", "skills"));
   for (const dir of userSkillDirs) {
-    const skillPath = join(dir, "SKILL.md");
-    const content = await readFileSafe(skillPath);
-    if (content) {
-      const { data, content: body } = matter(content);
-      skills.push({
-        name: (data.name as string) ?? basename(dir),
-        description: (data.description as string) ?? body.split("\n")[0] ?? "",
-        scope: "user",
-        path: skillPath,
-        disableModelInvocation: data["disable-model-invocation"] as boolean | undefined,
-        content: body,
-      });
-    }
+    const skill = await parseSkillFile(join(dir, "SKILL.md"), "user");
+    if (skill) skills.push(skill);
   }
 
   // Project skills: <project>/.claude/skills/*/SKILL.md
   const projectSkillDirs = await listDirs(join(project, ".claude", "skills"));
   for (const dir of projectSkillDirs) {
-    const skillPath = join(dir, "SKILL.md");
-    const content = await readFileSafe(skillPath);
-    if (content) {
-      const { data, content: body } = matter(content);
-      skills.push({
-        name: (data.name as string) ?? basename(dir),
-        description: (data.description as string) ?? body.split("\n")[0] ?? "",
-        scope: "project",
-        path: skillPath,
-        disableModelInvocation: data["disable-model-invocation"] as boolean | undefined,
-        content: body,
-      });
+    const skill = await parseSkillFile(join(dir, "SKILL.md"), "project");
+    if (skill) skills.push(skill);
+  }
+
+  const pluginDirs = options?.pluginDirs
+    ?? (await listInstalledPlugins(project))
+      .filter((plugin) => plugin.enabled && plugin.cachePath)
+      .map((plugin) => ({
+        id: plugin.id,
+        root: plugin.cachePath as string,
+        manifest: plugin.manifest,
+      }));
+
+  for (const plugin of pluginDirs) {
+    const pluginId = typeof plugin === "string" ? basename(plugin) : plugin.id;
+    const pluginRoot = typeof plugin === "string" ? plugin : plugin.root;
+    const manifest = typeof plugin === "string" ? undefined : plugin.manifest;
+    const skillFiles = await findPluginSkillFiles(pluginRoot, manifest);
+    for (const skillFile of skillFiles) {
+      const skill = await parseSkillFile(skillFile, "plugin", pluginId);
+      if (skill) skills.push(skill);
     }
   }
 
   return skills;
+}
+
+async function parseSkillFile(
+  filePath: string,
+  scope: SkillInfo["scope"],
+  pluginId?: string
+): Promise<SkillInfo | null> {
+  const content = await readFileSafe(filePath);
+  if (!content) return null;
+
+  const { data, content: body } = matter(content);
+  const pluginMeta = pluginId ? parsePluginId(pluginId) : undefined;
+  const name = (data.name as string) ?? basename(dirname(filePath));
+
+  return {
+    name,
+    qualifiedName: pluginMeta ? `${pluginMeta.pluginName}:${name}` : undefined,
+    description: (data.description as string) ?? body.split("\n")[0] ?? "",
+    scope,
+    path: filePath,
+    pluginId,
+    pluginName: pluginMeta?.pluginName,
+    pluginMarketplace: pluginMeta?.pluginMarketplace,
+    disableModelInvocation: data["disable-model-invocation"] as boolean | undefined,
+    content: body,
+  };
+}
+
+/**
+ * Discover legacy slash commands from standard locations and enabled plugins.
+ */
+export async function discoverCommands(options?: {
+  projectDir?: string;
+  pluginDirs?: Array<string | { id: string; root: string; manifest?: Record<string, unknown> }>;
+}): Promise<CommandInfo[]> {
+  const project = options?.projectDir ?? process.cwd();
+  const home = homedir();
+  const commands: CommandInfo[] = [];
+
+  const userCommandFiles = await listMarkdownFiles(join(home, ".claude", "commands"));
+  for (const filePath of userCommandFiles) {
+    const command = await parseCommandFile(filePath, "user");
+    if (command) commands.push(command);
+  }
+
+  const projectCommandFiles = await listMarkdownFiles(join(project, ".claude", "commands"));
+  for (const filePath of projectCommandFiles) {
+    const command = await parseCommandFile(filePath, "project");
+    if (command) commands.push(command);
+  }
+
+  const pluginDirs = options?.pluginDirs
+    ?? (await listInstalledPlugins(project))
+      .filter((plugin) => plugin.enabled && plugin.cachePath)
+      .map((plugin) => ({
+        id: plugin.id,
+        root: plugin.cachePath as string,
+        manifest: plugin.manifest,
+      }));
+
+  for (const plugin of pluginDirs) {
+    const pluginId = typeof plugin === "string" ? basename(plugin) : plugin.id;
+    const pluginRoot = typeof plugin === "string" ? plugin : plugin.root;
+    const manifest = typeof plugin === "string" ? undefined : plugin.manifest;
+    const commandFiles = await findPluginMarkdownComponentFiles(pluginRoot, manifest, "commands");
+    for (const commandFile of commandFiles) {
+      const command = await parseCommandFile(commandFile, "plugin", pluginId);
+      if (command) commands.push(command);
+    }
+  }
+
+  return commands;
+}
+
+async function parseCommandFile(
+  filePath: string,
+  scope: CommandInfo["scope"],
+  pluginId?: string
+): Promise<CommandInfo | null> {
+  const content = await readFileSafe(filePath);
+  if (!content) return null;
+
+  const { data, content: body } = matter(content);
+  const pluginMeta = pluginId ? parsePluginId(pluginId) : undefined;
+  const name = basename(filePath, ".md");
+
+  return {
+    name,
+    qualifiedName: pluginMeta ? `${pluginMeta.pluginName}:${name}` : undefined,
+    description: (data.description as string) ?? body.split("\n")[0] ?? "",
+    scope,
+    path: filePath,
+    pluginId,
+    pluginName: pluginMeta?.pluginName,
+    pluginMarketplace: pluginMeta?.pluginMarketplace,
+    argumentHint: data["argument-hint"] as string | string[] | undefined,
+    content: body,
+  };
 }
 
 /**
@@ -146,6 +291,7 @@ export async function discoverSkills(options?: {
  */
 export async function discoverAgents(options?: {
   projectDir?: string;
+  pluginDirs?: Array<string | { id: string; root: string; manifest?: Record<string, unknown> }>;
 }): Promise<AgentFileInfo[]> {
   const project = options?.projectDir ?? process.cwd();
   const home = homedir();
@@ -165,35 +311,51 @@ export async function discoverAgents(options?: {
     if (agent) agents.push(agent);
   }
 
+  const pluginDirs = options?.pluginDirs
+    ?? (await listInstalledPlugins(project))
+      .filter((plugin) => plugin.enabled && plugin.cachePath)
+      .map((plugin) => ({
+        id: plugin.id,
+        root: plugin.cachePath as string,
+        manifest: plugin.manifest,
+      }));
+
+  for (const plugin of pluginDirs) {
+    const pluginId = typeof plugin === "string" ? basename(plugin) : plugin.id;
+    const pluginRoot = typeof plugin === "string" ? plugin : plugin.root;
+    const manifest = typeof plugin === "string" ? undefined : plugin.manifest;
+    const agentFiles = await findPluginMarkdownComponentFiles(pluginRoot, manifest, "agents");
+    for (const filePath of agentFiles) {
+      const agent = await parseAgentFile(filePath, "plugin", pluginId);
+      if (agent) agents.push(agent);
+    }
+  }
+
   return agents;
 }
 
 /** Parse an agent markdown file */
 async function parseAgentFile(
   filePath: string,
-  scope: AgentFileInfo["scope"]
+  scope: AgentFileInfo["scope"],
+  pluginId?: string
 ): Promise<AgentFileInfo | null> {
   const content = await readFileSafe(filePath);
   if (!content) return null;
 
   const { data, content: body } = matter(content);
-
-  // Parse tools from CSV string
-  const parseToolList = (val: unknown): string[] | undefined => {
-    if (typeof val === "string") {
-      return val.split(",").map((t) => t.trim()).filter(Boolean);
-    }
-    if (Array.isArray(val)) {
-      return val.map(String);
-    }
-    return undefined;
-  };
+  const pluginMeta = pluginId ? parsePluginId(pluginId) : undefined;
+  const name = (data.name as string) ?? basename(filePath, ".md");
 
   return {
-    name: (data.name as string) ?? basename(filePath, ".md"),
+    name,
+    qualifiedName: pluginMeta ? `${pluginMeta.pluginName}:${name}` : undefined,
     description: (data.description as string) ?? "",
     scope,
     path: filePath,
+    pluginId,
+    pluginName: pluginMeta?.pluginName,
+    pluginMarketplace: pluginMeta?.pluginMarketplace,
     model: data.model as string | undefined,
     maxTurns: data.maxTurns as number | undefined,
     tools: parseToolList(data.tools),

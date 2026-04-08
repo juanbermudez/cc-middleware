@@ -1,0 +1,116 @@
+---
+title: "Session Metadata"
+description: "Register session metadata definitions and attach metadata values to indexed sessions."
+---
+
+Session metadata is stored in the SQLite session store and is only available when indexing is enabled.
+
+## List Metadata Definitions
+
+```
+GET /api/v1/sessions/metadata/definitions
+```
+
+Returns registered metadata fields such as `workflow`, `owner`, or `ticket`.
+
+## Create or Update a Metadata Definition
+
+```
+POST /api/v1/sessions/metadata/definitions
+```
+
+<ParamField body="key" type="string" required>
+  Stable metadata key.
+</ParamField>
+
+<ParamField body="label" type="string" required>
+  Human-readable label shown in catalog/search UIs.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional help text for the field.
+</ParamField>
+
+<ParamField body="searchable" type="boolean">
+  Whether search queries can match against this metadata field.
+</ParamField>
+
+<ParamField body="filterable" type="boolean">
+  Whether catalog/search filters can target this metadata field.
+</ParamField>
+
+## List Metadata Values for a Session
+
+```
+GET /api/v1/sessions/{id}/metadata
+```
+
+## Set a Metadata Value for a Session
+
+```
+PUT /api/v1/sessions/{id}/metadata
+```
+
+<ParamField path="id" type="string" required>
+  Session ID to update.
+</ParamField>
+
+<ParamField body="key" type="string" required>
+  Registered metadata definition key.
+</ParamField>
+
+<ParamField body="value" type="string" required>
+  Metadata value to store for this session.
+</ParamField>
+
+## Delete a Metadata Value
+
+```
+DELETE /api/v1/sessions/{id}/metadata/{key}
+```
+
+### Example Flow
+
+<CodeGroup>
+```bash Register a field
+curl -X POST http://127.0.0.1:3000/api/v1/sessions/metadata/definitions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "workflow",
+    "label": "Workflow",
+    "searchable": true,
+    "filterable": true
+  }'
+```
+
+```bash Set a value
+curl -X PUT http://127.0.0.1:3000/api/v1/sessions/session-2/metadata \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "workflow",
+    "value": "delivery-review"
+  }'
+```
+
+```bash Read values
+curl http://127.0.0.1:3000/api/v1/sessions/session-2/metadata
+```
+</CodeGroup>
+
+```json
+{
+  "metadata": [
+    {
+      "sessionId": "session-2",
+      "key": "workflow",
+      "value": "delivery-review",
+      "label": "Workflow",
+      "valueType": "string",
+      "searchable": true,
+      "filterable": true,
+      "createdAt": 1775298600000,
+      "updatedAt": 1775298922000
+    }
+  ]
+}
+```

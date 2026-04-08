@@ -41,7 +41,7 @@ _ccm_completions() {
   local agents_cmds="list show create"
   local teams_cmds="list show"
   local permissions_cmds="list add pending approve deny"
-  local config_cmds="show get set plugins mcp skills agents memory"
+  local config_cmds="show get set global global-set projects plugins plugins-available plugin-install plugin-update plugin-uninstall plugin-provenance marketplaces marketplace-add marketplace-remove marketplace-update marketplace-plugins mcp runtime skills commands agents memory"
 
   case "\${COMP_WORDS[1]}" in
     server) COMPREPLY=( $(compgen -W "\${server_cmds}" -- "\${cur}") ) ;;
@@ -119,7 +119,7 @@ _ccm() {
           _describe 'subcommand' subcmds
           ;;
         config)
-          local -a subcmds=('show:Show settings' 'get:Get a setting' 'set:Set a setting' 'plugins:List plugins' 'mcp:List MCP servers' 'skills:List skills' 'agents:List agent definitions' 'memory:Show memory')
+          local -a subcmds=('show:Show settings' 'get:Get a setting' 'set:Set a setting' 'global:Show Claude global config' 'global-set:Update a Claude global preference' 'projects:List tracked projects' 'plugins:List plugins' 'plugins-available:List installable plugins' 'plugin-install:Install a plugin' 'plugin-update:Update a plugin' 'plugin-uninstall:Uninstall a plugin' 'plugin-provenance:Explain plugin activation state' 'marketplaces:List marketplaces' 'marketplace-add:Add a marketplace' 'marketplace-remove:Remove a marketplace' 'marketplace-update:Update marketplaces' 'marketplace-plugins:List marketplace plugins' 'mcp:List MCP servers' 'runtime:Inspect runtime inventory' 'skills:List skills' 'commands:List legacy slash commands' 'agents:List agent definitions' 'memory:Show memory')
           _describe 'subcommand' subcmds
           ;;
       esac
@@ -156,6 +156,31 @@ complete -c ccm -n "__fish_seen_subcommand_from sessions" -a "launch" -d "Launch
 complete -c ccm -n "__fish_seen_subcommand_from sessions" -a "resume" -d "Resume a session"
 complete -c ccm -n "__fish_seen_subcommand_from sessions" -a "stream" -d "Stream session output"
 complete -c ccm -n "__fish_seen_subcommand_from sessions" -a "search" -d "Search sessions"
+
+# config subcommands
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "show" -d "Show settings"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "get" -d "Get a setting"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "set" -d "Set a setting"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "global" -d "Show Claude global config"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "global-set" -d "Update a Claude global preference"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "projects" -d "List tracked projects"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "plugins" -d "List plugins"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "plugins-available" -d "List installable plugins"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "plugin-install" -d "Install a plugin"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "plugin-update" -d "Update a plugin"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "plugin-uninstall" -d "Uninstall a plugin"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "plugin-provenance" -d "Explain plugin activation state"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "marketplaces" -d "List marketplaces"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "marketplace-add" -d "Add a marketplace"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "marketplace-remove" -d "Remove a marketplace"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "marketplace-update" -d "Update marketplaces"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "marketplace-plugins" -d "List marketplace plugins"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "mcp" -d "List MCP servers"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "runtime" -d "Inspect runtime inventory"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "skills" -d "List skills"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "commands" -d "List legacy slash commands"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "agents" -d "List agent definitions"
+complete -c ccm -n "__fish_seen_subcommand_from config" -a "memory" -d "Show memory"
 
 # Global flags
 complete -c ccm -l json -s j -d "Output as JSON"

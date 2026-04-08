@@ -7,8 +7,14 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import Database from "better-sqlite3";
 import { createStore } from "../../src/store/db.js";
-import type { SessionStore, IndexedSession, IndexedMessage } from "../../src/store/db.js";
+import type {
+  SessionStore,
+  IndexedSession,
+  IndexedMessage,
+  IndexedSessionRelationship,
+} from "../../src/store/db.js";
 
 let store: SessionStore;
 let tempDir: string;
@@ -30,6 +36,7 @@ function makeSession(overrides?: Partial<IndexedSession>): IndexedSession {
     project: overrides?.project ?? "test-project",
     cwd: overrides?.cwd ?? "/tmp/test",
     summary: overrides?.summary ?? "Test session",
+    customTitle: overrides?.customTitle,
     firstPrompt: overrides?.firstPrompt ?? "Hello",
     gitBranch: overrides?.gitBranch,
     tag: overrides?.tag,
@@ -52,6 +59,24 @@ function makeMessage(overrides?: Partial<IndexedMessage>): IndexedMessage {
   };
 }
 
+function makeRelationship(
+  overrides?: Partial<IndexedSessionRelationship>
+): IndexedSessionRelationship {
+  return {
+    id: overrides?.id ?? `rel-${Math.random().toString(36).slice(2, 8)}`,
+    sessionId: overrides?.sessionId ?? "session-1",
+    relationshipType: overrides?.relationshipType ?? "subagent",
+    path: overrides?.path ?? "/tmp/test/subagents/agent-a.jsonl",
+    agentId: overrides?.agentId,
+    slug: overrides?.slug,
+    sourceToolAssistantUUID: overrides?.sourceToolAssistantUUID,
+    teamName: overrides?.teamName,
+    teammateName: overrides?.teammateName,
+    startedAt: overrides?.startedAt,
+    lastModified: overrides?.lastModified ?? Date.now(),
+  };
+}
+
 describe("SQLite Session Store", () => {
   describe("Schema", () => {
     it("should create database with all required tables", () => {
@@ -63,6 +88,9 @@ describe("SQLite Session Store", () => {
       expect(tableNames).toContain("sessions");
       expect(tableNames).toContain("messages");
       expect(tableNames).toContain("metadata");
+      expect(tableNames).toContain("session_relationships");
+      expect(tableNames).toContain("session_metadata_definitions");
+      expect(tableNames).toContain("session_metadata_values");
       expect(tableNames).toContain("sessions_fts");
       expect(tableNames).toContain("messages_fts");
     });
@@ -77,11 +105,91 @@ describe("SQLite Session Store", () => {
       expect(indexNames).toContain("idx_sessions_last_modified");
       expect(indexNames).toContain("idx_sessions_tag");
       expect(indexNames).toContain("idx_messages_session");
+      expect(indexNames).toContain("idx_session_relationships_session");
+      expect(indexNames).toContain("idx_session_metadata_values_session");
+      expect(indexNames).toContain("idx_session_metadata_values_key");
     });
 
     it("should be idempotent on repeated migrate calls", () => {
       expect(() => store.migrate()).not.toThrow();
       expect(() => store.migrate()).not.toThrow();
+    });
+
+    it("should upgrade a legacy sessions schema to support custom titles", async () => {
+      const legacyDbPath = join(tempDir, "legacy.db");
+      const legacyDb = new Database(legacyDbPath);
+
+      legacyDb.exec(`
+        CREATE TABLE sessions (
+          id TEXT PRIMARY KEY,
+          project TEXT NOT NULL,
+          cwd TEXT NOT NULL,
+          summary TEXT NOT NULL DEFAULT '',
+          first_prompt TEXT NOT NULL DEFAULT '',
+          git_branch TEXT,
+          tag TEXT,
+          status TEXT NOT NULL DEFAULT 'unknown',
+          created_at INTEGER NOT NULL,
+          last_modified INTEGER NOT NULL,
+          file_size INTEGER,
+          message_count INTEGER DEFAULT 0
+        );
+        CREATE VIRTUAL TABLE sessions_fts USING fts5(
+          summary,
+          first_prompt,
+          tag,
+          content=sessions,
+          content_rowid=rowid
+        );
+        CREATE TABLE messages (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          role TEXT NOT NULL,
+          content_preview TEXT NOT NULL DEFAULT '',
+          tool_names TEXT,
+          timestamp INTEGER NOT NULL
+        );
+        CREATE VIRTUAL TABLE messages_fts USING fts5(
+          content_preview,
+          tool_names,
+          content=messages,
+          content_rowid=rowid
+        );
+        CREATE TABLE metadata (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+        CREATE TABLE session_relationships (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          relationship_type TEXT NOT NULL,
+          path TEXT NOT NULL,
+          agent_id TEXT,
+          slug TEXT,
+          source_tool_assistant_uuid TEXT,
+          started_at INTEGER,
+          last_modified INTEGER NOT NULL
+        );
+      `);
+      legacyDb.close();
+
+      const upgradedStore = await createStore({ dbPath: legacyDbPath });
+      upgradedStore.migrate();
+
+      const columns = upgradedStore.db
+        .prepare("PRAGMA table_info(sessions)")
+        .all() as Array<{ name: string }>;
+      expect(columns.some((column) => column.name === "custom_title")).toBe(true);
+      const relationshipColumns = upgradedStore.db
+        .prepare("PRAGMA table_info(session_relationships)")
+        .all() as Array<{ name: string }>;
+      expect(relationshipColumns.some((column) => column.name === "team_name")).toBe(true);
+      expect(relationshipColumns.some((column) => column.name === "teammate_name")).toBe(true);
+
+      upgradedStore.upsertSession(makeSession({ id: "legacy-upgraded", customTitle: "Renamed session" }));
+      expect(upgradedStore.getSession("legacy-upgraded")?.customTitle).toBe("Renamed session");
+
+      upgradedStore.close();
     });
   });
 
@@ -161,6 +269,7 @@ describe("SQLite Session Store", () => {
     it("should handle optional fields correctly", () => {
       const session = makeSession({
         id: "s-optional",
+        customTitle: "Renamed debugging session",
         gitBranch: "feature/test",
         tag: "review",
         fileSize: 1024,
@@ -168,6 +277,7 @@ describe("SQLite Session Store", () => {
       store.upsertSession(session);
 
       const retrieved = store.getSession("s-optional");
+      expect(retrieved!.customTitle).toBe("Renamed debugging session");
       expect(retrieved!.gitBranch).toBe("feature/test");
       expect(retrieved!.tag).toBe("review");
       expect(retrieved!.fileSize).toBe(1024);
@@ -227,6 +337,53 @@ describe("SQLite Session Store", () => {
     });
   });
 
+  describe("Relationship CRUD", () => {
+    it("should replace and retrieve relationships for a session", () => {
+      store.upsertSession(makeSession({ id: "s1" }));
+
+      store.replaceRelationships("s1", [
+        makeRelationship({
+          id: "rel-1",
+          sessionId: "s1",
+          slug: "agent-alpha",
+          teamName: "delivery",
+          teammateName: "reviewer",
+          startedAt: 10,
+          lastModified: 20,
+        }),
+        makeRelationship({
+          id: "rel-2",
+          sessionId: "s1",
+          slug: "agent-beta",
+          startedAt: 30,
+          lastModified: 40,
+        }),
+      ]);
+
+      const relationships = store.getRelationships("s1");
+      expect(relationships).toHaveLength(2);
+      expect(relationships[0].slug).toBe("agent-alpha");
+      expect(relationships[0].teamName).toBe("delivery");
+      expect(relationships[0].teammateName).toBe("reviewer");
+      expect(relationships[1].slug).toBe("agent-beta");
+    });
+
+    it("should clear previous relationships on replace", () => {
+      store.upsertSession(makeSession({ id: "s1" }));
+
+      store.replaceRelationships("s1", [
+        makeRelationship({ id: "rel-1", sessionId: "s1" }),
+      ]);
+      store.replaceRelationships("s1", [
+        makeRelationship({ id: "rel-2", sessionId: "s1" }),
+      ]);
+
+      const relationships = store.getRelationships("s1");
+      expect(relationships).toHaveLength(1);
+      expect(relationships[0].id).toBe("rel-2");
+    });
+  });
+
   describe("Stats and Metadata", () => {
     it("should return session count", () => {
       expect(store.getSessionCount()).toBe(0);
@@ -266,6 +423,71 @@ describe("SQLite Session Store", () => {
 
       store.setMetadata("key1", "updated");
       expect(store.getMetadata("key1")).toBe("updated");
+    });
+
+    it("should create metadata definitions and values for sessions", () => {
+      store.upsertSession(makeSession({ id: "session-1" }));
+      const now = Date.now();
+
+      store.upsertSessionMetadataDefinition({
+        key: "workflow",
+        label: "Workflow",
+        description: "Workflow category",
+        valueType: "string",
+        searchable: true,
+        filterable: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      store.setSessionMetadataValue({
+        sessionId: "session-1",
+        key: "workflow",
+        value: "incident-response",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      expect(store.listSessionMetadataDefinitions()).toEqual([
+        expect.objectContaining({
+          key: "workflow",
+          label: "Workflow",
+          searchable: true,
+          filterable: true,
+        }),
+      ]);
+      expect(store.listSessionMetadataValues("session-1")).toEqual([
+        expect.objectContaining({
+          sessionId: "session-1",
+          key: "workflow",
+          value: "incident-response",
+          label: "Workflow",
+        }),
+      ]);
+    });
+
+    it("should remove session metadata values when the session is deleted", () => {
+      const now = Date.now();
+      store.upsertSession(makeSession({ id: "session-1" }));
+      store.upsertSessionMetadataDefinition({
+        key: "owner",
+        label: "Owner",
+        valueType: "string",
+        searchable: true,
+        filterable: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      store.setSessionMetadataValue({
+        sessionId: "session-1",
+        key: "owner",
+        value: "platform",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      expect(store.listSessionMetadataValues("session-1")).toHaveLength(1);
+      store.deleteSession("session-1");
+      expect(store.listSessionMetadataValues("session-1")).toHaveLength(0);
     });
   });
 });

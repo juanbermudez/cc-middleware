@@ -5,7 +5,7 @@ description: "Machine-readable OpenAPI 3.1 specification for the CC-Middleware R
 
 ## OpenAPI 3.1 Spec
 
-The CC-Middleware REST API is described by an [OpenAPI 3.1.0](https://spec.openapis.org/oas/v3.1.0) specification file. It covers the published REST surface across health, sessions, events, agents, teams, permissions, search, sync, and configuration.
+The CC-Middleware REST API is described by an [OpenAPI 3.1.0](https://spec.openapis.org/oas/v3.1.0) specification file. It covers the core published REST surface across health, sessions, events, agents, teams, permissions, search, sync, and configuration.
 
 ### Accessing the Spec
 
@@ -31,6 +31,10 @@ The spec documents:
 | Search | Search endpoints | Full-text search, reindex, statistics |
 | Sync | Sync status endpoint | Real-time sync watcher status |
 | Config | Configuration endpoints | Settings, plugins, skills, agents, rules, MCP, memory, CLAUDE.md |
+
+<Note>
+  The manual API pages in this docs site also document newer playground-oriented session catalog, session metadata, and config runtime inventory routes. Keep those pages as the source of truth when they move faster than the machine-readable spec.
+</Note>
 
 ### Request/Response Schemas
 

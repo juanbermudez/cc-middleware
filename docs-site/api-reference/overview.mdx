@@ -85,6 +85,12 @@ Paginated responses include a `total` field:
 }
 ```
 
+Recent session/config surfaces that power the playground extend the basic list pattern:
+
+- `GET /api/v1/sessions/directories` groups the session catalog by exact `cwd`
+- `GET /api/v1/sessions/metadata/definitions` and `GET /api/v1/sessions/{id}/metadata` expose typed session metadata
+- `GET /api/v1/config/runtime*` exposes Claude's effective runtime inventory and searchable subresources
+
 ## Health Check
 
 ```

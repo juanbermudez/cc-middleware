@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   discoverSkills,
+  discoverCommands,
   discoverAgents,
   discoverRules,
   discoverClaudeMd,
@@ -18,6 +19,7 @@ import {
 } from "../../src/config/components.js";
 
 let tempDir: string;
+let tempPluginDir: string;
 
 // Create a temp project directory with test components
 beforeAll(() => {
@@ -82,6 +84,57 @@ This is a test project.
 @docs/architecture.md
 `
   );
+
+  // Create a plugin fixture with skill, command, and agent components
+  tempPluginDir = join(tempDir, "test-plugin");
+  mkdirSync(join(tempPluginDir, ".claude-plugin"), { recursive: true });
+  writeFileSync(
+    join(tempPluginDir, ".claude-plugin", "plugin.json"),
+    JSON.stringify({
+      name: "test-plugin",
+      description: "Fixture plugin",
+      skills: "./custom-skills",
+      commands: "./custom-commands",
+      agents: "./custom-agents",
+    })
+  );
+
+  mkdirSync(join(tempPluginDir, "custom-skills", "plugin-skill"), { recursive: true });
+  writeFileSync(
+    join(tempPluginDir, "custom-skills", "plugin-skill", "SKILL.md"),
+    `---
+name: plugin-skill
+description: Plugin skill fixture
+---
+
+# Plugin Skill
+`
+  );
+
+  mkdirSync(join(tempPluginDir, "custom-commands"), { recursive: true });
+  writeFileSync(
+    join(tempPluginDir, "custom-commands", "plugin-command.md"),
+    `---
+description: Plugin command fixture
+argument-hint: [target]
+---
+
+Run the plugin command fixture.
+`
+  );
+
+  mkdirSync(join(tempPluginDir, "custom-agents"), { recursive: true });
+  writeFileSync(
+    join(tempPluginDir, "custom-agents", "plugin-agent.md"),
+    `---
+name: plugin-agent
+description: Plugin agent fixture
+model: sonnet
+---
+
+You are a plugin agent fixture.
+`
+  );
 });
 
 afterAll(() => {
@@ -101,6 +154,18 @@ describe("Component Discovery (E2E)", () => {
       expect(testAgent!.maxTurns).toBe(10);
       expect(testAgent!.scope).toBe("project");
       expect(testAgent!.prompt).toContain("test agent");
+    });
+
+    it("should find plugin agents from custom manifest paths", async () => {
+      const agents = await discoverAgents({
+        projectDir: tempDir,
+        pluginDirs: [{ id: "test-plugin@test-marketplace", root: tempPluginDir, manifest: { agents: "./custom-agents" } }],
+      });
+
+      const pluginAgent = agents.find((a) => a.qualifiedName === "test-plugin:plugin-agent");
+      expect(pluginAgent).toBeDefined();
+      expect(pluginAgent!.scope).toBe("plugin");
+      expect(pluginAgent!.pluginMarketplace).toBe("test-marketplace");
     });
   });
 
@@ -126,6 +191,32 @@ describe("Component Discovery (E2E)", () => {
       expect(testSkill!.description).toBe("A skill for testing");
       expect(testSkill!.scope).toBe("project");
       expect(testSkill!.content).toContain("Test Skill");
+    });
+
+    it("should find plugin skills from custom manifest paths", async () => {
+      const skills = await discoverSkills({
+        projectDir: tempDir,
+        pluginDirs: [{ id: "test-plugin@test-marketplace", root: tempPluginDir, manifest: { skills: "./custom-skills" } }],
+      });
+
+      const pluginSkill = skills.find((s) => s.qualifiedName === "test-plugin:plugin-skill");
+      expect(pluginSkill).toBeDefined();
+      expect(pluginSkill!.scope).toBe("plugin");
+      expect(pluginSkill!.pluginMarketplace).toBe("test-marketplace");
+    });
+  });
+
+  describe("discoverCommands", () => {
+    it("should find plugin commands from custom manifest paths", async () => {
+      const commands = await discoverCommands({
+        projectDir: tempDir,
+        pluginDirs: [{ id: "test-plugin@test-marketplace", root: tempPluginDir, manifest: { commands: "./custom-commands" } }],
+      });
+
+      const pluginCommand = commands.find((command) => command.qualifiedName === "test-plugin:plugin-command");
+      expect(pluginCommand).toBeDefined();
+      expect(pluginCommand!.scope).toBe("plugin");
+      expect(pluginCommand!.argumentHint).toEqual(["target"]);
     });
   });
 

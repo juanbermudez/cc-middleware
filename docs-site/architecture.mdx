@@ -60,9 +60,17 @@ CC-Middleware is a Node/TypeScript service that wraps Claude Code to provide a u
   <Accordion title="Configuration System" icon="gear">
     Reads and writes Claude Code settings across four scopes: managed (read-only), user (`~/.claude/settings.json`), project (`.claude/settings.json`), and local (`.claude/settings.local.json`). Settings merge with managed having lowest precedence and local having highest.
 
-    Also discovers and manages plugins, MCP servers, skills, agent definitions, rules, CLAUDE.md files, and project memory.
+    Also discovers and manages plugins, MCP servers, skills, agent definitions, rules, CLAUDE.md files, and project memory. In addition to filesystem discovery, the configuration layer can ask Claude for a live runtime inventory so callers can compare "what is installed on disk" with "what the current Claude runtime actually loaded."
 
-    Source: `src/config/settings.ts`, `src/config/settings-writer.ts`, `src/config/plugins.ts`, `src/config/mcp.ts`, `src/config/components.ts`, `src/config/memory.ts`
+    Source: `src/config/settings.ts`, `src/config/settings-writer.ts`, `src/config/plugins.ts`, `src/config/mcp.ts`, `src/config/components.ts`, `src/config/runtime.ts`, `src/config/memory.ts`
+  </Accordion>
+
+  <Accordion title="Playground UI" icon="monitor">
+    The repo includes a local React/Vite playground in `playground/` that talks only to the middleware's public REST and WebSocket APIs. It is organized as a proof surface rather than a product UI: overview, session catalog/search, import health, live feed, agents/teams, and runtime inventory each get their own page.
+
+    The sessions page overlays raw discovery with indexed metadata and directory grouping. The imports page focuses on search/index state. The runtime pages validate Claude's live runtime inventory through the config runtime endpoints rather than reading local files directly.
+
+    Source: `playground/src/`, `playground/vite.config.ts`
   </Accordion>
 
   <Accordion title="Plugin System" icon="plug">

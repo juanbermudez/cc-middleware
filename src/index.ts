@@ -70,6 +70,20 @@ export type { DiscoverSessionsOptions } from "./sessions/discovery.js";
 export { readSessionMessages, extractTextContent, extractToolUses } from "./sessions/messages.js";
 export type { ReadMessagesOptions } from "./sessions/messages.js";
 export { getSession, updateSessionTitle, updateSessionTag } from "./sessions/info.js";
+export {
+  buildSessionCatalog,
+  groupSessionCatalogByDirectory,
+  buildTeamMemberships,
+} from "./sessions/catalog.js";
+export type {
+  SessionCatalogTeamMembership,
+  SessionCatalogLineageFilter,
+  SessionCatalogLineage,
+  SessionCatalogEntry,
+  SessionDirectoryGroup,
+  BuildSessionCatalogOptions,
+  GroupCatalogOptions,
+} from "./sessions/catalog.js";
 
 // === Hooks ===
 export { HookEventBus, createEventBus, ALL_HOOK_EVENT_TYPES } from "./hooks/event-bus.js";
@@ -102,25 +116,86 @@ export type { MiddlewareServerOptions, MiddlewareContext, MiddlewareServer } fro
 
 // === Store & Search ===
 export { createStore } from "./store/db.js";
-export type { SessionStore, StoreOptions, IndexedSession, IndexedMessage } from "./store/db.js";
+export type {
+  SessionStore,
+  StoreOptions,
+  IndexedSession,
+  IndexedMessage,
+  IndexedSessionRelationship,
+  SessionMetadataDefinition,
+  SessionMetadataValue,
+  SessionMetadataEntry,
+} from "./store/db.js";
 export { SessionIndexer } from "./store/indexer.js";
 export type { IndexerOptions, IndexResult, IndexStats } from "./store/indexer.js";
-export { searchSessions, searchMessages } from "./store/search.js";
-export type { SearchOptions, SearchResult, SearchResultEntry } from "./store/search.js";
+export {
+  searchSessions,
+  searchMessages,
+  enrichSearchResultEntryWithTeams,
+} from "./store/search.js";
+export type {
+  SearchOptions,
+  SearchResult,
+  SearchResultEntry,
+  SearchLineageFilter,
+  SearchSessionLineage,
+  SearchTeamMembership,
+} from "./store/search.js";
 
 // === Config ===
 export { readAllSettings, readSettingsFile, mergeSettings } from "./config/settings.js";
 export type { SettingsFile, MergedSettings } from "./config/settings.js";
 export { updateSettings, addPermissionRule, removePermissionRule, setSettingValue, getSettingsPath } from "./config/settings-writer.js";
 export type { SettingsUpdate } from "./config/settings-writer.js";
-export { listInstalledPlugins, getPluginDetails, isPluginEnabled, enablePlugin, disablePlugin, installPlugin, uninstallPlugin } from "./config/plugins.js";
-export type { PluginInfo } from "./config/plugins.js";
+export {
+  listInstalledPlugins,
+  listAvailablePluginsViaCli,
+  listKnownMarketplaces,
+  listMarketplacePlugins,
+  getPluginDetails,
+  getPluginProvenance,
+  isPluginEnabled,
+  enablePlugin,
+  disablePlugin,
+  installPlugin,
+  updatePlugin,
+  uninstallPlugin,
+  addMarketplace,
+  removeMarketplace,
+  updateMarketplace,
+} from "./config/plugins.js";
+export type {
+  PluginInfo,
+  MarketplaceInfo,
+  MarketplacePluginInfo,
+  CliInstalledPluginInfo,
+  CliAvailablePluginInfo,
+  AvailablePluginCatalog,
+  PluginEnablementSource,
+  PluginProvenance,
+} from "./config/plugins.js";
 export { discoverMcpServers, addMcpServer, removeMcpServer } from "./config/mcp.js";
 export type { McpServerInfo } from "./config/mcp.js";
 export { readProjectMemory, listAllProjectMemories, encodeProjectKey } from "./config/memory.js";
 export type { MemoryInfo, MemoryFileInfo } from "./config/memory.js";
-export { discoverSkills, discoverAgents, discoverRules, discoverClaudeMd, createAgent, deleteAgent, updateAgent } from "./config/components.js";
-export type { SkillInfo, AgentFileInfo, RuleInfo, ClaudeMdInfo } from "./config/components.js";
+export { discoverSkills, discoverCommands, discoverAgents, discoverRules, discoverClaudeMd, createAgent, deleteAgent, updateAgent } from "./config/components.js";
+export type { SkillInfo, CommandInfo, AgentFileInfo, RuleInfo, ClaudeMdInfo } from "./config/components.js";
+export { inspectClaudeRuntime } from "./config/runtime.js";
+export type { RuntimeInventoryOptions, RuntimePluginInfo, RuntimeMcpServerInfo, ClaudeRuntimeInventory } from "./config/runtime.js";
+export {
+  readGlobalConfigSummary,
+  listTrackedProjects,
+  getTrackedProject,
+  getCurrentProjectState,
+  listWritableGlobalPreferences,
+  updateGlobalPreference,
+} from "./config/global.js";
+export type {
+  GlobalConfigSummary,
+  TrackedProjectSummary,
+  GlobalPreferenceKey,
+  GlobalPreferenceDefinition,
+} from "./config/global.js";
 
 // === Plugin ===
 export { createMiddlewareMcpServer } from "./plugin/mcp-server.js";

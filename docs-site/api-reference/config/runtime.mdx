@@ -1,0 +1,86 @@
+---
+title: "Runtime Inventory"
+description: "Inspect Claude's effective runtime inventory for the current project and query its runtime subresources."
+---
+
+The runtime inventory endpoints differ from filesystem discovery routes. Instead of reading config files directly, they ask Claude what is currently loaded for the active project context.
+
+## Full Runtime Snapshot
+
+```
+GET /api/v1/config/runtime
+```
+
+Returns the current project `cwd`, model, permission mode, Claude Code version, output styles, and the loaded runtime inventory for tools, slash commands, skills, agents, plugins, MCP servers, and models.
+
+### Example
+
+```bash
+curl http://127.0.0.1:3000/api/v1/config/runtime
+```
+
+```json
+{
+  "cwd": "/Users/dev/my-project",
+  "model": "claude-sonnet-4-20250514",
+  "permissionMode": "default",
+  "claudeCodeVersion": "2.1.92",
+  "outputStyle": "default",
+  "availableOutputStyles": ["default", "concise"],
+  "tools": ["Read", "Write", "Bash"],
+  "toolsCount": 3,
+  "slashCommands": ["/help"],
+  "skills": ["plugin-dev:agent-creator"],
+  "agents": ["reviewer"],
+  "plugins": [
+    {
+      "name": "plugin-dev",
+      "path": "/Users/dev/.claude/plugins/plugin-dev",
+      "source": "marketplace"
+    }
+  ],
+  "mcpServers": [
+    {
+      "name": "github",
+      "status": "connected"
+    }
+  ],
+  "commands": [],
+  "agentDetails": [],
+  "models": []
+}
+```
+
+## Searchable Runtime Subresources
+
+Each of the following routes accepts an optional `q` query parameter and returns `{ <resource>, total }`:
+
+| Route | Response key | Purpose |
+|------|---------------|---------|
+| `/api/v1/config/runtime/tools` | `tools` | Runtime tool names |
+| `/api/v1/config/runtime/commands` | `commands` | Structured slash command metadata |
+| `/api/v1/config/runtime/skills` | `skills` | Runtime-loaded skills |
+| `/api/v1/config/runtime/plugins` | `plugins` | Runtime-loaded plugins |
+| `/api/v1/config/runtime/mcp` | `servers` | Runtime MCP servers |
+| `/api/v1/config/runtime/agents` | `agents` | Runtime agent details |
+| `/api/v1/config/runtime/models` | `models` | Runtime model catalog |
+
+### Examples
+
+<CodeGroup>
+```bash Runtime tools
+curl "http://127.0.0.1:3000/api/v1/config/runtime/tools?q=read"
+```
+
+```bash Runtime plugins
+curl "http://127.0.0.1:3000/api/v1/config/runtime/plugins?q=sdk"
+```
+
+```bash Runtime models
+curl "http://127.0.0.1:3000/api/v1/config/runtime/models?q=sonnet"
+```
+</CodeGroup>
+
+<Warning>
+  These endpoints perform a fresh runtime inspection today. They are ideal for validation and debugging, but they are materially heavier than the filesystem config routes.
+</Warning>

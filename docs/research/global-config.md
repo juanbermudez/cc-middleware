@@ -2,7 +2,7 @@
 
 ## Overview
 
-`~/.claude.json` is a monolithic JSON file that stores Claude Code's global state. It is distinct from `~/.claude/settings.json` (user settings). It contains:
+`~/.claude.json` is a monolithic JSON file that stores Claude Code's global state. It is distinct from `~/.claude/settings.json` (user settings). Anthropic's settings docs explicitly separate a small set of "global config settings" stored here from the broader file, which also contains runtime state and caches. It contains:
 
 - User preferences (theme, editor mode, notifications)
 - OAuth/authentication session data
@@ -11,7 +11,7 @@
 - Internal caches (stats, tips history, migration flags)
 - MCP server configurations (user and local scope)
 
-This file is **not** meant to be hand-edited for settings. The proper settings file is `~/.claude/settings.json`. However, MCP server configs live here for historical reasons.
+This file should **not** be treated like a normal settings file. The proper settings file is `~/.claude/settings.json`. Only a small documented subset belongs here as user-managed preferences; most of the file is runtime state, auth/session material, and caches. User/local MCP server configs also live here for historical reasons.
 
 ## File Location
 
@@ -189,13 +189,49 @@ Most per-project state is managed automatically by Claude Code. The middleware s
 - `enabledMcpjsonServers` / `disabledMcpjsonServers`: Can be modified for MCP approval
 
 ### Preferences
-Global config settings (`editorMode`, `showTurnDuration`, etc.) can be edited directly in `~/.claude.json`.
+Only the documented "global config settings" should be considered writable preferences:
+- `autoConnectIde`
+- `autoInstallIdeExtension`
+- `editorMode`
+- `showTurnDuration`
+- `terminalProgressBarEnabled`
+- `teammateMode`
+
+These can be edited directly in `~/.claude.json`, but the middleware should expose them separately from the rest of the file and write only an allowlisted subset.
 
 **Caveats:**
 - Claude Code creates timestamped backups
 - The file is frequently written to by Claude Code (session metrics update after each session)
 - Concurrent edits can cause data loss -- read-modify-write with care
 - Feature flags should NOT be modified
+- OAuth/session state and internal caches should never be exposed raw through the middleware
+
+### Recommended Middleware Contract
+
+Treat `~/.claude.json` as three different surfaces:
+
+1. **Global preferences (safe writable subset)**  
+   Expose and optionally manage only the documented allowlisted keys above.
+
+2. **Per-project state (read-only observational data)**  
+   Expose sanitized summaries of:
+   - `allowedTools`
+   - trust flags
+   - `enabledMcpjsonServers` / `disabledMcpjsonServers`
+   - local-scope `mcpServers`
+   - coarse usage/session metrics
+
+   Do not provide generic write access to this object. Most of it is maintained automatically by Claude Code.
+
+3. **Everything else (observe only or hide entirely)**  
+   Hide or heavily summarize:
+   - OAuth/session data
+   - feature flag caches
+   - internal migration flags
+   - analytics/tip history
+   - UI implementation caches
+
+For effective source inspection, Anthropic recommends `/status` inside Claude Code to verify active settings sources and origins.
 
 ## Actual State on This Machine
 

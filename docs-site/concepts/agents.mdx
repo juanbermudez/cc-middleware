@@ -132,19 +132,15 @@ ccm agents create \
 
 ## Launching with Agents
 
-Sessions can be launched with a specific agent handling the main thread:
+The middleware exposes agent discovery and registration cleanly, but the current REST/WebSocket session launch surfaces do not yet honor a main-thread `agent` selection field end-to-end.
 
-```bash
-curl -X POST http://127.0.0.1:3000/api/v1/sessions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Review the src/ directory for code quality",
-    "agent": "code-reviewer",
-    "maxTurns": 20
-  }'
-```
+Use the agent APIs today for:
 
-The launcher uses the SDK's `agents` option to pass all registered agent definitions and the `agent` option to specify which agent handles the main thread.
+- Discovering which filesystem and runtime agents exist
+- Registering runtime agents
+- Inspecting prompts, tool allowlists, and model defaults
+
+Treat launch-time main-agent selection as pending work rather than a supported capability on `POST /api/v1/sessions` or the WebSocket `launch` message.
 
 ## Agent Teams
 

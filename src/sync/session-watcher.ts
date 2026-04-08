@@ -7,7 +7,7 @@
 
 import { EventEmitter } from "eventemitter3";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
 import { watch, type FSWatcher } from "chokidar";
 
@@ -56,6 +56,7 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
   private watching = false;
   private watchDirs: string[] = [];
   private lastPoll: number | null = null;
+  private initialScanDone = false;
 
   constructor(options?: SessionWatcherOptions) {
     super();
@@ -87,7 +88,7 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
     // Start chokidar watcher
     try {
       this.watcher = watch(
-        this.watchDirs.map((d) => join(d, "*.jsonl")),
+        this.watchDirs.map((d) => join(d, "**", "*.jsonl")),
         {
           ignoreInitial: true,
           persistent: true,
@@ -197,37 +198,10 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
     this.watchDirs = dirs;
 
     const currentFiles = new Set<string>();
+    const emitExisting = this.initialScanDone;
 
     for (const dir of dirs) {
-      try {
-        const entries = await readdir(dir);
-        for (const entry of entries) {
-          if (!entry.endsWith(".jsonl")) continue;
-
-          const filePath = join(dir, entry);
-          currentFiles.add(filePath);
-
-          try {
-            const s = await stat(filePath);
-            const mtime = s.mtimeMs;
-            const existing = this.knownFiles.get(filePath);
-
-            if (existing === undefined) {
-              // New file discovered via poll
-              this.knownFiles.set(filePath, mtime);
-              this.emitDebounced(filePath, "session:discovered", dir);
-            } else if (mtime > existing) {
-              // File modified since last check
-              this.knownFiles.set(filePath, mtime);
-              this.emitDebounced(filePath, "session:updated", dir);
-            }
-          } catch {
-            // File may have been removed between readdir and stat
-          }
-        }
-      } catch {
-        // Directory may have been removed
-      }
+      await this.scanDir(dir, dir, currentFiles, emitExisting);
     }
 
     // Check for removed files
@@ -240,6 +214,7 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
     }
 
     this.lastPoll = Date.now();
+    this.initialScanDone = true;
   }
 
   /**
@@ -264,6 +239,53 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
       this.emitDebounced(filePath, "session:discovered", dir);
     } else {
       this.emitDebounced(filePath, "session:updated", dir);
+    }
+  }
+
+  private async scanDir(
+    rootDir: string,
+    dir: string,
+    currentFiles: Set<string>,
+    emitExisting: boolean,
+  ): Promise<void> {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const filePath = join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        await this.scanDir(rootDir, filePath, currentFiles, emitExisting);
+        continue;
+      }
+
+      if (!entry.isFile() || !entry.name.endsWith(".jsonl")) {
+        continue;
+      }
+
+      currentFiles.add(filePath);
+
+      try {
+        const s = await stat(filePath);
+        const mtime = s.mtimeMs;
+        const existingMtime = this.knownFiles.get(filePath);
+
+        if (existingMtime === undefined) {
+          this.knownFiles.set(filePath, mtime);
+          if (emitExisting) {
+            this.emitDebounced(filePath, "session:discovered", rootDir);
+          }
+        } else if (mtime > existingMtime) {
+          this.knownFiles.set(filePath, mtime);
+          this.emitDebounced(filePath, "session:updated", rootDir);
+        }
+      } catch {
+        // File may have been removed between readdir and stat.
+      }
     }
   }
 
@@ -350,6 +372,16 @@ export class SessionWatcher extends EventEmitter<SessionWatcherEvents> {
  * Session files are named <session-id>.jsonl
  */
 export function extractSessionId(filePath: string): string | null {
-  const match = filePath.match(/([^/\\]+)\.jsonl$/);
-  return match ? match[1] : null;
+  if (!filePath.endsWith(".jsonl")) {
+    return null;
+  }
+
+  const normalized = filePath.split(/[\\/]+/);
+  const subagentIndex = normalized.lastIndexOf("subagents");
+
+  if (subagentIndex >= 1) {
+    return normalized[subagentIndex - 1] ?? null;
+  }
+
+  return basename(filePath, ".jsonl");
 }

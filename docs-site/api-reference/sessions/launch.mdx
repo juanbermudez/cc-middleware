@@ -52,36 +52,8 @@ description: "Launch a new headless Claude Code session with the given prompt an
   Model to use for the session (e.g., `claude-sonnet-4-20250514`). Passed through to the Agent SDK.
 </ParamField>
 
-<ParamField body="fallbackModel" type="string">
-  Fallback model to use if the primary model is unavailable.
-</ParamField>
-
 <ParamField body="agent" type="string">
-  Name of a registered agent to use for this session.
-</ParamField>
-
-<ParamField body="mcpServers" type="object">
-  MCP server configurations to use for this session.
-</ParamField>
-
-<ParamField body="plugins" type="array">
-  Plugin configurations (`[{ type, path }]`).
-</ParamField>
-
-<ParamField body="thinking" type="object">
-  Thinking/reasoning configuration for extended thinking mode.
-</ParamField>
-
-<ParamField body="outputFormat" type="object">
-  Structured output format configuration.
-</ParamField>
-
-<ParamField body="additionalDirectories" type="string[]">
-  Additional directories to include in the session context.
-</ParamField>
-
-<ParamField body="debug" type="boolean">
-  Enable debug mode for verbose logging.
+  Accepted by the current request schema, but not yet honored by the launch pipeline. Do not rely on it to switch the main thread agent yet.
 </ParamField>
 
 ## Response
@@ -92,16 +64,40 @@ The response contains the session result after the session completes.
   The unique ID of the launched session.
 </ResponseField>
 
-<ResponseField name="result" type="string">
-  The final text output from the session.
+<ResponseField name="subtype" type="string" required>
+  Result subtype from the SDK, such as `success` or an execution error subtype.
 </ResponseField>
 
-<ResponseField name="costUsd" type="number">
+<ResponseField name="isError" type="boolean" required>
+  Whether the completed launch result represents an error outcome.
+</ResponseField>
+
+<ResponseField name="result" type="string">
+  The final text output from the session when present.
+</ResponseField>
+
+<ResponseField name="errors" type="string[]">
+  Error strings surfaced by the SDK for failed runs.
+</ResponseField>
+
+<ResponseField name="totalCostUsd" type="number">
   Total cost in USD for the session.
 </ResponseField>
 
 <ResponseField name="durationMs" type="number">
   Total duration in milliseconds.
+</ResponseField>
+
+<ResponseField name="durationApiMs" type="number">
+  Time spent in Claude API calls, in milliseconds.
+</ResponseField>
+
+<ResponseField name="numTurns" type="integer">
+  Number of turns taken by the session.
+</ResponseField>
+
+<ResponseField name="stopReason" type="string">
+  Stop reason reported by the SDK.
 </ResponseField>
 
 ## Error Responses
@@ -145,10 +141,6 @@ ccm sessions launch "Refactor the database module" \
   --stream --tools Read,Edit,Bash --max-turns 10
 ```
 
-```bash CLI (with agent)
-ccm sessions launch "Fix the failing tests" --agent test-fixer
-```
-
 </CodeGroup>
 
 ### Example Response
@@ -156,12 +148,21 @@ ccm sessions launch "Fix the failing tests" --agent test-fixer
 ```json
 {
   "sessionId": "01JQ8X7KBMN...",
+  "subtype": "success",
+  "isError": false,
   "result": "I've added Zod validation schemas to the registration endpoint...",
-  "costUsd": 0.035,
-  "durationMs": 45200
+  "totalCostUsd": 0.035,
+  "durationMs": 45200,
+  "durationApiMs": 31800,
+  "numTurns": 4,
+  "stopReason": "end_turn"
 }
 ```
 
 <Note>
   This REST endpoint launches a session and waits for the final result. For real-time output, you can also use the WebSocket `launch` message described in the [AsyncAPI spec](/api-reference/asyncapi).
 </Note>
+
+<Warning>
+  The CLI still exposes `ccm sessions launch --agent`, but the REST and WebSocket launch flows do not currently apply the requested agent selection. The request is accepted, then ignored.
+</Warning>

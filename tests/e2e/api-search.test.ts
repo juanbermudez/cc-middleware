@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createMiddlewareServer } from "../../src/api/server.js";
@@ -28,6 +28,23 @@ let tempDir: string;
 
 beforeAll(async () => {
   tempDir = mkdtempSync(join(tmpdir(), "cc-api-search-test-"));
+  const teamsDir = join(tempDir, "teams");
+  const tasksDir = join(tempDir, "tasks");
+  mkdirSync(join(teamsDir, "delivery"), { recursive: true });
+  mkdirSync(join(tasksDir, "delivery"), { recursive: true });
+  writeFileSync(
+    join(teamsDir, "delivery", "config.json"),
+    JSON.stringify({
+      name: "delivery",
+      members: [
+        {
+          name: "reviewer",
+          agentId: "agent-reviewer",
+          status: "active",
+        },
+      ],
+    })
+  );
   store = await createStore({ dbPath: join(tempDir, "test.db") });
   store.migrate();
 
@@ -43,7 +60,7 @@ beforeAll(async () => {
     blockingRegistry: new BlockingHookRegistry(),
     policyEngine: new PolicyEngine({ rules: [], defaultBehavior: "allow" }),
     agentRegistry: new AgentRegistry(),
-    teamManager: new TeamManager(),
+    teamManager: new TeamManager({ teamsDir, tasksDir }),
     permissionManager: new PermissionManager(),
     askUserManager: new AskUserQuestionManager(),
     sessionStore: store,
@@ -85,6 +102,18 @@ describe("Search API Endpoints (E2E)", () => {
   });
 
   it("should return search results for keyword query", async () => {
+    store.replaceRelationships("test-s1", [
+      {
+        id: "rel-test-s1",
+        sessionId: "test-s1",
+        relationshipType: "subagent",
+        path: "/tmp/test/subagents/agent-reviewer.jsonl",
+        agentId: "agent-reviewer",
+        slug: "reviewer",
+        lastModified: Date.now(),
+      },
+    ]);
+
     const resp = await fetch(`${baseUrl}/api/v1/search?q=search%20test`);
     expect(resp.status).toBe(200);
     const body = await resp.json();
@@ -92,8 +121,68 @@ describe("Search API Endpoints (E2E)", () => {
     expect(body.sessions).toBeDefined();
     expect(body.total).toBeGreaterThanOrEqual(1);
     // Should find our test session
-    const found = body.sessions.find((s: { id: string }) => s.id === "test-s1");
+    const found = body.sessions.find(
+      (s: { id: string; lineage: { hasSubagents: boolean; teamNames: string[] } }) =>
+        s.id === "test-s1"
+    );
     expect(found).toBeDefined();
+    expect(found.lineage.hasSubagents).toBe(true);
+    expect(found.lineage.teamNames).toEqual(["delivery"]);
+  });
+
+  it("should support lineage and team filters", async () => {
+    const resp = await fetch(
+      `${baseUrl}/api/v1/search?q=search%20test&lineage=team&team=delivery`
+    );
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+
+    expect(body.total).toBe(1);
+    expect(body.sessions[0].id).toBe("test-s1");
+    expect(body.sessions[0].lineage.teamNames).toEqual(["delivery"]);
+  });
+
+  it("should search and filter by registered session metadata", async () => {
+    const now = Date.now();
+    store.upsertSessionMetadataDefinition({
+      key: "owner",
+      label: "Owner",
+      valueType: "string",
+      searchable: true,
+      filterable: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    store.setSessionMetadataValue({
+      sessionId: "test-s1",
+      key: "owner",
+      value: "platform",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const searchResp = await fetch(
+      `${baseUrl}/api/v1/search?q=platform`
+    );
+    expect(searchResp.status).toBe(200);
+    const searchBody = await searchResp.json();
+    expect(searchBody.total).toBeGreaterThanOrEqual(1);
+    expect(searchBody.sessions[0].metadata).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "owner",
+          value: "platform",
+        }),
+      ])
+    );
+
+    const filteredResp = await fetch(
+      `${baseUrl}/api/v1/search?q=&metadataKey=owner&metadataValue=platform`
+    );
+    expect(filteredResp.status).toBe(200);
+    const filteredBody = await filteredResp.json();
+    expect(filteredBody.total).toBe(1);
+    expect(filteredBody.sessions[0].id).toBe("test-s1");
   });
 
   it("should return search stats", async () => {

@@ -34,7 +34,7 @@ const result = await manager.launch({
 
 console.log(result.result);       // The text output
 console.log(result.sessionId);    // Session ID for later resume
-console.log(result.costUsd);      // API cost
+console.log(result.totalCostUsd); // API cost
 console.log(result.durationMs);   // Wall-clock time
 ```
 </CodeGroup>
@@ -45,7 +45,7 @@ The response includes:
 {
   "sessionId": "01abc123-def4-5678-9012-abcdef345678",
   "result": "In JavaScript, `let` and `const` both declare block-scoped variables...",
-  "costUsd": 0.0032,
+  "totalCostUsd": 0.0032,
   "durationMs": 1847
 }
 ```
@@ -102,19 +102,6 @@ The response includes:
     - **maxBudgetUsd**: Maximum API cost before stopping
   </Tab>
 
-  <Tab title="Agent">
-    Launch with a specific registered agent:
-
-    ```json
-    {
-      "prompt": "Review the authentication module",
-      "agent": "code-reviewer"
-    }
-    ```
-
-    The agent must be registered in the agent registry (either from filesystem or via API).
-  </Tab>
-
   <Tab title="Custom System Prompt">
     Override the system prompt:
 
@@ -142,6 +129,10 @@ The response includes:
     This affects which files Claude can access and which project settings apply.
   </Tab>
 </Tabs>
+
+<Warning>
+  The CLI currently exposes `--agent` and the launch payload schema still accepts `agent`, but the HTTP and WebSocket launch paths do not yet wire that field into the SDK session launch. Keep agent usage to discovery/registration for now rather than relying on it to steer the main thread.
+</Warning>
 
 ## Streaming
 

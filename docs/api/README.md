@@ -79,6 +79,14 @@ Base URL: `http://127.0.0.1:3000`
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/api/v1/config/global` | Get sanitized `~/.claude.json` summary |
+| PUT | `/api/v1/config/global/preferences/:key` | Update one documented `~/.claude.json` global preference |
+| GET | `/api/v1/config/projects` | List tracked projects from `~/.claude.json` |
+| GET | `/api/v1/config/projects/current` | Get current project's tracked Claude state |
+| GET | `/api/v1/config/projects/lookup?path=...` | Look up one tracked project by absolute path |
+
+| Method | Path | Description |
+|--------|------|-------------|
 | GET | `/api/v1/config/settings` | Get merged effective settings |
 | GET | `/api/v1/config/settings/:scope` | Get settings for scope (user/project/local/managed) |
 | PUT | `/api/v1/config/settings/:scope` | Update a setting value |
@@ -90,17 +98,26 @@ Base URL: `http://127.0.0.1:3000`
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/config/plugins` | List all plugins |
+| GET | `/api/v1/config/plugins/available` | List installable plugins from Claude's resolved marketplace catalog |
 | GET | `/api/v1/config/plugins/:name` | Get plugin details |
+| GET | `/api/v1/config/plugins/:name/provenance` | Explain installed, enabled, catalog, marketplace, and runtime-loaded state for one plugin |
+| POST | `/api/v1/config/plugins/install` | Install plugin (via Claude CLI) |
+| GET | `/api/v1/config/marketplaces` | List known Claude plugin marketplaces |
+| POST | `/api/v1/config/marketplaces` | Add a marketplace (via Claude CLI) |
+| POST | `/api/v1/config/marketplaces/update` | Update one or all marketplaces (via Claude CLI) |
+| GET | `/api/v1/config/marketplaces/:name/plugins` | List available plugins from one marketplace |
+| DELETE | `/api/v1/config/marketplaces/:name` | Remove a marketplace (via Claude CLI) |
 | POST | `/api/v1/config/plugins/:name/enable` | Enable a plugin |
 | POST | `/api/v1/config/plugins/:name/disable` | Disable a plugin |
-| POST | `/api/v1/config/plugins/install` | Install plugin (via CLI) |
-| POST | `/api/v1/config/plugins/:name/uninstall` | Uninstall plugin (via CLI) |
+| POST | `/api/v1/config/plugins/:name/update` | Update plugin (via Claude CLI) |
+| POST | `/api/v1/config/plugins/:name/uninstall` | Uninstall plugin (via Claude CLI) |
 
 ### Skills, Agents, Rules
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/config/skills` | List all skills |
+| GET | `/api/v1/config/commands` | List legacy slash commands |
 | GET | `/api/v1/config/agents` | List file-based agent definitions |
 | POST | `/api/v1/config/agents` | Create agent definition file |
 | PUT | `/api/v1/config/agents/:name` | Update agent definition |
@@ -112,6 +129,7 @@ Base URL: `http://127.0.0.1:3000`
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/config/mcp` | List all MCP servers |
+| GET | `/api/v1/config/runtime` | Inspect effective Claude runtime inventory from the Agent SDK |
 | POST | `/api/v1/config/mcp` | Add MCP server (via CLI) |
 | DELETE | `/api/v1/config/mcp/:name` | Remove MCP server (via CLI) |
 

@@ -1,0 +1,100 @@
+---
+title: "List Session Directories"
+api: "GET /api/v1/sessions/directories"
+description: "Group the enriched session catalog by exact working directory for explorer-style UIs."
+---
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="12">
+  Maximum number of directory groups to return.
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Number of directory groups to skip.
+</ParamField>
+
+<ParamField query="sessionLimit" type="integer" default="3">
+  Maximum number of session rows to embed per directory group before `hasMoreSessions` becomes true.
+</ParamField>
+
+<ParamField query="project" type="string">
+  Restrict the underlying catalog to a single project directory path.
+</ParamField>
+
+<ParamField query="metadataKey" type="string">
+  Filter the underlying catalog by metadata key.
+</ParamField>
+
+<ParamField query="metadataValue" type="string">
+  Filter the underlying catalog by metadata value substring.
+</ParamField>
+
+<ParamField query="lineage" type="string">
+  Filter the underlying catalog by `all`, `standalone`, `subagent`, or `team`.
+</ParamField>
+
+<ParamField query="team" type="string">
+  Restrict the underlying catalog to a team name.
+</ParamField>
+
+## Response
+
+<ResponseField name="groups" type="array" required>
+  Directory groups sorted by most recently modified session.
+</ResponseField>
+
+<ResponseField name="totalDirectories" type="integer" required>
+  Total number of directory groups that matched the filters.
+</ResponseField>
+
+<ResponseField name="totalSessions" type="integer" required>
+  Total number of catalog sessions represented across all groups.
+</ResponseField>
+
+### Example
+
+```bash
+curl "http://127.0.0.1:3000/api/v1/sessions/directories?sessionLimit=1"
+```
+
+```json
+{
+  "groups": [
+    {
+      "path": "/Users/dev/my-project",
+      "name": "my-project",
+      "depth": 4,
+      "sessionCount": 2,
+      "indexedSessionCount": 2,
+      "unindexedSessionCount": 0,
+      "mainSessionCount": 1,
+      "subagentSessionCount": 1,
+      "teamSessionCount": 1,
+      "lastModified": 1775298922000,
+      "gitBranches": ["main"],
+      "hasMoreSessions": true,
+      "sessions": [
+        {
+          "id": "session-1",
+          "sessionId": "session-1",
+          "directoryPath": "/Users/dev/my-project",
+          "indexed": true,
+          "metadata": [],
+          "lineage": {
+            "kind": "root",
+            "hasSubagents": true,
+            "subagentCount": 1,
+            "hasTeamMembers": true,
+            "teamNames": ["delivery"],
+            "teammateNames": ["reviewer"],
+            "relationships": []
+          }
+        }
+      ]
+    }
+  ],
+  "totalDirectories": 1,
+  "totalSessions": 2
+}
+```

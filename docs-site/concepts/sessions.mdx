@@ -24,7 +24,7 @@ The Session Manager maintains a `Map<string, ActiveSession>` for sessions launch
 
 ## Discovery
 
-The discovery module wraps the Agent SDK's `listSessions()` to enumerate sessions across all projects or within a specific directory.
+The discovery module wraps the Agent SDK's `listSessions()` to enumerate sessions across all projects or within a specific directory. The HTTP catalog layer then overlays that raw filesystem discovery with indexed metadata, subagent relationships, and team membership when the SQLite store is available.
 
 <CodeGroup>
 ```bash API
@@ -42,7 +42,7 @@ const sessions = await discoverSessions({ dir: "/path/to/project", limit: 20 });
 ```
 </CodeGroup>
 
-Each session includes metadata from Claude Code's `SDKSessionInfo`:
+Each discovered session starts with metadata from Claude Code's `SDKSessionInfo`:
 
 | Field | Description |
 |-------|-------------|
@@ -56,6 +56,18 @@ Each session includes metadata from Claude Code's `SDKSessionInfo`:
 | `tag` | User-assigned tag |
 | `createdAt` | Creation timestamp |
 
+The enriched catalog returned by `GET /api/v1/sessions` also adds:
+
+| Field | Description |
+|-------|-------------|
+| `id` | Convenience alias for `sessionId` |
+| `project` | Basename of the session working directory |
+| `directoryPath` / `directoryName` | Exact `cwd` grouping used by the directory explorer |
+| `indexed` | Whether the session is present in the SQLite index |
+| `messageCount` | Indexed message count, when known |
+| `metadata` | Registered session metadata entries |
+| `lineage` | Subagent/team relationship summary for the root session |
+
 ## Session Storage
 
 Claude Code stores sessions as JSONL files at:
@@ -67,6 +79,17 @@ Claude Code stores sessions as JSONL files at:
 Where `<encoded-cwd>` replaces non-alphanumeric characters with `-`. Each JSONL line is a transcript entry (user message, assistant message, tool use, tool result, or system event). The Agent SDK handles reading and writing these files.
 
 The middleware adds a SQLite index on top of this storage for searchable metadata and full-text search.
+
+## Catalog vs Search
+
+Two related HTTP surfaces intentionally answer different questions:
+
+- `GET /api/v1/sessions` answers "what sessions exist on disk right now?" and enriches them with indexed metadata when available.
+- `GET /api/v1/search` answers "what sessions and messages are already indexed in SQLite and searchable?"
+
+The playground makes this distinction explicit. It is normal for a session to appear in the catalog before it appears in search if the auto-indexer has not processed it yet.
+
+For explorer-style grouping, `GET /api/v1/sessions/directories` returns the same catalog grouped by exact working directory, including indexed/unindexed counts and relationship summaries.
 
 ## Launching Sessions
 
@@ -83,7 +106,7 @@ The launcher wraps the Agent SDK's `query()` function with several modes:
       permissionMode: "plan",
     });
 
-    // result.sessionId, result.result, result.costUsd, result.durationMs
+    // result.sessionId, result.result, result.totalCostUsd, result.durationMs
     ```
 
     Launch options include:
@@ -99,7 +122,6 @@ The launcher wraps the Agent SDK's `query()` function with several modes:
     | `systemPrompt` | Custom system prompt |
     | `cwd` | Working directory |
     | `effort` | One of: `low`, `medium`, `high`, `max` |
-    | `agent` | Name of a registered agent to use |
   </Tab>
 
   <Tab title="Streaming">
@@ -207,6 +229,26 @@ curl -X PUT http://127.0.0.1:3000/api/v1/sessions/{id} \
 curl -X PUT http://127.0.0.1:3000/api/v1/sessions/{id} \
   -H "Content-Type: application/json" \
   -d '{"tag": null}'
+```
+</CodeGroup>
+
+## Session Metadata
+
+Sessions can carry typed metadata definitions and per-session values in the SQLite store. This is the mechanism the playground uses for metadata-aware filtering and its metadata lab.
+
+<CodeGroup>
+```bash Definitions
+curl http://127.0.0.1:3000/api/v1/sessions/metadata/definitions
+```
+
+```bash Set a value
+curl -X PUT http://127.0.0.1:3000/api/v1/sessions/{id}/metadata \
+  -H "Content-Type: application/json" \
+  -d '{ "key": "workflow", "value": "delivery-review" }'
+```
+
+```bash List a session's metadata
+curl http://127.0.0.1:3000/api/v1/sessions/{id}/metadata
 ```
 </CodeGroup>
 

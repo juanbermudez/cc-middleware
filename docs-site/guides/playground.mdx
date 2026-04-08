@@ -1,0 +1,73 @@
+---
+title: "Playground"
+description: "Use the local React/Vite playground to inspect the middleware's session, search, sync, and runtime surfaces live."
+---
+
+# Playground
+
+The repo ships with a local playground in `playground/` that exercises the middleware through the same REST and WebSocket APIs documented in this site. It is a proof surface for validating behavior, not a separate product tier.
+
+## Start It
+
+<CodeGroup>
+```bash Terminal 1
+npm start
+```
+
+```bash Terminal 2
+npm run playground:dev
+```
+</CodeGroup>
+
+Open `http://127.0.0.1:4173`.
+
+If your middleware is not running on the default port, set:
+
+```bash
+PLAYGROUND_MIDDLEWARE_URL=http://127.0.0.1:4000 npm run playground:dev
+```
+
+## What Each Page Proves
+
+| Page | Primary endpoints | What it is for |
+|------|-------------------|----------------|
+| Overview | `/health`, `/api/v1/status`, `/api/v1/search/stats`, `/api/v1/config/runtime`, `/api/v1/teams` | Quick operating snapshot |
+| Sessions | `/api/v1/sessions`, `/api/v1/sessions/directories`, `/api/v1/search`, `/api/v1/sessions/metadata*` | Compare raw catalog vs indexed search, inspect lineage and metadata |
+| Imports | `/api/v1/search/stats`, `/api/v1/search/reindex`, `/api/v1/sync/status` | Understand index health and backfills |
+| Live Feed | `ws://127.0.0.1:3000/api/v1/ws` | Watch session, hook, and team events as they reach the broadcaster |
+| Agents & Teams | `/api/v1/agents`, `/api/v1/teams`, `/api/v1/teams/{name}`, `/api/v1/teams/{name}/tasks` | Inspect registered agents and discovered teams |
+| Runtime | `/api/v1/config/runtime*` | Compare Claude's live runtime inventory with filesystem discovery |
+
+## Key Distinctions
+
+### Session catalog vs search index
+
+- `GET /api/v1/sessions` shows what Claude has on disk now, enriched with indexed metadata if available.
+- `GET /api/v1/search` shows only sessions already indexed into SQLite.
+
+If the catalog shows something that search does not, the usual next step is the playground's reindex action.
+
+### Filesystem config vs runtime config
+
+- Filesystem config routes (`/api/v1/config/plugins`, `/api/v1/config/skills`, `/api/v1/config/mcp`, etc.) tell you what is installed or configured.
+- Runtime routes (`/api/v1/config/runtime*`) tell you what Claude actually loaded for the current project.
+
+That difference matters when plugins contribute commands, agents, or skills dynamically.
+
+## Important Caveats
+
+<Warning>
+  The runtime inventory pages are live inspections, not cached reads. Each request asks Claude for the effective runtime inventory again, so these pages are meant for validation and debugging rather than high-frequency polling.
+</Warning>
+
+<Note>
+  The live feed only shows events that actually reach the middleware. If you use Claude outside the middleware and do not route hooks through the plugin/server path, those events will not appear here.
+</Note>
+
+## Building It
+
+```bash
+npm run playground:build
+```
+
+The production assets are emitted to `playground/dist/`.

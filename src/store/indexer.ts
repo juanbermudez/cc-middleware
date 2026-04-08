@@ -8,8 +8,10 @@ import { discoverSessions } from "../sessions/discovery.js";
 import { getSession } from "../sessions/info.js";
 import { readSessionMessages } from "../sessions/messages.js";
 import { extractTextContent, extractToolUses } from "../sessions/messages.js";
+import { readIndexedTranscripts } from "../sessions/transcripts.js";
 import { toErrorMessage } from "../utils/errors.js";
 import type { SessionStore, IndexedSession, IndexedMessage } from "./db.js";
+import type { SessionInfo } from "../types/sessions.js";
 
 /** Options for the session indexer */
 export interface IndexerOptions {
@@ -41,13 +43,13 @@ export interface IndexStats {
 export class SessionIndexer {
   private store: SessionStore;
   private batchSize: number;
-  private messageLimit: number;
+  private messageLimit?: number;
   private projectDirs?: string[];
 
   constructor(options: IndexerOptions) {
     this.store = options.store;
     this.batchSize = options.batchSize ?? 50;
-    this.messageLimit = options.messageLimit ?? 100;
+    this.messageLimit = options.messageLimit;
     this.projectDirs = options.projectDirs;
   }
 
@@ -61,11 +63,7 @@ export class SessionIndexer {
     let messagesIndexed = 0;
 
     try {
-      // Discover all sessions
-      const sessions = await discoverSessions({
-        dir: this.projectDirs?.[0],
-        limit: 1000,
-      });
+      const sessions = await this.discoverIndexableSessions();
 
       // Process in batches
       for (let i = 0; i < sessions.length; i += this.batchSize) {
@@ -77,7 +75,7 @@ export class SessionIndexer {
             sessionsIndexed++;
 
             // Index messages
-            const msgCount = await this.indexSessionMessages(session.sessionId);
+            const msgCount = await this.indexSessionMessages(session);
             messagesIndexed += msgCount;
           } catch (error) {
             const errMsg = toErrorMessage(error);
@@ -115,11 +113,7 @@ export class SessionIndexer {
 
     try {
       const lastIndexed = this.store.getLastIndexedAt() ?? 0;
-
-      const sessions = await discoverSessions({
-        dir: this.projectDirs?.[0],
-        limit: 1000,
-      });
+      const sessions = await this.discoverIndexableSessions();
 
       // Only process sessions modified since last index
       const newOrModified = sessions.filter(
@@ -131,7 +125,7 @@ export class SessionIndexer {
           await this.indexSingleSession(session.sessionId, session);
           sessionsIndexed++;
 
-          const msgCount = await this.indexSessionMessages(session.sessionId);
+          const msgCount = await this.indexSessionMessages(session);
           messagesIndexed += msgCount;
         } catch (error) {
           const errMsg = toErrorMessage(error);
@@ -167,7 +161,7 @@ export class SessionIndexer {
     }
 
     await this.indexSingleSession(sessionId, session);
-    await this.indexSessionMessages(sessionId);
+    await this.indexSessionMessages(session);
   }
 
   /**
@@ -190,7 +184,7 @@ export class SessionIndexer {
    */
   private async indexSingleSession(
     sessionId: string,
-    sessionInfo: { sessionId: string; summary: string; lastModified: number; cwd?: string; firstPrompt?: string; gitBranch?: string; tag?: string; fileSize?: number; createdAt?: number }
+    sessionInfo: SessionInfo
   ): Promise<void> {
     // Determine project name from cwd
     const cwd = sessionInfo.cwd ?? "";
@@ -201,6 +195,7 @@ export class SessionIndexer {
       project,
       cwd,
       summary: sessionInfo.summary ?? "",
+      customTitle: sessionInfo.customTitle,
       firstPrompt: sessionInfo.firstPrompt ?? "",
       gitBranch: sessionInfo.gitBranch,
       tag: sessionInfo.tag,
@@ -216,33 +211,71 @@ export class SessionIndexer {
   /**
    * Index messages for a session. Returns count of messages indexed.
    */
-  private async indexSessionMessages(sessionId: string): Promise<number> {
+  private async indexSessionMessages(sessionInfo: SessionInfo): Promise<number> {
+    const sessionId = sessionInfo.sessionId;
+
     try {
-      const messages = await readSessionMessages(sessionId, {
+      const transcriptIndex = await readIndexedTranscripts(sessionInfo, {
         limit: this.messageLimit,
       });
 
-      if (messages.length === 0) return 0;
+      let indexed: IndexedMessage[];
+      let totalMessages: number;
+
+      if (transcriptIndex) {
+        indexed = transcriptIndex.messages.map((message) => ({
+          id: message.id,
+          sessionId: message.sessionId,
+          role: message.role,
+          contentPreview: message.contentPreview,
+          toolNames: message.toolNames,
+          timestamp: message.timestamp,
+        }));
+        totalMessages = transcriptIndex.totalMessages;
+        this.store.replaceRelationships(sessionId, transcriptIndex.relationships);
+      } else {
+        const messages = await readSessionMessages(sessionId, {
+          limit: this.messageLimit,
+        });
+
+        indexed = messages
+          .filter((message) => message.type === "user" || message.type === "assistant")
+          .map((message, idx) => {
+            const text = extractTextContent(message.message);
+            const tools = extractToolUses(message.message);
+            const toolNames = tools.map((tool) => tool.name).join(",");
+            const parsedTimestamp =
+              typeof message.timestamp === "string"
+                ? Date.parse(message.timestamp)
+                : Number.NaN;
+
+            return {
+              id: message.uuid || `${sessionId}-${idx}`,
+              sessionId,
+              role: message.type as "user" | "assistant",
+              contentPreview: text.slice(0, 500),
+              toolNames: toolNames || undefined,
+              timestamp: Number.isNaN(parsedTimestamp)
+                ? Date.now() + idx
+                : parsedTimestamp,
+            };
+          });
+        totalMessages = indexed.length;
+        this.store.replaceRelationships(sessionId, []);
+      }
+
+      if (indexed.length === 0) {
+        this.store.deleteMessages(sessionId);
+        const session = this.store.getSession(sessionId);
+        if (session) {
+          session.messageCount = totalMessages;
+          this.store.upsertSession(session);
+        }
+        return 0;
+      }
 
       // Delete existing messages for this session before re-indexing
       this.store.deleteMessages(sessionId);
-
-      const indexed: IndexedMessage[] = messages
-        .filter((m) => m.type === "user" || m.type === "assistant")
-        .map((msg, idx) => {
-          const text = extractTextContent(msg.message);
-          const tools = extractToolUses(msg.message);
-          const toolNames = tools.map((t) => t.name).join(",");
-
-          return {
-            id: msg.uuid || `${sessionId}-${idx}`,
-            sessionId,
-            role: msg.type as "user" | "assistant",
-            contentPreview: text.slice(0, 500),
-            toolNames: toolNames || undefined,
-            timestamp: Date.now() - (messages.length - idx) * 1000,
-          };
-        });
 
       if (indexed.length > 0) {
         this.store.insertMessages(sessionId, indexed);
@@ -250,7 +283,7 @@ export class SessionIndexer {
         // Update message count on session
         const session = this.store.getSession(sessionId);
         if (session) {
-          session.messageCount = indexed.length;
+          session.messageCount = totalMessages;
           this.store.upsertSession(session);
         }
       }
@@ -260,5 +293,41 @@ export class SessionIndexer {
       // Message reading can fail for various reasons; skip silently
       return 0;
     }
+  }
+
+  private async discoverIndexableSessions(): Promise<SessionInfo[]> {
+    const discovered = this.projectDirs?.length
+      ? await Promise.all(
+          this.projectDirs.map((dir) =>
+            discoverSessions({
+              dir,
+            })
+          )
+        )
+      : [await discoverSessions()];
+
+    const deduped = new Map<string, SessionInfo>();
+
+    for (const sessions of discovered) {
+      for (const session of sessions) {
+        const key = `${session.sessionId}:${session.cwd ?? ""}`;
+        deduped.set(key, session);
+      }
+    }
+
+    return [...deduped.values()].sort((a, b) => {
+      const aCreated = a.createdAt ?? a.lastModified;
+      const bCreated = b.createdAt ?? b.lastModified;
+
+      if (aCreated !== bCreated) {
+        return aCreated - bCreated;
+      }
+
+      if (a.lastModified !== b.lastModified) {
+        return a.lastModified - b.lastModified;
+      }
+
+      return a.sessionId.localeCompare(b.sessionId);
+    });
   }
 }

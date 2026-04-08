@@ -34,7 +34,7 @@ description: "Resume an existing session with a follow-up prompt, continuing the
   The text output from the resumed session.
 </ResponseField>
 
-<ResponseField name="costUsd" type="number">
+<ResponseField name="totalCostUsd" type="number">
   Cost in USD for this resumption.
 </ResponseField>
 
@@ -78,7 +78,7 @@ ccm sessions resume 01JQ8X7KBMN --prompt "Add tests" --stream
 {
   "sessionId": "01JQ8X7KBMN...",
   "result": "I've created test cases covering all validation scenarios...",
-  "costUsd": 0.028,
+  "totalCostUsd": 0.028,
   "durationMs": 32100
 }
 ```

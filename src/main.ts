@@ -106,6 +106,21 @@ async function main() {
     blockingRegistry,
   });
 
+  if (autoIndex) {
+    const stats = sessionIndexer.getStats();
+    const needsFullBackfill =
+      stats.totalSessions === 0 || stats.lastFullIndex === undefined;
+
+    const indexResult = needsFullBackfill
+      ? await sessionIndexer.fullIndex()
+      : await sessionIndexer.incrementalIndex();
+
+    const mode = needsFullBackfill ? "full" : "incremental";
+    console.log(
+      `Session index: ${mode} sync complete (${indexResult.sessionsIndexed} sessions, ${indexResult.messagesIndexed} messages, ${indexResult.errors.length} errors, ${indexResult.durationMs}ms)`
+    );
+  }
+
   // --- Real-Time Sync (Phase 12) ---
   let sessionWatcher: SessionWatcher | null = null;
   let configWatcher: ConfigWatcher | null = null;

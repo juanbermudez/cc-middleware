@@ -138,7 +138,7 @@ ccm sessions launch <prompt> [options]
 | `--tools <tools>` | Comma-separated list of allowed tools | all |
 | `--model <model>` | Model to use | server default |
 | `--max-turns <n>` | Maximum conversation turns | |
-| `--agent <name>` | Use a registered agent | |
+| `--agent <name>` | Accepted by the CLI today, but the middleware launch API does not currently honor it | |
 
 ### Examples
 
@@ -173,9 +173,8 @@ Session completed.
 ```
 
 ```bash
-# Launch with specific tools and agent
+# Launch with specific tools
 ccm sessions launch "Fix the failing tests" \
-  --agent test-fixer \
   --tools Read,Edit,Bash \
   --max-turns 10
 ```
@@ -188,6 +187,10 @@ ccm sessions launch "Count the TypeScript files" --json | jq '.result'
 <Note>
   When using `--stream`, the command connects via WebSocket and prints text deltas as they arrive. Press `Ctrl+C` to abort the session.
 </Note>
+
+<Warning>
+  `--agent` is currently a no-op end-to-end. The CLI forwards it, but the middleware launch routes do not yet apply the requested main-thread agent selection.
+</Warning>
 
 ### API Equivalent
 

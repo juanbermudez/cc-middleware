@@ -1,39 +1,67 @@
 ---
 title: "List Sessions"
 api: "GET /api/v1/sessions"
-description: "Retrieve a paginated list of Claude Code sessions, optionally filtered by project directory."
+description: "Retrieve the enriched session catalog, combining Claude filesystem discovery with indexed metadata, lineage, and directory context."
 ---
 
 ## Query Parameters
 
 <ParamField query="limit" type="integer" default="20">
-  Maximum number of sessions to return.
+  Maximum number of catalog sessions to return.
 </ParamField>
 
 <ParamField query="offset" type="integer" default="0">
-  Number of sessions to skip for pagination.
+  Number of catalog sessions to skip.
 </ParamField>
 
 <ParamField query="project" type="string">
-  Filter sessions by project directory path. Only sessions created within this directory are returned.
+  Filter sessions by project directory path.
+</ParamField>
+
+<ParamField query="metadataKey" type="string">
+  Filter sessions by a registered metadata key.
+</ParamField>
+
+<ParamField query="metadataValue" type="string">
+  Filter sessions by a metadata value substring.
+</ParamField>
+
+<ParamField query="lineage" type="string">
+  Filter by relationship summary: `all`, `standalone`, `subagent`, or `team`.
+</ParamField>
+
+<ParamField query="team" type="string">
+  Restrict results to sessions associated with a team name.
 </ParamField>
 
 ## Response
 
 <ResponseField name="sessions" type="array" required>
-  Array of session summary objects.
-  <Expandable title="Session object">
+  Array of enriched catalog session objects.
+  <Expandable title="Catalog session object">
     <ResponseField name="sessionId" type="string">
-      Unique session identifier.
+      Unique Claude session identifier.
     </ResponseField>
-    <ResponseField name="createdAt" type="string">
-      ISO 8601 timestamp of session creation.
+    <ResponseField name="id" type="string">
+      Convenience alias for `sessionId`.
     </ResponseField>
-    <ResponseField name="lastModified" type="string">
-      ISO 8601 timestamp of last activity.
+    <ResponseField name="createdAt" type="number">
+      Unix timestamp in milliseconds.
     </ResponseField>
-    <ResponseField name="status" type="string">
-      Session status: `completed`, `running`, `errored`, `aborted`.
+    <ResponseField name="lastModified" type="number">
+      Unix timestamp in milliseconds.
+    </ResponseField>
+    <ResponseField name="project" type="string">
+      Basename of the session working directory.
+    </ResponseField>
+    <ResponseField name="directoryPath" type="string">
+      Exact working directory path used for grouping.
+    </ResponseField>
+    <ResponseField name="indexed" type="boolean">
+      Whether the session is present in the SQLite index.
+    </ResponseField>
+    <ResponseField name="messageCount" type="integer">
+      Indexed message count when known.
     </ResponseField>
     <ResponseField name="firstPrompt" type="string">
       The initial prompt that launched the session.
@@ -44,14 +72,17 @@ description: "Retrieve a paginated list of Claude Code sessions, optionally filt
     <ResponseField name="cwd" type="string">
       Working directory where the session ran.
     </ResponseField>
-    <ResponseField name="tag" type="string">
-      Optional user-assigned tag.
+    <ResponseField name="metadata" type="array">
+      Registered session metadata entries attached to the session.
+    </ResponseField>
+    <ResponseField name="lineage" type="object">
+      Relationship summary including subagent counts and inferred team membership.
     </ResponseField>
   </Expandable>
 </ResponseField>
 
 <ResponseField name="total" type="integer" required>
-  Total number of sessions matching the filter.
+  Total number of catalog sessions matching the filters.
 </ResponseField>
 
 ## Examples
@@ -59,15 +90,15 @@ description: "Retrieve a paginated list of Claude Code sessions, optionally filt
 <CodeGroup>
 
 ```bash curl
-curl http://127.0.0.1:3000/api/v1/sessions?limit=5&offset=0
+curl "http://127.0.0.1:3000/api/v1/sessions?limit=5&offset=0"
+```
+
+```bash team-filtered catalog
+curl "http://127.0.0.1:3000/api/v1/sessions?lineage=team&team=delivery"
 ```
 
 ```bash CLI
 ccm sessions list --limit 5
-```
-
-```bash CLI with project filter
-ccm sessions list --project /Users/dev/my-project
 ```
 
 </CodeGroup>
@@ -78,36 +109,42 @@ ccm sessions list --project /Users/dev/my-project
 {
   "sessions": [
     {
-      "sessionId": "01JQ8X7KBMN...",
-      "createdAt": "2026-04-04T10:30:00.000Z",
-      "lastModified": "2026-04-04T10:35:22.000Z",
-      "status": "completed",
-      "firstPrompt": "Add error handling to the API routes",
+      "id": "session-1",
+      "sessionId": "session-1",
+      "createdAt": 1775298600000,
+      "lastModified": 1775298922000,
+      "project": "my-project",
       "summary": "Added try/catch blocks and error response formatting",
+      "firstPrompt": "Add error handling to the API routes",
       "cwd": "/Users/dev/my-project",
-      "tag": null
-    },
-    {
-      "sessionId": "01JQ8W6JALN...",
-      "createdAt": "2026-04-04T09:15:00.000Z",
-      "lastModified": "2026-04-04T09:22:10.000Z",
-      "status": "completed",
-      "firstPrompt": "Write unit tests for the session manager",
-      "summary": "Created 12 test cases covering launch, resume, and abort",
-      "cwd": "/Users/dev/my-project",
-      "tag": "testing"
+      "directoryPath": "/Users/dev/my-project",
+      "directoryName": "my-project",
+      "indexed": true,
+      "messageCount": 14,
+      "metadata": [
+        {
+          "sessionId": "session-1",
+          "key": "workflow",
+          "value": "delivery-review",
+          "label": "Workflow",
+          "valueType": "string",
+          "searchable": true,
+          "filterable": true,
+          "createdAt": 1775298600000,
+          "updatedAt": 1775298922000
+        }
+      ],
+      "lineage": {
+        "kind": "root",
+        "hasSubagents": true,
+        "subagentCount": 1,
+        "hasTeamMembers": true,
+        "teamNames": ["delivery"],
+        "teammateNames": ["reviewer"],
+        "relationships": []
+      }
     }
   ],
-  "total": 42
+  "total": 1
 }
-```
-
-### CLI Output
-
-```
-  ID        Created              Status     First Prompt
-  01JQ8X7K  2026-04-04 10:30 AM  completed  Add error handling to the API routes
-  01JQ8W6J  2026-04-04 09:15 AM  completed  Write unit tests for the session manager
-
-  Showing 1-2 of 42 sessions
 ```

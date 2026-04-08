@@ -5,14 +5,19 @@
 
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { searchSessions } from "../../store/search.js";
+import {
+  searchSessions,
+  type SearchTeamMembership,
+} from "../../store/search.js";
 import type { SessionStore } from "../../store/db.js";
 import type { SessionIndexer } from "../../store/indexer.js";
+import type { TeamManager } from "../../agents/teams.js";
 
 /** Search context passed from the server */
 export interface SearchContext {
   store: SessionStore;
   indexer: SessionIndexer;
+  teamManager?: TeamManager;
 }
 
 /** Request schemas */
@@ -23,6 +28,10 @@ const SearchQuerySchema = z.object({
   dateTo: z.coerce.number().optional(),
   tags: z.string().optional(), // Comma-separated
   status: z.string().optional(),
+  metadataKey: z.string().optional(),
+  metadataValue: z.string().optional(),
+  lineage: z.enum(["all", "standalone", "subagent", "team"]).optional(),
+  team: z.string().optional(),
   limit: z.coerce.number().int().positive().default(20),
   offset: z.coerce.number().int().nonnegative().default(0),
 });
@@ -39,6 +48,9 @@ export function registerSearchRoutes(
     Querystring: Record<string, string>;
   }>("/api/v1/search", async (request, reply) => {
     const params = SearchQuerySchema.parse(request.query);
+    const teamMemberships = searchCtx.teamManager
+      ? await buildTeamMemberships(searchCtx.teamManager)
+      : new Map<string, SearchTeamMembership>();
 
     const result = searchSessions(searchCtx.store, {
       query: params.q,
@@ -47,6 +59,11 @@ export function registerSearchRoutes(
       dateTo: params.dateTo,
       tags: params.tags ? params.tags.split(",").filter(Boolean) : undefined,
       status: params.status,
+      metadataKey: params.metadataKey,
+      metadataValue: params.metadataValue,
+      lineage: params.lineage,
+      team: params.team,
+      teamMemberships,
       limit: params.limit,
       offset: params.offset,
     });
@@ -73,4 +90,26 @@ export function registerSearchRoutes(
 
     return reply.send(stats);
   });
+}
+
+async function buildTeamMemberships(
+  teamManager: TeamManager
+): Promise<Map<string, SearchTeamMembership>> {
+  const teams = await teamManager.discoverTeams();
+  const memberships = new Map<string, SearchTeamMembership>();
+
+  for (const team of teams) {
+    for (const member of team.members) {
+      if (!member.agentId) {
+        continue;
+      }
+
+      memberships.set(member.agentId, {
+        teamName: team.name,
+        teammateName: member.name,
+      });
+    }
+  }
+
+  return memberships;
 }

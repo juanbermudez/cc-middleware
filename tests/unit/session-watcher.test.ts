@@ -50,6 +50,26 @@ describe("SessionWatcher", () => {
     expect(discovered[0].filePath).toBe(filePath);
   });
 
+  it("should not emit discovered events for files that already exist at startup", async () => {
+    const filePath = join(tmpDir, "project-a", "existing-session.jsonl");
+    writeFileSync(filePath, '{"type":"user","message":"hello"}\n');
+
+    watcher = new SessionWatcher({
+      projectDirs: [join(tmpDir, "project-a")],
+      pollIntervalMs: 500,
+      debounceMs: 100,
+    });
+
+    const discovered: SessionWatchEvent[] = [];
+    watcher.on("session:discovered", (data) => discovered.push(data));
+
+    await watcher.start();
+    await new Promise((r) => setTimeout(r, 500));
+
+    expect(discovered).toHaveLength(0);
+    expect(watcher.getStatus().knownFiles).toBe(1);
+  });
+
   it("should detect a modified session file (session:updated)", async () => {
     // Create initial file before starting watcher
     const filePath = join(tmpDir, "project-a", "session-mod.jsonl");
@@ -207,12 +227,42 @@ describe("SessionWatcher", () => {
     expect(sessionIds).toContain("real-session");
     expect(sessionIds).not.toContain("not-a-session");
   });
+
+  it("should detect subagent transcript changes and map them to the root session ID", async () => {
+    const subagentDir = join(tmpDir, "project-a", "root-session-123", "subagents");
+    mkdirSync(subagentDir, { recursive: true });
+
+    watcher = new SessionWatcher({
+      projectDirs: [join(tmpDir, "project-a")],
+      pollIntervalMs: 500,
+      debounceMs: 100,
+    });
+
+    const discovered: SessionWatchEvent[] = [];
+    watcher.on("session:discovered", (data) => discovered.push(data));
+
+    await watcher.start();
+
+    const filePath = join(subagentDir, "agent-a123.jsonl");
+    writeFileSync(filePath, '{"type":"user","message":"hello"}\n');
+
+    await waitFor(() => discovered.length > 0, 5000);
+
+    expect(discovered.length).toBeGreaterThanOrEqual(1);
+    expect(discovered[0].sessionId).toBe("root-session-123");
+    expect(discovered[0].filePath).toBe(filePath);
+  });
 });
 
 describe("extractSessionId", () => {
   it("should extract session ID from file path", () => {
     expect(extractSessionId("/home/user/.claude/projects/my-project/abc-123.jsonl")).toBe("abc-123");
     expect(extractSessionId("/some/path/session-uuid-here.jsonl")).toBe("session-uuid-here");
+    expect(
+      extractSessionId(
+        "/home/user/.claude/projects/my-project/root-session-123/subagents/agent-a123.jsonl"
+      )
+    ).toBe("root-session-123");
   });
 
   it("should return null for non-jsonl paths", () => {
