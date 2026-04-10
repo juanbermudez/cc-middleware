@@ -14,6 +14,11 @@ Each entry should include:
 
 ## Entries
 
+### 2026-04-10 - The fastest doc-drift check is local history plus route registration, not the docs tree itself
+- **Context**: Documentation refresh after the repo accumulated local commits ahead of `origin/main` for config expansion, dispatch automation, session detail, and playground work.
+- **Learning**: The reliable way to spot stale docs was to diff the recent local history first, then compare those commits against `src/api/server.ts` and the concrete route/module registrations. That immediately exposed whole missing route families like dispatch and resource metadata, plus quieter drift such as new runtime inventory endpoints and dispatch websocket events.
+- **Impact**: For future doc updates, start with `git log origin/main..HEAD` and the current server registration surface before editing markdown. Route registration and top-level module wiring are the quickest source of truth for API and architecture docs.
+
 ### 2026-04-08 - Low-signal transcript filters need canonical event keys, not exact raw strings
 - **Context**: Session detail chat cleanup after `Last Prompt` rows kept repeating even though the frontend was already supposed to suppress that class of metadata event.
 - **Learning**: The suppression logic only matched underscore-style keys like `last_prompt` and `queue_operation`, but the raw Claude transcript history often records these as hyphenated types such as `last-prompt` and `queue-operation`. Because the parser intentionally forwards raw `type`/`subtype` values, any client-side filter needs to canonicalize them first.

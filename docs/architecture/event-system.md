@@ -2,63 +2,113 @@
 
 ## Overview
 
-The event system dispatches Claude Code lifecycle events through a typed event bus, with blocking hook support, SDK integration, and an HTTP hook server for plugin mode.
+The event system is the middleware’s hook and event backbone. It dispatches Claude Code lifecycle events through a typed event bus, supports blocking decisions where Claude allows them, and feeds downstream consumers such as the dispatch cue bridge and WebSocket broadcaster.
 
 ## Components
 
 ### Event Bus (`src/hooks/event-bus.ts`)
-Typed `EventEmitter` (via `eventemitter3`) that supports all Claude Code hook event types plus a wildcard `*` listener.
 
-**Supported events**: PreToolUse, PostToolUse, PostToolUseFailure, SessionStart, SessionEnd, UserPromptSubmit, Stop, StopFailure, SubagentStart, SubagentStop, TaskCreated, TaskCompleted, TeammateIdle, PermissionRequest, PermissionDenied, Notification, ConfigChange, CwdChanged, FileChanged, WorktreeCreate, WorktreeRemove, PreCompact, PostCompact, Elicitation, ElicitationResult.
+Typed `EventEmitter` (via `eventemitter3`) that supports all middleware-recognized Claude Code hook events plus a wildcard `*` listener.
+
+**Supported events** currently include:
+
+- `PreToolUse`
+- `PostToolUse`
+- `PostToolUseFailure`
+- `SessionStart`
+- `SessionEnd`
+- `InstructionsLoaded`
+- `UserPromptSubmit`
+- `Stop`
+- `StopFailure`
+- `SubagentStart`
+- `SubagentStop`
+- `TaskCreated`
+- `TaskCompleted`
+- `TeammateIdle`
+- `PermissionRequest`
+- `PermissionDenied`
+- `Notification`
+- `ConfigChange`
+- `CwdChanged`
+- `FileChanged`
+- `WorktreeCreate`
+- `WorktreeRemove`
+- `PreCompact`
+- `PostCompact`
+- `Elicitation`
+- `ElicitationResult`
+- `Setup`
 
 ### Blocking Hooks (`src/hooks/blocking.ts`)
-Registry of handlers for blocking events (events that can prevent an action).
 
-**Default behavior**: All blocking events have stub handlers that return a positive (allow) response. This means the middleware is transparent by default - it doesn't interfere with Claude Code operations.
+Registry of handlers for blocking-capable events.
 
-**Customization**: Consumers register custom handlers that override the stubs. A handler returns allow/deny decisions that flow back to Claude Code.
+Default behavior:
 
-**Matcher support**: For tool events (PreToolUse, PostToolUse), handlers can specify a regex matcher on tool name. Multiple handlers with different matchers can coexist.
+- the middleware is transparent by default
+- stub handlers return a pass-through result
+- consumers opt in to intervention by registering custom handlers
+
+Matcher support allows tool-specific handlers for events such as `PreToolUse`.
 
 ### SDK Bridge (`src/hooks/sdk-bridge.ts`)
-Converts middleware event registrations into Agent SDK `hooks` option format.
 
-When launching sessions via `query()`, the bridge generates `HookCallbackMatcher[]` entries that:
-1. Dispatch events to the event bus (for observability)
-2. Execute blocking handlers (for control)
-3. Return `HookJSONOutput` to the SDK
+Converts middleware handler registrations into Agent SDK `hooks` callbacks.
+
+For middleware-owned launches, the bridge:
+
+1. dispatches the event to the bus
+2. runs blocking handlers when relevant
+3. returns `HookJSONOutput` back to the SDK
+
+Important constraint:
+
+- the SDK callback surface is narrower than the full Claude Code HTTP hook surface
+
+That is why the middleware keeps both the SDK bridge and the HTTP hook server.
 
 ### HTTP Hook Server (`src/hooks/server.ts`)
-HTTP server that receives hook events from Claude Code's HTTP hook system.
 
-Used in **plugin mode** where Claude Code sends HTTP POST requests for each hook event. The server:
-1. Parses the hook input JSON from the request body
-2. Dispatches to the event bus
-3. For blocking events, executes the blocking handler
-4. Returns the result as HTTP response
+Receives Claude Code HTTP hook requests in plugin / interactive mode.
 
-**Port**: Configurable, default 3001 (separate from the main API port).
+The server:
+
+1. parses the incoming hook input
+2. dispatches it to the event bus
+3. executes blocking handlers when relevant
+4. returns the hook decision in the expected JSON format
+
+Because Claude Code treats hook-body JSON as the real decision channel, the HTTP response status remains `200` even when the effective decision is “deny” or “block”.
+
+### Cue Bridge (`src/dispatch/cues.ts`)
+
+The dispatch subsystem consumes the event bus through cue rules. That means hook events are not just observable; they can materialize queued work for later execution.
 
 ## Event Flow Diagram
 
 ```mermaid
 graph TD
-    SDK["Agent SDK Hooks<br/>(SDK mode)"]
-    HTTP["HTTP Hook Server<br/>(Plugin mode)"]
+    SDK["Agent SDK Hooks<br/>(middleware-owned launches)"]
+    HTTP["HTTP Hook Server<br/>(plugin / interactive mode)"]
 
     SDK --> Bus["Event Bus<br/>(dispatch)"]
     HTTP --> Bus
 
-    Bus --> RH["Registered Handlers<br/>(per event)"]
-    Bus --> WL["Wildcard Listener<br/>(*)"]
-    Bus --> BH["Blocking Handler<br/>(if needed)"]
+    Bus --> RH["Registered handlers"]
+    Bus --> WL["Wildcard listeners"]
+    Bus --> BH["Blocking registry"]
+    Bus --> Cue["Dispatch cue bridge"]
+    Bus --> WS["WebSocket hook:event broadcast"]
 
-    BH --> Decision["Decision<br/>allow/deny"]
+    BH --> Decision["Hook decision"]
+    Cue --> Jobs["Dispatch jobs"]
 ```
 
 ## Hook Input/Output Contracts
 
-All hook inputs extend a base shape:
+All hook inputs extend a shared base shape:
+
 ```typescript
 {
   session_id: string;
@@ -71,38 +121,48 @@ All hook inputs extend a base shape:
 }
 ```
 
-Blocking hook outputs follow the `HookJSONOutput` format from the Agent SDK:
+Blocking hook outputs follow the Agent SDK `HookJSONOutput` shape.
 
-**All hooks return `HookJSONOutput`** (or `{}` to proceed with no changes):
 ```typescript
 {
-  systemMessage?: string;              // Inject message visible to model
-  continue?: boolean;                  // Control if agent keeps running
-  decision?: "approve" | "block";      // For Stop/TaskCompleted/TeammateIdle
-  reason?: string;                     // Explanation for decision
+  systemMessage?: string;
+  continue?: boolean;
+  decision?: "approve" | "block";
+  reason?: string;
   hookSpecificOutput?: {
-    hookEventName: string;             // REQUIRED - must match event type
-    // ... event-specific fields
-  }
+    hookEventName: string;
+  };
 }
 ```
 
-**Per-event blocking format:**
-- **PreToolUse**: `{ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "..." } }`
-- **PermissionRequest**: `{ hookSpecificOutput: { hookEventName: "PermissionRequest", decision: { behavior: "deny" } } }`
-- **Stop**: `{ decision: "block", reason: "..." }` (block = continue conversation)
-- **TaskCompleted/TeammateIdle**: `{ decision: "block", reason: "..." }`
-- **Default (all events)**: `{}` = proceed with no changes
+Important distinctions:
 
-**Important**: `HookJSONOutput` (hook callbacks) is a DIFFERENT type from `PermissionResult` (canUseTool callback). Don't confuse them:
-- Hook callbacks → `HookJSONOutput` (`{}` or `{ hookSpecificOutput: ... }`)
-- `canUseTool` → `PermissionResult` (`{ behavior: "allow" }` or `{ behavior: "deny", message: "..." }`)
+- Hook callbacks return `HookJSONOutput`
+- `canUseTool` returns `PermissionResult`
+- `{}` means “proceed with no hook-side change”
 
-## Real-Time Sync Events (Phase 12)
+Examples:
 
-In addition to the hook event system above, the real-time sync subsystem emits its own events through the WebSocket broadcaster. These events are generated by the session watcher and config watcher, not by Claude Code hooks.
+- `PreToolUse`: return `hookSpecificOutput.permissionDecision`
+- `PermissionRequest`: return `hookSpecificOutput.decision`
+- `Stop` / `TaskCompleted` / `TeammateIdle`: use top-level `decision: "block"`
+
+## Dispatch Integration
+
+Hook events now drive more than observability.
+
+- cue rules listen for matching hook events and enqueue jobs
+- SDK-owned sessions and plugin-owned sessions can both trigger cues
+- dispatch lifecycle is broadcast separately as `dispatch:*` WebSocket events
+
+This is the main reason hook parity matters: if an event is missing from the event bus type surface, it cannot participate cleanly in cue routing.
+
+## Real-Time Sync Events
+
+In addition to Claude Code hook events, the middleware emits filesystem-driven sync events through the WebSocket broadcaster.
 
 ### Session Sync Events
+
 | Event Type | Trigger | Payload |
 |------------|---------|---------|
 | `session:discovered` | New `.jsonl` file appears in `~/.claude/projects/` | `{ sessionId, timestamp }` |
@@ -110,28 +170,30 @@ In addition to the hook event system above, the real-time sync subsystem emits i
 | `session:removed` | Session file is deleted | `{ sessionId, timestamp }` |
 
 ### Config Sync Events
+
 | Event Type | Trigger | Payload |
 |------------|---------|---------|
-| `config:changed` | Settings file modified (`settings.json`, `settings.local.json`) | `{ scope, path, timestamp }` |
-| `config:mcp-changed` | MCP config file modified (`.claude.json`, `.mcp.json`) | `{ path, timestamp }` |
-| `config:agent-changed` | Agent definition `.md` file created/modified/removed | `{ name, action, timestamp }` |
-| `config:skill-changed` | Skill `SKILL.md` file created/modified/removed | `{ name, action, timestamp }` |
-| `config:rule-changed` | Rule `.md` file created/modified/removed | `{ name, action, timestamp }` |
-| `config:plugin-changed` | `installed_plugins.json` modified | `{ path, timestamp }` |
-| `config:memory-changed` | Memory file modified | `{ path, timestamp }` |
-| `team:created` | New team config directory created | `{ teamName, timestamp }` |
-| `team:updated` | Team `config.json` modified | `{ teamName, timestamp }` |
-| `team:task-updated` | Task file in `~/.claude/tasks/` modified | `{ path, timestamp }` |
+| `config:changed` | Settings file modified | `{ scope, path, timestamp }` |
+| `config:mcp-changed` | MCP config file modified | `{ path, timestamp }` |
+| `config:agent-changed` | Agent definition changed | `{ name, action, timestamp }` |
+| `config:skill-changed` | Skill changed | `{ name, action, timestamp }` |
+| `config:rule-changed` | Rule changed | `{ name, action, timestamp }` |
+| `config:plugin-changed` | Installed plugin registry changed | `{ path, timestamp }` |
+| `config:memory-changed` | Memory file changed | `{ path, timestamp }` |
+| `team:created` | Team directory created | `{ teamName, timestamp }` |
+| `team:updated` | Team config changed | `{ teamName, timestamp }` |
+| `team:task-updated` | Team task file changed | `{ path, timestamp }` |
 
-### Subscribing to Sync Events
+## WebSocket Subscription Patterns
 
-WebSocket clients subscribe to sync events using the same pattern-based subscription system as hook events:
+Clients subscribe to event families with the same pattern system used elsewhere:
 
 ```json
+{ "type": "subscribe", "events": ["hook:*"] }
 { "type": "subscribe", "events": ["session:*"] }
 { "type": "subscribe", "events": ["config:*"] }
-{ "type": "subscribe", "events": ["team:*"] }
+{ "type": "subscribe", "events": ["dispatch:*"] }
 { "type": "subscribe", "events": ["*"] }
 ```
 
-The wildcard `session:*` matches all three session sync events (`session:discovered`, `session:updated`, `session:removed`) as well as the existing session lifecycle events (`session:started`, `session:completed`, `session:errored`, `session:aborted`).
+This lets operator UIs combine hook, sync, lifecycle, and dispatch activity on one live feed without polling.
