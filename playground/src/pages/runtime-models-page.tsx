@@ -11,6 +11,7 @@ import {
   SectionIntro,
   TableMetaBadges,
 } from "../components/playground-ui";
+import { ResourceMetadataWorkspace } from "../components/resource-metadata-workspace";
 
 export function RuntimeModelsPage(props: {
   activeSection?: string;
@@ -24,9 +25,22 @@ export function RuntimeModelsPage(props: {
       detail: "List and search the runtime model catalog.",
       sectionId: "runtime-models-table",
     },
+    {
+      method: "GET",
+      path: "/api/v1/metadata/definitions/runtime-model",
+      detail: "Manage metadata fields for runtime model entries.",
+      sectionId: "runtime-models-metadata",
+    },
+    {
+      method: "PUT",
+      path: "/api/v1/metadata/values/runtime-model/:resourceId",
+      detail: "Write metadata onto a selected model entry.",
+      sectionId: "runtime-models-metadata",
+    },
   ];
   const sections = [
     { id: "runtime-models-table", label: "Models" },
+    { id: "runtime-models-metadata", label: "Metadata" },
     { id: "runtime-models-payload", label: "Payload preview" },
   ];
   const exampleGroups = [
@@ -100,6 +114,24 @@ export function RuntimeModelsPage(props: {
             }))}
             emptyTitle="No runtime models matched"
             emptyDetail="The runtime models route did not return any models for this query."
+          />
+        </div>
+
+        <div id="runtime-models-metadata">
+          <ResourceMetadataWorkspace
+            title="Model metadata"
+            description="Attach internal annotations to runtime model catalog entries without changing Claude's reported model list."
+            inventories={[
+              {
+                label: "Runtime models",
+                resourceType: "runtime-model",
+                items: (runtimeModels.data?.models ?? []).map((model) => ({
+                  id: model.value ?? model.displayName ?? "unknown-model",
+                  label: model.displayName ?? model.value ?? "Unknown model",
+                  detail: model.value ?? "No value",
+                })),
+              },
+            ]}
           />
         </div>
 

@@ -1,17 +1,15 @@
-import { Search } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { SessionDirectorySection } from "../components/session-explorer";
 import {
-  ActionPane,
   CompactDataTable,
   InlineState,
   JsonPreview,
-  LinearList,
-  MetadataSchemaTable,
+  ModalSurface,
   PageBodyWithRail,
   SectionIntro,
   TableMetaBadges,
@@ -20,6 +18,7 @@ import {
 import type {
   CheckResult,
   PlaygroundPageId,
+  SessionsResponse,
   SearchLineageFilter,
   SearchResponse,
   SearchScopeOption,
@@ -34,6 +33,7 @@ import { formatNumber, formatTimestamp, truncate } from "../lib/utils";
 
 export function SessionsPage(props: {
   activeSection?: string;
+  recentSessions: SessionsResponse | null;
   searchQuery: string;
   searchMetadataKey: string;
   searchMetadataValue: string;
@@ -55,10 +55,6 @@ export function SessionsPage(props: {
   sessionExplorerGroupCount: number;
   sessionExplorerSessionCount: number;
   reindexState: CheckResult;
-  metadataDefinitionKey: string;
-  metadataDefinitionLabel: string;
-  metadataDefinitionDescription: string;
-  metadataValueDraft: string;
   metadataActionState: CheckResult;
   metadataPreview: SessionMetadataValuesResponse | null;
   explorerLeadSession?: SessionExplorerEntry;
@@ -69,16 +65,127 @@ export function SessionsPage(props: {
   onSearchTeamFilterChange: (value: string) => void;
   onRunSearch: () => void;
   onRunReindex: () => void;
-  onMetadataDefinitionKeyChange: (value: string) => void;
-  onMetadataDefinitionLabelChange: (value: string) => void;
-  onMetadataDefinitionDescriptionChange: (value: string) => void;
-  onMetadataValueDraftChange: (value: string) => void;
-  onRegisterMetadataDefinition: () => void;
-  onWriteMetadataValue: (sessionId: string) => void;
+  onSaveMetadataDefinition: (definition: {
+    key: string;
+    label: string;
+    description?: string;
+    searchable: boolean;
+    filterable: boolean;
+  }) => void;
+  onDeleteMetadataDefinition: (key: string) => void;
+  onWriteMetadataValue: (sessionId: string, payload: {
+    key: string;
+    value: string;
+  }) => void;
   onShowGroupedByDirectory: () => void;
   onShowTeamSessions: () => void;
+  onOpenSessionDetail: (sessionId: string) => void;
 }) {
   const page: PlaygroundPageId = "sessions";
+  const [fieldEditorOpen, setFieldEditorOpen] = useState(false);
+  const [fieldEditorMode, setFieldEditorMode] = useState<"create" | "edit">("create");
+  const [fieldDraft, setFieldDraft] = useState({
+    key: "workflow",
+    label: "Workflow",
+    description: "Short workflow label for a session.",
+    searchable: true,
+    filterable: true,
+  });
+  const [metadataValueKey, setMetadataValueKey] = useState("workflow");
+  const [metadataValueDraft, setMetadataValueDraft] = useState("delivery-review");
+
+  useEffect(() => {
+    if (
+      metadataValueKey
+      && props.sessionMetadataDefinitions.some((definition) => definition.key === metadataValueKey)
+    ) {
+      return;
+    }
+
+    setMetadataValueKey(props.sessionMetadataDefinitions[0]?.key ?? "");
+  }, [metadataValueKey, props.sessionMetadataDefinitions]);
+
+  const metadataFieldOptions = useMemo(
+    () => props.sessionMetadataDefinitions.map((definition) => ({
+      value: definition.key,
+      label: definition.label,
+    })),
+    [props.sessionMetadataDefinitions]
+  );
+
+  function openCreateField(preset?: Partial<typeof fieldDraft>): void {
+    setFieldEditorMode("create");
+    setFieldDraft({
+      key: preset?.key ?? "workflow",
+      label: preset?.label ?? "Workflow",
+      description: preset?.description ?? "Short workflow label for a session.",
+      searchable: preset?.searchable ?? true,
+      filterable: preset?.filterable ?? true,
+    });
+    setFieldEditorOpen(true);
+  }
+
+  function openEditField(definition: SessionMetadataDefinition): void {
+    setFieldEditorMode("edit");
+    setFieldDraft({
+      key: definition.key,
+      label: definition.label,
+      description: definition.description ?? "",
+      searchable: definition.searchable,
+      filterable: definition.filterable,
+    });
+    setFieldEditorOpen(true);
+  }
+
+  function groupMetadataSummary(group: SessionDirectoriesResponse["groups"][number]): string {
+    const labels = Array.from(
+      new Set(
+        group.sessions.flatMap((session) => session.metadata.map((entry) => entry.label))
+      )
+    );
+
+    if (labels.length === 0) {
+      return "No metadata";
+    }
+
+    if (labels.length <= 2) {
+      return labels.join(", ");
+    }
+
+    return `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
+  }
+
+  function getSessionId(
+    session: SearchResponse["sessions"][number] | SessionsResponse["sessions"][number]
+  ): string {
+    return "sessionId" in session ? (session.sessionId ?? session.id) : session.id;
+  }
+
+  function getSessionTitle(
+    session: SearchResponse["sessions"][number] | SessionsResponse["sessions"][number]
+  ): string {
+    return session.customTitle || session.summary || session.firstPrompt || getSessionId(session);
+  }
+
+  const hasIndexedFilters = props.searchLineageFilter !== "all"
+    || props.searchTeamFilter !== "all"
+    || Boolean(props.searchMetadataKey.trim())
+    || Boolean(props.searchMetadataValue.trim());
+  const useSearchTable = Boolean(props.searchQuery.trim()) || hasIndexedFilters;
+  const explorerSessions = useSearchTable
+    ? props.searchResults?.sessions ?? []
+    : props.recentSessions?.sessions ?? [];
+  const explorerTotal = useSearchTable
+    ? props.searchResults?.total
+    : props.recentSessions?.total;
+  const explorerLoading = useSearchTable
+    ? props.searchResults === null && !props.searchError
+    : props.recentSessions === null;
+  const explorerTitle = useSearchTable ? "Session search results" : "Latest agent sessions";
+  const explorerDescription = useSearchTable
+    ? "Indexed session matches from GET /api/v1/search."
+    : "Recent merged session inventory from GET /api/v1/sessions.";
+
   const operations = [
     {
       method: "GET",
@@ -175,28 +282,34 @@ export function SessionsPage(props: {
           label: "Workflow field",
           detail: "Register a searchable workflow label for sessions.",
           action: () => {
-            props.onMetadataDefinitionKeyChange("workflow");
-            props.onMetadataDefinitionLabelChange("Workflow");
-            props.onMetadataDefinitionDescriptionChange("Workflow label for a session.");
-            props.onMetadataValueDraftChange("delivery-review");
+            openCreateField({
+              key: "workflow",
+              label: "Workflow",
+              description: "Workflow label for a session.",
+            });
+            setMetadataValueKey("workflow");
+            setMetadataValueDraft("delivery-review");
           },
         },
         {
           label: "Owner field",
           detail: "Track the owning team or discipline for a session.",
           action: () => {
-            props.onMetadataDefinitionKeyChange("owner");
-            props.onMetadataDefinitionLabelChange("Owner");
-            props.onMetadataDefinitionDescriptionChange("Owning team or function.");
-            props.onMetadataValueDraftChange("platform");
+            openCreateField({
+              key: "owner",
+              label: "Owner",
+              description: "Owning team or function.",
+            });
+            setMetadataValueKey("owner");
+            setMetadataValueDraft("platform");
           },
         },
         {
           label: "Filter by metadata",
           detail: "Drive the explorer with the current metadata draft.",
           action: () => {
-            props.onSearchMetadataKeyChange(props.metadataDefinitionKey);
-            props.onSearchMetadataValueChange(props.metadataValueDraft);
+            props.onSearchMetadataKeyChange(metadataValueKey);
+            props.onSearchMetadataValueChange(metadataValueDraft);
           },
         },
       ],
@@ -207,8 +320,8 @@ export function SessionsPage(props: {
     <section className="space-y-8">
       <SectionIntro
         eyebrow="Sessions"
-        title="Filesystem discovery and indexed search"
-        description="This page makes the session mapping explicit: the middleware can list sessions from disk, enrich them with indexed lineage and metadata, and organize them by exact working directory for a frontend to render cleanly."
+        title="Agent sessions"
+        description="This page makes the session mapping explicit: the middleware can list agent sessions from disk, enrich them with indexed lineage and metadata, and organize them by exact working directory for a frontend to render cleanly."
       />
 
       <PageBodyWithRail
@@ -219,19 +332,10 @@ export function SessionsPage(props: {
         sections={sections}
       >
         <ToolbarPane
-          title="Search and reindex"
-          description="Run a query, switch session scope, or trigger a backfill without leaving the catalog."
+          title="Session scope and reindex"
+          description="Switch indexed scope filters or trigger a backfill without leaving the catalog."
         >
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.7fr)_180px_180px_auto_auto]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                className="h-9 pl-9"
-                value={props.searchQuery}
-                onChange={(event) => props.onSearchQueryChange(event.target.value)}
-                placeholder="Search session IDs, titles, prompts, branches, and metadata"
-              />
-            </div>
+          <div className="grid gap-3 xl:grid-cols-[160px_170px_180px_minmax(0,1fr)_auto]">
             <Select
               value={props.searchLineageFilter}
               onChange={(event) => props.onSearchLineageFilterChange(event.target.value as SearchLineageFilter)}
@@ -254,47 +358,122 @@ export function SessionsPage(props: {
                 </option>
               ))}
             </Select>
-            <Button variant="secondary" onClick={props.onRunSearch}>
-              Search
-            </Button>
+            <Select
+              value={props.searchMetadataKey}
+              onChange={(event) => props.onSearchMetadataKeyChange(event.target.value)}
+            >
+              <option value="">All metadata fields</option>
+              {metadataFieldOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <Input
+              className="h-9"
+              value={props.searchMetadataValue}
+              onChange={(event) => props.onSearchMetadataValueChange(event.target.value)}
+              placeholder="Metadata value"
+            />
             <Button variant="outline" onClick={props.onRunReindex}>
               Reindex
             </Button>
           </div>
 
-          <div className="space-y-2">
-            <InlineState
-              variant={props.sessionsNeedIndexing ? "warning" : "neutral"}
-              title={props.sessionsNeedIndexing ? "Search index is behind filesystem discovery" : "Search coverage looks current"}
-              detail={props.coverageDetail}
-            />
-            <InlineState
-              variant="neutral"
-              title={props.selectedSearchScope.label}
-              detail={`${props.selectedSearchScope.detail}${props.searchTeamFilter !== "all" ? ` Team filter: ${props.searchTeamFilter}.` : ""}${props.searchMetadataKey || props.searchMetadataValue ? ` Metadata filter: ${props.searchMetadataKey || "*"}=${props.searchMetadataValue || "*"}.` : ""} Parent sessions stay visible as the main rows, and any subagent work is nested underneath them.`}
-            />
-          </div>
         </ToolbarPane>
 
         <div className="space-y-10">
           <div id="sessions-explorer" className="space-y-4">
-            <LinearList
-              title="Session explorer"
+            <CompactDataTable
+              title={explorerTitle}
               description={props.sessionExplorerFilterContext
-                ? `${props.sessionExplorerDescription} Active filters: ${props.sessionExplorerFilterContext}.`
-                : props.sessionExplorerDescription}
+                ? `${explorerDescription} Active filters: ${props.sessionExplorerFilterContext}.`
+                : explorerDescription}
+              search={{
+                value: props.searchQuery,
+                onChange: props.onSearchQueryChange,
+                placeholder: "Search session IDs, titles, prompts, branches, and metadata",
+              }}
+              meta={(
+                <div className="flex flex-wrap gap-2">
+                  <TableMetaBadges
+                    total={explorerTotal}
+                    noun="sessions"
+                    loading={explorerLoading}
+                    query={props.searchQuery}
+                  />
+                </div>
+              )}
+              loading={explorerLoading}
+              error={props.searchError}
+              columns={["Session", "Project", "Branch", "State"]}
+              rows={explorerSessions.map((session) => {
+                const sessionId = getSessionId(session);
+                const teamNames = session.lineage.teamNames;
+                const hasSubagents = session.lineage.hasSubagents;
+                const metadataSummary = session.metadata.length > 0
+                  ? session.metadata.map((entry) => `${entry.label}: ${entry.value}`).slice(0, 3).join(" · ")
+                  : "No metadata";
+
+                return {
+                  id: sessionId,
+                  cells: [
+                    <div className="max-w-[240px] min-w-0 space-y-0.5 lg:max-w-[280px]">
+                      <div className="truncate font-medium text-slate-900">{getSessionTitle(session)}</div>
+                      <div className="truncate text-xs text-slate-500">{sessionId}</div>
+                    </div>,
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">{session.project}</Badge>
+                      {teamNames.slice(0, 2).map((teamName) => (
+                        <Badge key={`${session.id}-${teamName}`} variant="secondary">{teamName}</Badge>
+                      ))}
+                    </div>,
+                    session.gitBranch
+                      ? <span className="text-xs text-slate-500">{session.gitBranch}</span>
+                      : <span className="text-xs text-slate-400">No branch</span>,
+                    <div className="flex flex-wrap gap-2">
+                      {hasSubagents ? <Badge variant="info">{session.lineage.subagentCount} subagent</Badge> : null}
+                      {session.lineage.hasTeamMembers ? <Badge variant="success">team-linked</Badge> : null}
+                      {"indexed" in session && !session.indexed ? <Badge variant="warning">pending index</Badge> : null}
+                      {!hasSubagents && !session.lineage.hasTeamMembers && !("indexed" in session && !session.indexed) ? (
+                        <span className="text-xs text-slate-400">main</span>
+                      ) : null}
+                    </div>,
+                  ],
+                  previewEyebrow: "Agent Session",
+                  previewTitle: getSessionTitle(session),
+                  previewDescription: session.firstPrompt || "No first prompt captured",
+                  previewMeta: [
+                    { label: "Session id", value: sessionId },
+                    { label: "Project", value: session.project },
+                    { label: "Branch", value: session.gitBranch ?? "No branch" },
+                    { label: "Metadata", value: metadataSummary },
+                  ],
+                  drawerDescription: session.firstPrompt || "No first prompt captured for this session.",
+                  drawerMeta: [
+                    { label: "Session id", value: sessionId },
+                    { label: "Project", value: session.project },
+                    { label: "Directory", value: "directoryPath" in session ? session.directoryPath : session.cwd },
+                    { label: "Branch", value: session.gitBranch ?? "No branch" },
+                    { label: "Teams", value: teamNames.join(", ") || "No team lineage" },
+                    { label: "Subagents", value: hasSubagents ? `${session.lineage.subagentCount}` : "0" },
+                    { label: "Updated", value: formatTimestamp(session.lastModified) },
+                  ],
+                  drawerContent: (
+                    <JsonPreview
+                      title="Session payload"
+                      data={session}
+                      emptyMessage="Session payload is not available."
+                    />
+                  ),
+                };
+              })}
               emptyTitle="No sessions to show"
-              emptyDetail={props.sessionExplorerSource === "search"
+              emptyDetail={useSearchTable
                 ? "The current indexed query and scope filters did not return any sessions."
-                : "The grouped session catalog has not returned any directories yet."}
-            >
-              {props.sessionExplorerGroups.map((group) => (
-                <SessionDirectorySection
-                  key={`${props.sessionExplorerSource}-${group.path || group.name}`}
-                  group={group}
-                />
-              ))}
-            </LinearList>
+                : "The latest session inventory is still loading or returned no sessions."}
+              onRowClick={(row) => props.onOpenSessionDetail(row.id)}
+            />
 
             {props.searchError ? (
               <InlineState
@@ -334,7 +513,7 @@ export function SessionsPage(props: {
                   </Badge>
                 </div>
               }
-              columns={["Directory", "Sessions", "Branches", "State"]}
+              columns={["Directory", "Sessions", "Metadata", "State"]}
               rows={(props.sessionDirectories?.groups ?? []).map((group) => ({
                 id: group.path,
                 cells: [
@@ -346,11 +525,7 @@ export function SessionsPage(props: {
                     <Badge variant="outline">{formatNumber(group.sessionCount)} total</Badge>
                     <Badge variant="outline">{formatNumber(group.mainSessionCount)} main</Badge>
                   </div>,
-                  <span className="text-xs text-slate-500">
-                    {group.gitBranches.length > 0
-                      ? truncate(group.gitBranches.join(", "), 42)
-                      : "No branches"}
-                  </span>,
+                  <span className="text-xs text-slate-500">{groupMetadataSummary(group)}</span>,
                   <div className="flex flex-wrap gap-2">
                     {group.teamSessionCount > 0 ? (
                       <Badge variant="success">{formatNumber(group.teamSessionCount)} team</Badge>
@@ -360,9 +535,10 @@ export function SessionsPage(props: {
                     ) : null}
                     {group.unindexedSessionCount > 0 ? (
                       <Badge variant="warning">{formatNumber(group.unindexedSessionCount)} unindexed</Badge>
-                    ) : (
-                      <Badge variant="outline">Fully indexed</Badge>
-                    )}
+                    ) : null}
+                    {group.teamSessionCount === 0 && group.subagentSessionCount === 0 && group.unindexedSessionCount === 0 ? (
+                      <span className="text-xs text-slate-400">main only</span>
+                    ) : null}
                   </div>,
                 ],
                 previewEyebrow: "Directory Group",
@@ -371,12 +547,14 @@ export function SessionsPage(props: {
                 previewMeta: [
                   { label: "Path", value: group.path },
                   { label: "Sessions", value: `${formatNumber(group.sessionCount)} total` },
+                  { label: "Metadata", value: groupMetadataSummary(group) },
                   { label: "Branches", value: group.gitBranches.length > 0 ? group.gitBranches.join(", ") : "No branches" },
                 ],
                 drawerDescription: `${formatNumber(group.sessionCount)} total sessions in this exact cwd grouping, with ${formatNumber(group.indexedSessionCount)} already indexed into search.`,
                 drawerMeta: [
                   { label: "Path", value: group.path },
                   { label: "Depth", value: `${group.depth}` },
+                  { label: "Metadata", value: groupMetadataSummary(group) },
                   { label: "Indexed", value: `${formatNumber(group.indexedSessionCount)} indexed / ${formatNumber(group.unindexedSessionCount)} pending` },
                   { label: "Team sessions", value: `${formatNumber(group.teamSessionCount)}` },
                   { label: "Subagent sessions", value: `${formatNumber(group.subagentSessionCount)}` },
@@ -392,9 +570,7 @@ export function SessionsPage(props: {
                           </div>
                           <div className="truncate text-xs text-slate-500">{session.sessionId}</div>
                         </div>
-                        <Badge variant={session.indexed ? "outline" : "warning"}>
-                          {session.indexed ? "Indexed" : "Pending"}
-                        </Badge>
+                        {!session.indexed ? <Badge variant="warning">Pending</Badge> : null}
                       </div>
                     ))}
                   </div>
@@ -432,55 +608,40 @@ export function SessionsPage(props: {
                 Registered fields become part of the session contract, so frontends can display them uniformly and search against them intentionally.
               </p>
             </div>
-            <MetadataSchemaTable definitions={props.sessionMetadataDefinitions} />
-
-            <ActionPane
-              eyebrow="Metadata Lab"
-              title="Register session fields"
-              description="Use the real metadata API to add structured fields and attach them to indexed sessions."
+            <ToolbarPane
+              title="Metadata actions"
+              description="Manage field definitions in a modal, then write values onto the current indexed session without leaving the page."
             >
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="flex flex-wrap gap-3">
+                <Button variant="secondary" onClick={() => openCreateField()}>
+                  New field
+                </Button>
+                <Select
+                  value={metadataValueKey}
+                  onChange={(event) => setMetadataValueKey(event.target.value)}
+                  className="min-w-[180px]"
+                  disabled={metadataFieldOptions.length === 0}
+                >
+                  <option value="">Select field</option>
+                  {metadataFieldOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
                 <Input
-                  value={props.metadataDefinitionKey}
-                  onChange={(event) => props.onMetadataDefinitionKeyChange(event.target.value)}
-                  placeholder="Field key"
-                />
-                <Input
-                  value={props.metadataDefinitionLabel}
-                  onChange={(event) => props.onMetadataDefinitionLabelChange(event.target.value)}
-                  placeholder="Field label"
-                />
-              </div>
-              <Textarea
-                value={props.metadataDefinitionDescription}
-                onChange={(event) => props.onMetadataDefinitionDescriptionChange(event.target.value)}
-                placeholder="Field description"
-              />
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
-                <Input
-                  value={props.metadataValueDraft}
-                  onChange={(event) => props.onMetadataValueDraftChange(event.target.value)}
+                  className="min-w-[220px] flex-1"
+                  value={metadataValueDraft}
+                  onChange={(event) => setMetadataValueDraft(event.target.value)}
                   placeholder="Value for the selected session"
                 />
-                <Input
-                  value={props.searchMetadataKey}
-                  onChange={(event) => props.onSearchMetadataKeyChange(event.target.value)}
-                  placeholder="Search metadata key"
-                />
-                <Input
-                  value={props.searchMetadataValue}
-                  onChange={(event) => props.onSearchMetadataValueChange(event.target.value)}
-                  placeholder="Search metadata value"
-                />
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="secondary" onClick={props.onRegisterMetadataDefinition}>
-                  Register field
-                </Button>
                 <Button
                   variant="outline"
-                  disabled={!props.explorerLeadSession}
-                  onClick={() => props.explorerLeadSession && props.onWriteMetadataValue(props.explorerLeadSession.sessionId)}
+                  disabled={!props.explorerLeadSession || !metadataValueKey || !metadataValueDraft.trim()}
+                  onClick={() => props.explorerLeadSession && props.onWriteMetadataValue(props.explorerLeadSession.sessionId, {
+                    key: metadataValueKey,
+                    value: metadataValueDraft,
+                  })}
                 >
                   Apply to visible session
                 </Button>
@@ -498,15 +659,230 @@ export function SessionsPage(props: {
                   : "No indexed session selected"}
                 detail={`${props.metadataActionState.detail}${props.explorerLeadSession ? ` Writing against ${truncate(props.explorerLeadSession.customTitle || props.explorerLeadSession.summary || props.explorerLeadSession.sessionId, 42)}.` : ""}`}
               />
-              <JsonPreview
-                title="Metadata response"
-                data={props.metadataPreview}
-                emptyMessage="Register a field or write a value to inspect the response payload."
-              />
-            </ActionPane>
+            </ToolbarPane>
+
+            <CompactDataTable
+              title="Metadata fields"
+              description="Registered metadata fields are part of the session contract and drive search, filtering, and display across the catalog."
+              meta={
+                <TableMetaBadges
+                  total={props.sessionMetadataDefinitions.length}
+                  noun="fields"
+                />
+              }
+              columns={["Field", "Key", "Usage", "State", "Actions"]}
+              rows={props.sessionMetadataDefinitions.map((definition) => ({
+                id: definition.key,
+                cells: [
+                  <span className="font-medium text-slate-900">{definition.label}</span>,
+                  <span className="font-mono text-xs text-slate-500">{definition.key}</span>,
+                  <Badge variant="outline">{formatNumber(definition.usageCount)} sessions</Badge>,
+                  <div className="flex flex-wrap gap-2">
+                    {definition.searchable ? <Badge variant="info">Searchable</Badge> : null}
+                    {definition.filterable ? <Badge variant="outline">Filterable</Badge> : null}
+                  </div>,
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEditField(definition);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onSearchMetadataKeyChange(definition.key);
+                      }}
+                    >
+                      Filter
+                    </Button>
+                  </div>,
+                ],
+                previewEyebrow: "Metadata Field",
+                previewTitle: definition.label,
+                previewDescription: definition.description || "No description",
+                previewMeta: [
+                  { label: "Key", value: definition.key },
+                  { label: "Usage", value: `${formatNumber(definition.usageCount)} sessions` },
+                ],
+                drawerMeta: [
+                  { label: "Key", value: definition.key },
+                  { label: "Usage", value: `${formatNumber(definition.usageCount)} sessions` },
+                  { label: "Searchable", value: definition.searchable ? "Yes" : "No" },
+                  { label: "Filterable", value: definition.filterable ? "Yes" : "No" },
+                  { label: "Updated", value: formatTimestamp(definition.updatedAt) },
+                ],
+                drawerContent: (
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEditField(definition);
+                      }}
+                    >
+                      Edit field
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onSearchMetadataKeyChange(definition.key);
+                      }}
+                    >
+                      Use in filter
+                    </Button>
+                  </div>
+                ),
+              }))}
+              emptyTitle="No metadata fields yet"
+              emptyDetail="Create a field to start attaching structured metadata to indexed sessions."
+            />
+
+            <CompactDataTable
+              title="Selected session metadata"
+              description="Metadata already attached to the current visible indexed session."
+              meta={props.explorerLeadSession ? (
+                <Badge variant="outline">
+                  {truncate(props.explorerLeadSession.sessionId, 18)}
+                </Badge>
+              ) : undefined}
+              columns={["Field", "Value", "Updated"]}
+              rows={(props.explorerLeadSession?.metadata ?? []).map((entry) => ({
+                id: `${entry.sessionId}-${entry.key}`,
+                cells: [
+                  <span className="font-medium text-slate-900">{entry.label}</span>,
+                  <span className="text-sm text-slate-600">{entry.value}</span>,
+                  <span className="text-xs text-slate-500">{formatTimestamp(entry.updatedAt)}</span>,
+                ],
+                previewEyebrow: "Session Metadata",
+                previewTitle: entry.label,
+                previewDescription: entry.description || "No description",
+                previewMeta: [
+                  { label: "Key", value: entry.key },
+                  { label: "Value", value: entry.value },
+                ],
+                drawerMeta: [
+                  { label: "Key", value: entry.key },
+                  { label: "Value", value: entry.value },
+                  { label: "Searchable", value: entry.searchable ? "Yes" : "No" },
+                  { label: "Filterable", value: entry.filterable ? "Yes" : "No" },
+                  { label: "Updated", value: formatTimestamp(entry.updatedAt) },
+                ],
+              }))}
+              emptyTitle="No metadata on the selected session"
+              emptyDetail="Choose an indexed session in the explorer, then apply a field value to inspect it here."
+            />
+
+            <JsonPreview
+              title="Metadata response"
+              data={props.metadataPreview}
+              emptyMessage="Save a field or write a value to inspect the response payload."
+            />
           </div>
         </div>
       </PageBodyWithRail>
+
+      <ModalSurface
+        open={fieldEditorOpen}
+        onClose={() => setFieldEditorOpen(false)}
+        title={fieldEditorMode === "edit" ? "Edit metadata field" : "New metadata field"}
+        description="Define the field contract once, then reuse it across the session catalog and search surfaces."
+        footer={(
+          <>
+            <div>
+              {fieldEditorMode === "edit" ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  onClick={() => {
+                    props.onDeleteMetadataDefinition(fieldDraft.key);
+                    setFieldEditorOpen(false);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete field
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setFieldEditorOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  props.onSaveMetadataDefinition({
+                    key: fieldDraft.key,
+                    label: fieldDraft.label,
+                    description: fieldDraft.description,
+                    searchable: fieldDraft.searchable,
+                    filterable: fieldDraft.filterable,
+                  });
+                  setMetadataValueKey(fieldDraft.key);
+                  setFieldEditorOpen(false);
+                }}
+                disabled={!fieldDraft.key.trim() || !fieldDraft.label.trim()}
+              >
+                Save field
+              </Button>
+            </div>
+          </>
+        )}
+      >
+        <div className="grid gap-3 lg:grid-cols-2">
+          <Input
+            value={fieldDraft.key}
+            onChange={(event) => setFieldDraft((current) => ({ ...current, key: event.target.value }))}
+            placeholder="Field key"
+            disabled={fieldEditorMode === "edit"}
+          />
+          <Input
+            value={fieldDraft.label}
+            onChange={(event) => setFieldDraft((current) => ({ ...current, label: event.target.value }))}
+            placeholder="Field label"
+          />
+        </div>
+        <Textarea
+          value={fieldDraft.description}
+          onChange={(event) => setFieldDraft((current) => ({ ...current, description: event.target.value }))}
+          placeholder="Field description"
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={fieldDraft.searchable}
+              onChange={(event) => setFieldDraft((current) => ({ ...current, searchable: event.target.checked }))}
+            />
+            Searchable in indexed session queries
+          </label>
+          <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={fieldDraft.filterable}
+              onChange={(event) => setFieldDraft((current) => ({ ...current, filterable: event.target.checked }))}
+            />
+            Filterable in catalog and directory views
+          </label>
+        </div>
+      </ModalSurface>
     </section>
   );
 }

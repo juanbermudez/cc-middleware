@@ -29,6 +29,7 @@ Build a Node/TypeScript middleware that wraps Claude Code to provide a clean, un
 | 10 | [Configuration Management](phases/10-configuration.md) | Phase 1, 7 | Read/manage CC settings, plugins, skills, agents, MCP, memory |
 | 11 | [CLI Control Surface](phases/11-cli.md) | Phase 7, 9, 10 | Terminal CLI (`ccm`) wrapping the middleware API |
 | 12 | [Real-Time Sync](phases/12-realtime-sync.md) | Phase 7, 9 | Filesystem watchers, auto-indexing, WebSocket push for external changes |
+| 13 | [Analytics & Developer Insights](phases/13-analytics-observability.md) | Phase 3, 4, 5, 7, 9, 10, 12 | DuckDB warehouse, transcript backfill, derived metrics, analytics API, and playground views |
 
 ## Dependency Graph
 
@@ -47,6 +48,7 @@ flowchart TD
     p10["Phase 10<br/>Configuration Management"]
     p11["Phase 11<br/>CLI Control Surface"]
     p12["Phase 12<br/>Real-Time Sync"]
+    p13["Phase 13<br/>Analytics and Developer Insights"]
 
     p1 --> p2
     p1 --> p4
@@ -70,6 +72,13 @@ flowchart TD
     p9 --> p11
     p9 --> p12
     p10 --> p11
+    p3 --> p13
+    p4 --> p13
+    p5 --> p13
+    p7 --> p13
+    p9 --> p13
+    p10 --> p13
+    p12 --> p13
 ```
 
 ---
@@ -588,10 +597,70 @@ These tests wire the separately-built systems together and prove the middleware 
 
 ---
 
+## Phase 13: Analytics & Developer Insights
+**File**: [phases/13-analytics-observability.md](phases/13-analytics-observability.md)
+
+### Task 13.1: Analytics warehouse foundation
+- Create the `src/analytics/` module
+- Add DuckDB connection, migrations, and raw table scaffolding
+- Configure a local analytics database separate from the SQLite session catalog
+
+**Verify**: `npm run build` and targeted unit tests for analytics DB setup pass
+
+### Task 13.2: Transcript backfill importer
+- Import root and sidechain transcript JSONL files into raw analytics tables
+- Preserve timestamps, types, subtypes, session joins, and full payloads
+- Make re-runs idempotent
+
+**Verify**: Fixture-driven importer tests cover root sessions, subagents, compact boundaries, and API errors
+
+### Task 13.3: Keyword taxonomy and matching engine
+- Add English keyword dictionaries for frustration, cursing, insults, and related categories
+- Derive keyword mention facts from transcript prompts
+- Version the taxonomy in code
+
+**Verify**: Unit tests cover positive matches and false-positive guardrails
+
+### Task 13.4: Live capture hardening
+- Persist raw SDK messages from middleware-launched sessions
+- Fix permission/hook join context
+- Expand plugin hook coverage for interactive sessions
+
+**Verify**: Targeted E2E and unit tests show live sessions produce analytics-ready records
+
+### Task 13.5: Derived facts and rollups
+- Build facts for interactions, requests, tool calls, errors, subagents, compactions, and keyword mentions
+- Add hourly and daily rollups
+- Derive estimated request/session cost from versioned model pricing
+
+**Verify**: Derived metrics match fixture expectations and rollup queries pass
+
+### Task 13.6: Analytics API
+- Add dedicated analytics routes for overview, timeseries, traces, facets, session detail, and backfill status
+- Register the routes in the main server
+
+**Verify**: E2E API tests cover filtering, trace drilldown, and backfill status
+
+### Task 13.7: Playground analytics view
+- Add an analytics page and navigation entry
+- Use charting for time-series overlays and drilldown
+- Provide filterable tables and drawers for trace/session detail
+
+**Verify**: `npm run playground:build` passes and UI stories have targeted verification
+
+### Task 13.8: Optional OTel enrichment
+- Add optional OTel ingestion for logs/spans
+- Join OTel identifiers to transcript-derived interactions when present
+- Keep the system fully functional without OTel
+
+**Verify**: Optional OTel tests pass without becoming a required dependency for core analytics
+
+---
+
 ## Completion Criteria
 
 The middleware is considered complete when:
-1. All 11 phases pass verification
+1. All planned phases pass verification
 2. All E2E tests pass in a clean run (`npm run test:e2e`)
 3. API documentation in `docs/api/` is current
 4. Architecture documentation in `docs/architecture/` is current
@@ -599,3 +668,4 @@ The middleware is considered complete when:
 6. The middleware can be started as a standalone server
 7. Configuration reading covers all Claude Code config systems
 8. The `ccm` CLI can start the server and execute all command groups
+9. Analytics backfill and developer-insights views are implemented for local use

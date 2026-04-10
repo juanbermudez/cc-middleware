@@ -25,6 +25,18 @@
         ]
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/PostToolUseFailure",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": null,
@@ -32,6 +44,18 @@
           {
             "type": "http",
             "url": "http://127.0.0.1:3001/hooks/SessionStart",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/UserPromptSubmit",
             "timeout": 10
           }
         ]
@@ -49,6 +73,18 @@
         ]
       }
     ],
+    "StopFailure": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/StopFailure",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": null,
@@ -56,6 +92,30 @@
           {
             "type": "http",
             "url": "http://127.0.0.1:3001/hooks/Stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/PreCompact",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/PostCompact",
             "timeout": 10
           }
         ]
@@ -80,6 +140,30 @@
           {
             "type": "http",
             "url": "http://127.0.0.1:3001/hooks/SubagentStop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/PermissionRequest",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "matcher": null,
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3001/hooks/PermissionDenied",
             "timeout": 10
           }
         ]

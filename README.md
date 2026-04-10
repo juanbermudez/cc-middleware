@@ -6,17 +6,21 @@
 
 ---
 
-## The Idea
+## Origin Story
 
-Claude Code exposes a powerful hook system and programmatic SDK, but consuming them directly requires deep knowledge of the filesystem layout, hook lifecycle, and SDK internals. CC-Middleware absorbs that complexity and re-exposes it as a clean, documented, transport-agnostic API.
+CC-Middleware came from repeated frustration. Before this project, I built multiple tools on top of Claude Code: a session viewer, a Markdown transcript browser, a wake-word detection harness, various dashboards. Every single time, I hit the same wall — Claude Code's sessions, hooks, and runtime state are powerful but locked behind filesystem conventions, SDK internals, and the hook lifecycle. Every tool I built had to re-implement the same plumbing: discover sessions, parse JSONL, subscribe to events, handle permissions.
 
-The result is a local service that any client — regardless of language or platform — can talk to:
+The pattern was clear: what I needed wasn't another tool. It was a **service layer** — one API that makes Claude Code's internals accessible so you can quickly build whatever you want on top.
+
+That's what CC-Middleware does:
 
 ```
 Your App  ──REST/WS──▶  CC-Middleware  ──Agent SDK──▶  Claude Code
 ```
 
 The middleware handles session lifecycle, event routing, permission approvals, agent/team metadata, full-text search over session history, and real-time filesystem sync. You write application logic; the middleware handles the Claude plumbing.
+
+This is also the foundation for the rest of the stack: **Lucid** (cognitive memory) reads sessions through the middleware, **Lucy** (Claude OS) connects to Claude through it, and **Token Craft** (educational RTS) maps game commands to real sessions via the API.
 
 ---
 

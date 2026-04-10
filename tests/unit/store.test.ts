@@ -91,6 +91,8 @@ describe("SQLite Session Store", () => {
       expect(tableNames).toContain("session_relationships");
       expect(tableNames).toContain("session_metadata_definitions");
       expect(tableNames).toContain("session_metadata_values");
+      expect(tableNames).toContain("resource_metadata_definitions");
+      expect(tableNames).toContain("resource_metadata_values");
       expect(tableNames).toContain("sessions_fts");
       expect(tableNames).toContain("messages_fts");
     });
@@ -108,6 +110,8 @@ describe("SQLite Session Store", () => {
       expect(indexNames).toContain("idx_session_relationships_session");
       expect(indexNames).toContain("idx_session_metadata_values_session");
       expect(indexNames).toContain("idx_session_metadata_values_key");
+      expect(indexNames).toContain("idx_resource_metadata_values_type_resource");
+      expect(indexNames).toContain("idx_resource_metadata_values_type_key");
     });
 
     it("should be idempotent on repeated migrate calls", () => {
@@ -488,6 +492,81 @@ describe("SQLite Session Store", () => {
       expect(store.listSessionMetadataValues("session-1")).toHaveLength(1);
       store.deleteSession("session-1");
       expect(store.listSessionMetadataValues("session-1")).toHaveLength(0);
+    });
+
+    it("should remove metadata definitions and their values together", () => {
+      const now = Date.now();
+      store.upsertSession(makeSession({ id: "session-1" }));
+      store.upsertSessionMetadataDefinition({
+        key: "owner",
+        label: "Owner",
+        description: "Owning team",
+        valueType: "string",
+        searchable: true,
+        filterable: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      store.setSessionMetadataValue({
+        sessionId: "session-1",
+        key: "owner",
+        value: "platform",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      expect(store.getSessionMetadataDefinition("owner")).toEqual(
+        expect.objectContaining({
+          key: "owner",
+          usageCount: 1,
+        })
+      );
+
+      store.deleteSessionMetadataDefinition("owner");
+
+      expect(store.getSessionMetadataDefinition("owner")).toBeUndefined();
+      expect(store.listSessionMetadataValues("session-1")).toEqual([]);
+    });
+
+    it("should create metadata definitions and values for non-session resources", () => {
+      const now = Date.now();
+
+      store.upsertResourceMetadataDefinition({
+        resourceType: "runtime-tool",
+        key: "owner",
+        label: "Owner",
+        description: "Owning group",
+        valueType: "string",
+        searchable: true,
+        filterable: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      store.setResourceMetadataValue({
+        resourceType: "runtime-tool",
+        resourceId: "Read",
+        key: "owner",
+        value: "platform",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      expect(store.listResourceMetadataDefinitions("runtime-tool")).toEqual([
+        expect.objectContaining({
+          resourceType: "runtime-tool",
+          key: "owner",
+          usageCount: 1,
+        }),
+      ]);
+      expect(store.listResourceMetadataValues("runtime-tool", "Read")).toEqual([
+        expect.objectContaining({
+          resourceType: "runtime-tool",
+          resourceId: "Read",
+          key: "owner",
+          value: "platform",
+          label: "Owner",
+        }),
+      ]);
     });
   });
 });

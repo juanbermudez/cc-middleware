@@ -13,6 +13,7 @@ Research conducted on 2026-04-04 for the CC-Middleware project. These documents 
 | [mcp-configuration.md](mcp-configuration.md) | MCP Servers | Configs stored in ~/.claude.json (local/user scope) and .mcp.json (project scope). 3 transport types. Env var expansion in configs. OAuth support for remote servers. |
 | [memory-system.md](memory-system.md) | Memory & CLAUDE.md | CLAUDE.md walks up directory tree. Auto-memory stored per-project under ~/.claude/projects/. MEMORY.md index limited to 200 lines/25KB at session start. |
 | [global-config.md](global-config.md) | ~/.claude.json | Monolithic config file with preferences, per-project state, feature flags, and MCP configs. ~200+ feature flags (server-controlled, not user-editable). |
+| [analytics-sources.md](analytics-sources.md) | Analytics sources | Confirms transcripts are the source of truth for analytics backfill; OTel is optional live enrichment only. Documents local findings on compaction, tool errors, token usage, and subagent lineage. |
 
 ## Architecture Summary
 

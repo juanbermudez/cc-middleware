@@ -6,11 +6,23 @@ import {
   useRef,
   useState,
 } from "react";
+import { Agentation } from "agentation";
+import { MoonStar, SunMedium } from "lucide-react";
 import { SidebarSection } from "./components/playground-ui";
 import { AgentsPage } from "./pages/agents-page";
+import { AnalyticsPage } from "./pages/analytics-page";
+import { ConfigAgentsPage } from "./pages/config-agents-page";
+import { ConfigCommandsPage } from "./pages/config-commands-page";
+import { ConfigMcpPage } from "./pages/config-mcp-page";
+import { ConfigMemoryPage } from "./pages/config-memory-page";
+import { ConfigPage } from "./pages/config-page";
+import { ConfigPluginsPage } from "./pages/config-plugins-page";
+import { ConfigSettingsPage } from "./pages/config-settings-page";
+import { ConfigSkillsPage } from "./pages/config-skills-page";
 import { ImportsPage } from "./pages/imports-page";
 import { LiveFeedPage } from "./pages/live-feed-page";
 import { OverviewPage } from "./pages/overview-page";
+import { TeamsPage } from "./pages/teams-page";
 import { RuntimeAgentsPage } from "./pages/runtime-agents-page";
 import { RuntimeCommandsPage } from "./pages/runtime-commands-page";
 import { RuntimeMcpPage } from "./pages/runtime-mcp-page";
@@ -19,7 +31,9 @@ import { RuntimePage } from "./pages/runtime-page";
 import { RuntimePluginsPage } from "./pages/runtime-plugins-page";
 import { RuntimeSkillsPage } from "./pages/runtime-skills-page";
 import { RuntimeToolsPage } from "./pages/runtime-tools-page";
+import { SessionDetailPage } from "./pages/session-detail-page";
 import { SessionsPage } from "./pages/sessions-page";
+import { TeamTasksPage } from "./pages/team-tasks-page";
 import {
   type AgentsResponse,
   type CheckKey,
@@ -40,9 +54,7 @@ import {
   type SessionsResponse,
   type SocketMessage,
   type SyncStatusResponse,
-  type TeamDetailResponse,
   type TeamsResponse,
-  type TeamTasksResponse,
   DEFAULT_SEARCH_QUERY,
   DEFAULT_STREAM_PROMPT,
   buildPlaygroundHash,
@@ -57,16 +69,94 @@ import {
   type SearchLineageFilter,
 } from "./lib/playground";
 
+const SIDEBAR_STATE_STORAGE_KEY = "cc-middleware.playground.sidebar";
+const THEME_MODE_STORAGE_KEY = "cc-middleware.playground.theme";
+const AGENTATION_ENDPOINT = import.meta.env.VITE_AGENTATION_ENDPOINT?.trim() || "http://localhost:4747";
+
+type ThemeMode = "light" | "dark";
+
+function ThemeSwitcher(props: {
+  mode: ThemeMode;
+  onToggle: () => void;
+}) {
+  const nextLabel = props.mode === "dark" ? "Switch to light mode" : "Switch to dark mode";
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle flex w-full items-center justify-between rounded-xl px-3 py-2"
+      data-mode={props.mode}
+      aria-label={nextLabel}
+      onClick={props.onToggle}
+    >
+      <div className="space-y-0.5 text-left">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.22em] themed-subtle">
+          Theme
+        </div>
+        <div className="text-xs themed-body">
+          {props.mode === "dark" ? "Dark mode" : "Light mode"}
+        </div>
+      </div>
+
+      <span className="theme-toggle-track">
+        <span className="theme-toggle-thumb">
+          <span className="theme-toggle-icon theme-toggle-icon-sun">
+            <SunMedium className="h-3.5 w-3.5" />
+          </span>
+          <span className="theme-toggle-icon theme-toggle-icon-moon">
+            <MoonStar className="h-3.5 w-3.5" />
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function createExpandedSectionState(): Record<string, boolean> {
-  return Object.fromEntries(navigationSections.map((section) => [section.id, true]));
+  return Object.fromEntries(navigationSections.map((section) => [section.id, false]));
+}
+
+function loadExpandedSectionState(): Record<string, boolean> {
+  const defaults = createExpandedSectionState();
+
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_STATE_STORAGE_KEY);
+    if (!raw) {
+      return defaults;
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(
+      navigationSections.map((section) => [
+        section.id,
+        typeof parsed[section.id] === "boolean" ? parsed[section.id] : defaults[section.id],
+      ])
+    );
+  } catch {
+    return defaults;
+  }
+}
+
+function loadThemeMode(): ThemeMode {
+  try {
+    const raw = window.localStorage.getItem(THEME_MODE_STORAGE_KEY);
+    if (raw === "light" || raw === "dark") {
+      return raw;
+    }
+  } catch {
+    // Ignore storage issues and fall back to the system theme.
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 export function App() {
   const socketRef = useRef<WebSocket | null>(null);
   const catalogRefreshTimeoutRef = useRef<number | null>(null);
   const [route, setRoute] = useState<PlaygroundRoute>(() => parsePlaygroundHash(window.location.hash));
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadThemeMode());
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
-    createExpandedSectionState()
+    () => loadExpandedSectionState()
   );
   const [checks, setChecks] = useState<Record<CheckKey, CheckResult>>(initialChecks);
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -85,12 +175,6 @@ export function App() {
   const [sessionMetadataDefinitions, setSessionMetadataDefinitions] = useState<
     SessionMetadataDefinition[]
   >([]);
-  const [metadataDefinitionKey, setMetadataDefinitionKey] = useState("workflow");
-  const [metadataDefinitionLabel, setMetadataDefinitionLabel] = useState("Workflow");
-  const [metadataDefinitionDescription, setMetadataDefinitionDescription] = useState(
-    "Short workflow label for a session."
-  );
-  const [metadataValueDraft, setMetadataValueDraft] = useState("delivery-review");
   const [metadataActionState, setMetadataActionState] = useState<CheckResult>({
     status: "idle",
     detail: "Register a field or write a value to the selected session.",
@@ -99,8 +183,6 @@ export function App() {
   const [agents, setAgents] = useState<AgentsResponse | null>(null);
   const [teams, setTeams] = useState<TeamsResponse | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string>("");
-  const [teamDetail, setTeamDetail] = useState<TeamDetailResponse | null>(null);
-  const [teamTasks, setTeamTasks] = useState<TeamTasksResponse | null>(null);
   const [teamTaskCount, setTeamTaskCount] = useState<number | null>(null);
   const [runtime, setRuntime] = useState<RuntimeResponse | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatusResponse | null>(null);
@@ -255,6 +337,19 @@ export function App() {
     return response.json() as Promise<T>;
   }
 
+  async function deleteJson<T>(path: string): Promise<T> {
+    const response = await fetch(path, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`${response.status} ${response.statusText}: ${text}`.trim());
+    }
+
+    return response.json() as Promise<T>;
+  }
+
   function toggleSection(sectionId: string): void {
     setExpandedSections((current) => ({
       ...current,
@@ -309,7 +404,7 @@ export function App() {
   }
 
   async function loadRecentSessions(): Promise<void> {
-    const result = await getJson<SessionsResponse>("/api/v1/sessions?limit=8");
+    const result = await getJson<SessionsResponse>("/api/v1/sessions?limit=24");
     setRecentSessions(result);
   }
 
@@ -393,21 +488,27 @@ export function App() {
     }
   }
 
-  async function registerMetadataDefinition(): Promise<void> {
+  async function saveMetadataDefinition(definition: {
+    key: string;
+    label: string;
+    description?: string;
+    searchable: boolean;
+    filterable: boolean;
+  }): Promise<void> {
     setMetadataActionState({
       status: "loading",
-      detail: `Registering ${metadataDefinitionKey} in the session metadata schema.`,
+      detail: `Saving ${definition.key} in the session metadata schema.`,
     });
 
     try {
       const result = await postJson<{ definition: SessionMetadataDefinition }>(
         "/api/v1/sessions/metadata/definitions",
         {
-          key: metadataDefinitionKey.trim(),
-          label: metadataDefinitionLabel.trim(),
-          description: metadataDefinitionDescription.trim() || undefined,
-          searchable: true,
-          filterable: true,
+          key: definition.key.trim(),
+          label: definition.label.trim(),
+          description: definition.description?.trim() || undefined,
+          searchable: definition.searchable,
+          filterable: definition.filterable,
         }
       );
 
@@ -424,25 +525,62 @@ export function App() {
     }
   }
 
-  async function writeMetadataValue(sessionId: string): Promise<void> {
+  async function deleteMetadataDefinition(key: string): Promise<void> {
     setMetadataActionState({
       status: "loading",
-      detail: `Writing ${metadataDefinitionKey} onto session ${sessionId.slice(0, 20)}.`,
+      detail: `Removing ${key} from the session metadata schema.`,
+    });
+
+    try {
+      await deleteJson<{ definitions: SessionMetadataDefinition[] }>(
+        `/api/v1/sessions/metadata/definitions/${encodeURIComponent(key)}`
+      );
+      if (searchMetadataKey.trim() === key) {
+        setSearchMetadataKey("");
+        setSearchMetadataValue("");
+      }
+
+      setMetadataPreview(null);
+      setMetadataActionState({
+        status: "pass",
+        detail: `${key} was removed from the metadata schema.`,
+      });
+      await Promise.allSettled([
+        loadSessionMetadataDefinitions(),
+        loadRecentSessions(),
+        loadSessionDirectories(),
+        runSearch(searchQuery),
+      ]);
+    } catch (error) {
+      setMetadataActionState({
+        status: "error",
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async function writeMetadataValue(sessionId: string, payload: {
+    key: string;
+    value: string;
+  }): Promise<void> {
+    setMetadataActionState({
+      status: "loading",
+      detail: `Writing ${payload.key} onto session ${sessionId.slice(0, 20)}.`,
     });
 
     try {
       const result = await putJson<SessionMetadataValuesResponse>(
         `/api/v1/sessions/${encodeURIComponent(sessionId)}/metadata`,
         {
-          key: metadataDefinitionKey.trim(),
-          value: metadataValueDraft.trim(),
+          key: payload.key.trim(),
+          value: payload.value.trim(),
         }
       );
 
       setMetadataPreview(result);
       setMetadataActionState({
         status: "pass",
-        detail: `Saved ${metadataDefinitionKey} on ${sessionId.slice(0, 20)} and refreshed the explorer.`,
+        detail: `Saved ${payload.key} on ${sessionId.slice(0, 20)} and refreshed the explorer.`,
       });
       await Promise.allSettled([
         loadSessionMetadataDefinitions(),
@@ -530,16 +668,12 @@ export function App() {
       if (!selectedTeam && teamsResult.value.teams[0]) {
         setSelectedTeam(teamsResult.value.teams[0].name);
       }
-      const taskResults = await Promise.allSettled(
-        teamsResult.value.teams.map((team) =>
-          getJson<TeamTasksResponse>(`/api/v1/teams/${encodeURIComponent(team.name)}/tasks`)
-        )
-      );
-      setTeamTaskCount(
-        taskResults.reduce((sum, result) => (
-          result.status === "fulfilled" ? sum + result.value.total : sum
-        ), 0)
-      );
+      try {
+        const taskSummary = await getJson<TeamTasksResponse>("/api/v1/tasks");
+        setTeamTaskCount(taskSummary.total);
+      } catch {
+        setTeamTaskCount(null);
+      }
     } else {
       setTeamTaskCount(null);
       updateCheck("teams", {
@@ -547,22 +681,6 @@ export function App() {
         detail: teamsResult.reason instanceof Error ? teamsResult.reason.message : String(teamsResult.reason),
       });
     }
-  }
-
-  async function loadTeamDetail(teamName: string): Promise<void> {
-    if (!teamName) {
-      setTeamDetail(null);
-      setTeamTasks(null);
-      return;
-    }
-
-    const [detail, tasks] = await Promise.all([
-      getJson<TeamDetailResponse>(`/api/v1/teams/${encodeURIComponent(teamName)}`),
-      getJson<TeamTasksResponse>(`/api/v1/teams/${encodeURIComponent(teamName)}/tasks`),
-    ]);
-
-    setTeamDetail(detail);
-    setTeamTasks(tasks);
   }
 
   async function loadRuntime(): Promise<void> {
@@ -684,6 +802,24 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    window.localStorage.setItem(
+      SIDEBAR_STATE_STORAGE_KEY,
+      JSON.stringify(expandedSections)
+    );
+  }, [expandedSections]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = themeMode;
+    document.documentElement.style.colorScheme = themeMode;
+
+    try {
+      window.localStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode);
+    } catch {
+      // Ignore storage issues and keep the theme local to this tab.
+    }
+  }, [themeMode]);
+
+  useEffect(() => {
     void runAllChecks();
   }, []);
 
@@ -697,10 +833,6 @@ export function App() {
 
     return () => window.clearTimeout(timeout);
   }, [deferredSearchQuery, searchLineageFilter, searchTeamFilter, searchMetadataKey, searchMetadataValue]);
-
-  useEffect(() => {
-    void loadTeamDetail(selectedTeam);
-  }, [selectedTeam]);
 
   useEffect(() => {
     if (searchTeamFilter === "all") {
@@ -830,29 +962,44 @@ export function App() {
   return (
     <div className="playground-shell">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[206px_minmax(0,1fr)]">
-        <aside className="playground-sidebar border-b border-slate-200/80 lg:sticky lg:top-0 lg:h-screen lg:w-[190px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[206px]">
+        <aside className="playground-sidebar themed-border border-b lg:sticky lg:top-0 lg:h-screen lg:w-[190px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[206px]">
           <div className="flex h-full flex-col px-3 py-4 md:px-4 lg:px-4 xl:px-[18px]">
             <div className="space-y-1.5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              <div className="themed-subtle text-[11px] font-semibold uppercase tracking-[0.24em]">
                 Playground
               </div>
-              <div className="text-lg font-semibold tracking-tight text-slate-950">
+              <div className="themed-title text-lg font-semibold tracking-tight">
                 CC-Middleware
               </div>
             </div>
 
-            <nav className="mt-6 space-y-1">
-              {navigationSections.map((section) => (
-                <SidebarSection
-                  key={section.id}
-                  section={section}
-                  expanded={expandedSections[section.id] ?? true}
-                  currentRoute={route}
-                  onToggle={() => toggleSection(section.id)}
-                  onNavigate={navigateTo}
-                />
-              ))}
+            <nav className="mt-6 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+              {navigationSections.map((section) => {
+                const startsUtilityGroup = section.id === "live-feed";
+
+                return (
+                  <div
+                    key={section.id}
+                    className={startsUtilityGroup ? "themed-border mt-4 border-t pt-3" : undefined}
+                  >
+                    <SidebarSection
+                      section={section}
+                      expanded={expandedSections[section.id] ?? true}
+                      currentRoute={route}
+                      onToggle={() => toggleSection(section.id)}
+                      onNavigate={navigateTo}
+                    />
+                  </div>
+                );
+              })}
             </nav>
+
+            <div className="themed-border mt-4 border-t pt-3">
+              <ThemeSwitcher
+                mode={themeMode}
+                onToggle={() => setThemeMode((current) => current === "dark" ? "light" : "dark")}
+              />
+            </div>
           </div>
         </aside>
 
@@ -880,6 +1027,7 @@ export function App() {
           {route.page === "sessions" ? (
             <SessionsPage
               activeSection={route.section}
+              recentSessions={recentSessions}
               searchQuery={searchQuery}
               searchMetadataKey={searchMetadataKey}
               searchMetadataValue={searchMetadataValue}
@@ -901,10 +1049,6 @@ export function App() {
               sessionExplorerGroupCount={sessionExplorerGroupCount}
               sessionExplorerSessionCount={sessionExplorerSessionCount}
               reindexState={reindexState}
-              metadataDefinitionKey={metadataDefinitionKey}
-              metadataDefinitionLabel={metadataDefinitionLabel}
-              metadataDefinitionDescription={metadataDefinitionDescription}
-              metadataValueDraft={metadataValueDraft}
               metadataActionState={metadataActionState}
               metadataPreview={metadataPreview}
               explorerLeadSession={explorerLeadSession}
@@ -915,12 +1059,9 @@ export function App() {
               onSearchTeamFilterChange={setSearchTeamFilter}
               onRunSearch={() => void runSearch(searchQuery)}
               onRunReindex={() => void runReindex()}
-              onMetadataDefinitionKeyChange={setMetadataDefinitionKey}
-              onMetadataDefinitionLabelChange={setMetadataDefinitionLabel}
-              onMetadataDefinitionDescriptionChange={setMetadataDefinitionDescription}
-              onMetadataValueDraftChange={setMetadataValueDraft}
-              onRegisterMetadataDefinition={() => void registerMetadataDefinition()}
-              onWriteMetadataValue={(sessionId) => void writeMetadataValue(sessionId)}
+              onSaveMetadataDefinition={(definition) => void saveMetadataDefinition(definition)}
+              onDeleteMetadataDefinition={(key) => void deleteMetadataDefinition(key)}
+              onWriteMetadataValue={(sessionId, payload) => void writeMetadataValue(sessionId, payload)}
               onShowGroupedByDirectory={() => {
                 setSearchQuery("");
                 setSearchLineageFilter("all");
@@ -935,6 +1076,22 @@ export function App() {
                   setSearchTeamFilter(teamName);
                 }
               }}
+              onOpenSessionDetail={(sessionId) => navigateTo("session-detail", sessionId)}
+            />
+          ) : null}
+
+          {route.page === "session-detail" ? (
+            <SessionDetailPage
+              sessionId={route.section}
+              activeSection={route.section}
+              onBackToSessions={() => navigateTo("sessions")}
+              onOpenSessionDetail={(sessionId) => navigateTo("session-detail", sessionId)}
+            />
+          ) : null}
+
+          {route.page === "analytics" ? (
+            <AnalyticsPage
+              activeSection={route.section}
             />
           ) : null}
 
@@ -966,14 +1123,10 @@ export function App() {
             />
           ) : null}
 
-          {route.page === "agents-teams" ? (
-            <AgentsPage
+          {route.page === "teams" ? (
+            <TeamsPage
               activeSection={route.section}
-              agents={agents}
-              teams={teams}
               selectedTeam={selectedTeam}
-              teamDetail={teamDetail}
-              teamTasks={teamTasks}
               onSelectTeam={setSelectedTeam}
               onJumpToTeamSessions={() => {
                 const teamName = selectedTeam || teams?.teams[0]?.name;
@@ -986,10 +1139,73 @@ export function App() {
             />
           ) : null}
 
+          {route.page === "agents" ? (
+            <AgentsPage
+              activeSection={route.section}
+            />
+          ) : null}
+
+          {route.page === "team-tasks" ? (
+            <TeamTasksPage
+              activeSection={route.section}
+              teams={teams}
+              selectedTeam={selectedTeam}
+              onSelectTeam={setSelectedTeam}
+            />
+          ) : null}
+
           {route.page === "runtime" ? (
             <RuntimePage
               activeSection={route.section}
               runtime={runtime}
+            />
+          ) : null}
+
+          {route.page === "config" ? (
+            <ConfigPage
+              activeSection={route.section}
+            />
+          ) : null}
+
+          {route.page === "config-settings" ? (
+            <ConfigSettingsPage
+              activeSection={route.section}
+            />
+          ) : null}
+
+          {route.page === "config-plugins" ? (
+            <ConfigPluginsPage
+              activeSection={route.section}
+            />
+          ) : null}
+
+          {route.page === "config-skills" ? (
+            <ConfigSkillsPage
+              activeSection={route.section}
+            />
+          ) : null}
+
+          {route.page === "config-commands" ? (
+            <ConfigCommandsPage
+              activeSection={route.section}
+            />
+          ) : null}
+
+          {route.page === "config-agents" ? (
+            <ConfigAgentsPage
+              activeSection={route.section}
+            />
+          ) : null}
+
+          {route.page === "config-mcp" ? (
+            <ConfigMcpPage
+              activeSection={route.section}
+            />
+          ) : null}
+
+          {route.page === "config-memory" ? (
+            <ConfigMemoryPage
+              activeSection={route.section}
             />
           ) : null}
 
@@ -1036,6 +1252,9 @@ export function App() {
           ) : null}
         </main>
       </div>
+      {import.meta.env.DEV ? (
+        <Agentation endpoint={AGENTATION_ENDPOINT} />
+      ) : null}
     </div>
   );
 }

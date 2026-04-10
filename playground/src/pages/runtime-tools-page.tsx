@@ -11,6 +11,7 @@ import {
   SectionIntro,
   TableMetaBadges,
 } from "../components/playground-ui";
+import { ResourceMetadataWorkspace } from "../components/resource-metadata-workspace";
 
 export function RuntimeToolsPage(props: {
   activeSection?: string;
@@ -24,9 +25,22 @@ export function RuntimeToolsPage(props: {
       detail: "List and search runtime tools exactly as Claude reports them.",
       sectionId: "runtime-tools-table",
     },
+    {
+      method: "GET",
+      path: "/api/v1/metadata/definitions/runtime-tool",
+      detail: "Manage metadata fields for runtime tools.",
+      sectionId: "runtime-tools-metadata",
+    },
+    {
+      method: "PUT",
+      path: "/api/v1/metadata/values/runtime-tool/:resourceId",
+      detail: "Write metadata onto a specific runtime tool.",
+      sectionId: "runtime-tools-metadata",
+    },
   ];
   const sections = [
     { id: "runtime-tools-table", label: "Runtime tools" },
+    { id: "runtime-tools-metadata", label: "Metadata" },
     { id: "runtime-tools-payload", label: "Payload preview" },
   ];
   const exampleGroups = [
@@ -96,6 +110,23 @@ export function RuntimeToolsPage(props: {
             }))}
             emptyTitle="No tools matched"
             emptyDetail="The middleware runtime tool route did not return any tools for this query."
+          />
+        </div>
+
+        <div id="runtime-tools-metadata">
+          <ResourceMetadataWorkspace
+            title="Runtime tool metadata"
+            description="Attach internal tags or ownership metadata to tool names without changing Claude's runtime payload."
+            inventories={[
+              {
+                label: "Runtime tools",
+                resourceType: "runtime-tool",
+                items: (runtimeTools.data?.tools ?? []).map((tool) => ({
+                  id: tool,
+                  label: tool,
+                })),
+              },
+            ]}
           />
         </div>
 

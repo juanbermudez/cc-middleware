@@ -57,6 +57,36 @@ export interface IndexedSessionRelationship {
   lastModified: number;
 }
 
+export interface ResourceMetadataDefinition {
+  resourceType: string;
+  key: string;
+  label: string;
+  description?: string;
+  valueType: "string";
+  searchable: boolean;
+  filterable: boolean;
+  usageCount?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ResourceMetadataValue {
+  resourceType: string;
+  resourceId: string;
+  key: string;
+  value: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ResourceMetadataEntry extends ResourceMetadataValue {
+  label: string;
+  description?: string;
+  valueType: "string";
+  searchable: boolean;
+  filterable: boolean;
+}
+
 export interface SessionMetadataDefinition {
   key: string;
   label: string;
@@ -64,6 +94,7 @@ export interface SessionMetadataDefinition {
   valueType: "string";
   searchable: boolean;
   filterable: boolean;
+  usageCount?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -107,10 +138,26 @@ export interface SessionStore {
   replaceRelationships(sessionId: string, relationships: IndexedSessionRelationship[]): void;
   getRelationships(sessionId: string): IndexedSessionRelationship[];
 
+  // Resource metadata
+  listResourceMetadataDefinitions(resourceType: string): ResourceMetadataDefinition[];
+  getResourceMetadataDefinition(
+    resourceType: string,
+    key: string
+  ): ResourceMetadataDefinition | undefined;
+  upsertResourceMetadataDefinition(definition: ResourceMetadataDefinition): void;
+  deleteResourceMetadataDefinition(resourceType: string, key: string): void;
+  listResourceMetadataValues(
+    resourceType: string,
+    resourceId?: string
+  ): ResourceMetadataEntry[];
+  setResourceMetadataValue(value: ResourceMetadataValue): void;
+  deleteResourceMetadataValue(resourceType: string, resourceId: string, key: string): void;
+
   // Session metadata
   listSessionMetadataDefinitions(): SessionMetadataDefinition[];
   getSessionMetadataDefinition(key: string): SessionMetadataDefinition | undefined;
   upsertSessionMetadataDefinition(definition: SessionMetadataDefinition): void;
+  deleteSessionMetadataDefinition(key: string): void;
   listSessionMetadataValues(sessionId?: string): SessionMetadataEntry[];
   setSessionMetadataValue(value: SessionMetadataValue): void;
   deleteSessionMetadataValue(sessionId: string, key: string): void;
@@ -130,6 +177,8 @@ export interface SessionStore {
 function defaultDbPath(): string {
   return resolve(homedir(), ".cc-middleware", "sessions.db");
 }
+
+const SESSION_RESOURCE_TYPE = "session";
 
 /** SQL schema for the database */
 const SCHEMA_SQL = `
@@ -211,6 +260,37 @@ CREATE INDEX IF NOT EXISTS idx_session_metadata_values_session
 
 CREATE INDEX IF NOT EXISTS idx_session_metadata_values_key
   ON session_metadata_values(metadata_key);
+
+-- Generic resource metadata definitions
+CREATE TABLE IF NOT EXISTS resource_metadata_definitions (
+  resource_type TEXT NOT NULL,
+  key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  description TEXT,
+  value_type TEXT NOT NULL DEFAULT 'string',
+  searchable INTEGER NOT NULL DEFAULT 1,
+  filterable INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (resource_type, key)
+);
+
+-- Generic resource metadata values
+CREATE TABLE IF NOT EXISTS resource_metadata_values (
+  resource_type TEXT NOT NULL,
+  resource_id TEXT NOT NULL,
+  metadata_key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (resource_type, resource_id, metadata_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_resource_metadata_values_type_resource
+  ON resource_metadata_values(resource_type, resource_id);
+
+CREATE INDEX IF NOT EXISTS idx_resource_metadata_values_type_key
+  ON resource_metadata_values(resource_type, metadata_key);
 
 -- Full-text search for sessions
 CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
@@ -317,6 +397,7 @@ export async function createStore(options?: StoreOptions): Promise<SessionStore>
       ensureSessionColumns(db);
       ensureRelationshipColumns(db);
       ensureSessionsFtsSchema(db);
+      migrateLegacySessionMetadata(db);
       db.exec(TRIGGERS_SQL);
       // Re-prepare statements after migration
       stmts = prepareStatements(db);
@@ -349,7 +430,7 @@ export async function createStore(options?: StoreOptions): Promise<SessionStore>
       // Delete messages first (cascade doesn't work with FTS triggers)
       getStmts().deleteMessages.run(id);
       getStmts().deleteRelationships.run(id);
-      getStmts().deleteSessionMetadataValues.run(id);
+      getStmts().deleteResourceMetadataValuesByResource.run(SESSION_RESOURCE_TYPE, id);
       getStmts().deleteSession.run(id);
     },
 
@@ -422,18 +503,23 @@ export async function createStore(options?: StoreOptions): Promise<SessionStore>
       return rows.map(rowToRelationship);
     },
 
-    listSessionMetadataDefinitions() {
-      const rows = getStmts().listSessionMetadataDefinitions.all() as SessionMetadataDefinitionRow[];
-      return rows.map(rowToSessionMetadataDefinition);
+    listResourceMetadataDefinitions(resourceType: string) {
+      const rows = getStmts()
+        .listResourceMetadataDefinitions
+        .all(resourceType) as ResourceMetadataDefinitionRow[];
+      return rows.map(rowToResourceMetadataDefinition);
     },
 
-    getSessionMetadataDefinition(key: string) {
-      const row = getStmts().getSessionMetadataDefinition.get(key) as SessionMetadataDefinitionRow | undefined;
-      return row ? rowToSessionMetadataDefinition(row) : undefined;
+    getResourceMetadataDefinition(resourceType: string, key: string) {
+      const row = getStmts()
+        .getResourceMetadataDefinition
+        .get(resourceType, key) as ResourceMetadataDefinitionRow | undefined;
+      return row ? rowToResourceMetadataDefinition(row) : undefined;
     },
 
-    upsertSessionMetadataDefinition(definition: SessionMetadataDefinition) {
-      getStmts().upsertSessionMetadataDefinition.run({
+    upsertResourceMetadataDefinition(definition: ResourceMetadataDefinition) {
+      getStmts().upsertResourceMetadataDefinition.run({
+        resource_type: definition.resourceType,
         key: definition.key,
         label: definition.label,
         description: definition.description ?? null,
@@ -445,16 +531,32 @@ export async function createStore(options?: StoreOptions): Promise<SessionStore>
       });
     },
 
-    listSessionMetadataValues(sessionId?: string) {
-      const rows = sessionId
-        ? getStmts().listSessionMetadataValuesBySession.all(sessionId) as SessionMetadataValueRow[]
-        : getStmts().listSessionMetadataValues.all() as SessionMetadataValueRow[];
-      return rows.map(rowToSessionMetadataEntry);
+    deleteResourceMetadataDefinition(resourceType: string, key: string) {
+      const deleteMetadataDefinition = db.transaction(
+        (currentResourceType: string, metadataKey: string) => {
+          getStmts().deleteResourceMetadataValuesByKey.run(currentResourceType, metadataKey);
+          getStmts().deleteResourceMetadataDefinition.run(currentResourceType, metadataKey);
+        }
+      );
+
+      deleteMetadataDefinition(resourceType, key);
     },
 
-    setSessionMetadataValue(value: SessionMetadataValue) {
-      getStmts().upsertSessionMetadataValue.run({
-        session_id: value.sessionId,
+    listResourceMetadataValues(resourceType: string, resourceId?: string) {
+      const rows = resourceId
+        ? getStmts()
+          .listResourceMetadataValuesByResource
+          .all(resourceType, resourceId) as ResourceMetadataValueRow[]
+        : getStmts()
+          .listResourceMetadataValues
+          .all(resourceType) as ResourceMetadataValueRow[];
+      return rows.map(rowToResourceMetadataEntry);
+    },
+
+    setResourceMetadataValue(value: ResourceMetadataValue) {
+      getStmts().upsertResourceMetadataValue.run({
+        resource_type: value.resourceType,
+        resource_id: value.resourceId,
         metadata_key: value.key,
         value: value.value,
         created_at: value.createdAt,
@@ -462,8 +564,60 @@ export async function createStore(options?: StoreOptions): Promise<SessionStore>
       });
     },
 
+    deleteResourceMetadataValue(resourceType: string, resourceId: string, key: string) {
+      getStmts().deleteResourceMetadataValue.run(resourceType, resourceId, key);
+    },
+
+    listSessionMetadataDefinitions() {
+      return store
+        .listResourceMetadataDefinitions(SESSION_RESOURCE_TYPE)
+        .map(resourceMetadataDefinitionToSessionMetadataDefinition);
+    },
+
+    getSessionMetadataDefinition(key: string) {
+      const definition = store.getResourceMetadataDefinition(SESSION_RESOURCE_TYPE, key);
+      return definition
+        ? resourceMetadataDefinitionToSessionMetadataDefinition(definition)
+        : undefined;
+    },
+
+    upsertSessionMetadataDefinition(definition: SessionMetadataDefinition) {
+      store.upsertResourceMetadataDefinition({
+        resourceType: SESSION_RESOURCE_TYPE,
+        key: definition.key,
+        label: definition.label,
+        description: definition.description,
+        valueType: definition.valueType,
+        searchable: definition.searchable,
+        filterable: definition.filterable,
+        createdAt: definition.createdAt,
+        updatedAt: definition.updatedAt,
+      });
+    },
+
+    deleteSessionMetadataDefinition(key: string) {
+      store.deleteResourceMetadataDefinition(SESSION_RESOURCE_TYPE, key);
+    },
+
+    listSessionMetadataValues(sessionId?: string) {
+      return store
+        .listResourceMetadataValues(SESSION_RESOURCE_TYPE, sessionId)
+        .map(resourceMetadataEntryToSessionMetadataEntry);
+    },
+
+    setSessionMetadataValue(value: SessionMetadataValue) {
+      store.setResourceMetadataValue({
+        resourceType: SESSION_RESOURCE_TYPE,
+        resourceId: value.sessionId,
+        key: value.key,
+        value: value.value,
+        createdAt: value.createdAt,
+        updatedAt: value.updatedAt,
+      });
+    },
+
     deleteSessionMetadataValue(sessionId: string, key: string) {
-      getStmts().deleteSessionMetadataValue.run(sessionId, key);
+      store.deleteResourceMetadataValue(SESSION_RESOURCE_TYPE, sessionId, key);
     },
 
     getSessionCount(): number {
@@ -538,19 +692,22 @@ interface SessionRelationshipRow {
   last_modified: number;
 }
 
-interface SessionMetadataDefinitionRow {
+interface ResourceMetadataDefinitionRow {
+  resource_type: string;
   key: string;
   label: string;
   description: string | null;
   value_type: string;
   searchable: number;
   filterable: number;
+  usage_count?: number;
   created_at: number;
   updated_at: number;
 }
 
-interface SessionMetadataValueRow {
-  session_id: string;
+interface ResourceMetadataValueRow {
+  resource_type: string;
+  resource_id: string;
   metadata_key: string;
   value: string;
   created_at: number;
@@ -614,33 +771,69 @@ function rowToRelationship(row: SessionRelationshipRow): IndexedSessionRelations
   };
 }
 
-function rowToSessionMetadataDefinition(
-  row: SessionMetadataDefinitionRow
-): SessionMetadataDefinition {
+function rowToResourceMetadataDefinition(
+  row: ResourceMetadataDefinitionRow
+): ResourceMetadataDefinition {
   return {
+    resourceType: row.resource_type,
     key: row.key,
     label: row.label,
     description: row.description ?? undefined,
-    valueType: row.value_type as SessionMetadataDefinition["valueType"],
+    valueType: row.value_type as ResourceMetadataDefinition["valueType"],
     searchable: Boolean(row.searchable),
     filterable: Boolean(row.filterable),
+    usageCount: row.usage_count ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-function rowToSessionMetadataEntry(row: SessionMetadataValueRow): SessionMetadataEntry {
+function rowToResourceMetadataEntry(row: ResourceMetadataValueRow): ResourceMetadataEntry {
   return {
-    sessionId: row.session_id,
+    resourceType: row.resource_type,
+    resourceId: row.resource_id,
     key: row.metadata_key,
     value: row.value,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     label: row.label,
     description: row.description ?? undefined,
-    valueType: row.value_type as SessionMetadataEntry["valueType"],
+    valueType: row.value_type as ResourceMetadataEntry["valueType"],
     searchable: Boolean(row.searchable),
     filterable: Boolean(row.filterable),
+  };
+}
+
+function resourceMetadataDefinitionToSessionMetadataDefinition(
+  definition: ResourceMetadataDefinition
+): SessionMetadataDefinition {
+  return {
+    key: definition.key,
+    label: definition.label,
+    description: definition.description,
+    valueType: definition.valueType,
+    searchable: definition.searchable,
+    filterable: definition.filterable,
+    usageCount: definition.usageCount,
+    createdAt: definition.createdAt,
+    updatedAt: definition.updatedAt,
+  };
+}
+
+function resourceMetadataEntryToSessionMetadataEntry(
+  entry: ResourceMetadataEntry
+): SessionMetadataEntry {
+  return {
+    sessionId: entry.resourceId,
+    key: entry.key,
+    value: entry.value,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+    label: entry.label,
+    description: entry.description,
+    valueType: entry.valueType,
+    searchable: entry.searchable,
+    filterable: entry.filterable,
   };
 }
 
@@ -724,17 +917,35 @@ function prepareStatements(db: Database.Database) {
       "DELETE FROM session_relationships WHERE session_id = ?"
     ),
 
-    listSessionMetadataDefinitions: db.prepare(`
-      SELECT * FROM session_metadata_definitions
-      ORDER BY label COLLATE NOCASE ASC, key COLLATE NOCASE ASC
+    listResourceMetadataDefinitions: db.prepare(`
+      SELECT
+        d.*,
+        COUNT(v.resource_id) AS usage_count
+      FROM resource_metadata_definitions d
+      LEFT JOIN resource_metadata_values v
+        ON v.resource_type = d.resource_type
+       AND v.metadata_key = d.key
+      WHERE d.resource_type = ?
+      GROUP BY d.resource_type, d.key
+      ORDER BY d.label COLLATE NOCASE ASC, d.key COLLATE NOCASE ASC
     `),
 
-    getSessionMetadataDefinition: db.prepare(
-      "SELECT * FROM session_metadata_definitions WHERE key = ?"
-    ),
+    getResourceMetadataDefinition: db.prepare(`
+      SELECT
+        d.*,
+        COUNT(v.resource_id) AS usage_count
+      FROM resource_metadata_definitions d
+      LEFT JOIN resource_metadata_values v
+        ON v.resource_type = d.resource_type
+       AND v.metadata_key = d.key
+      WHERE d.resource_type = ?
+        AND d.key = ?
+      GROUP BY d.resource_type, d.key
+    `),
 
-    upsertSessionMetadataDefinition: db.prepare(`
-      INSERT INTO session_metadata_definitions (
+    upsertResourceMetadataDefinition: db.prepare(`
+      INSERT INTO resource_metadata_definitions (
+        resource_type,
         key,
         label,
         description,
@@ -745,6 +956,7 @@ function prepareStatements(db: Database.Database) {
         updated_at
       )
       VALUES (
+        @resource_type,
         @key,
         @label,
         @description,
@@ -754,7 +966,7 @@ function prepareStatements(db: Database.Database) {
         @created_at,
         @updated_at
       )
-      ON CONFLICT(key) DO UPDATE SET
+      ON CONFLICT(resource_type, key) DO UPDATE SET
         label = excluded.label,
         description = excluded.description,
         value_type = excluded.value_type,
@@ -763,9 +975,10 @@ function prepareStatements(db: Database.Database) {
         updated_at = excluded.updated_at
     `),
 
-    listSessionMetadataValues: db.prepare(`
+    listResourceMetadataValues: db.prepare(`
       SELECT
-        v.session_id,
+        v.resource_type,
+        v.resource_id,
         v.metadata_key,
         v.value,
         v.created_at,
@@ -775,14 +988,18 @@ function prepareStatements(db: Database.Database) {
         d.value_type,
         d.searchable,
         d.filterable
-      FROM session_metadata_values v
-      JOIN session_metadata_definitions d ON d.key = v.metadata_key
+      FROM resource_metadata_values v
+      JOIN resource_metadata_definitions d
+        ON d.resource_type = v.resource_type
+       AND d.key = v.metadata_key
+      WHERE v.resource_type = ?
       ORDER BY d.label COLLATE NOCASE ASC, v.metadata_key COLLATE NOCASE ASC
     `),
 
-    listSessionMetadataValuesBySession: db.prepare(`
+    listResourceMetadataValuesByResource: db.prepare(`
       SELECT
-        v.session_id,
+        v.resource_type,
+        v.resource_id,
         v.metadata_key,
         v.value,
         v.created_at,
@@ -792,38 +1009,51 @@ function prepareStatements(db: Database.Database) {
         d.value_type,
         d.searchable,
         d.filterable
-      FROM session_metadata_values v
-      JOIN session_metadata_definitions d ON d.key = v.metadata_key
-      WHERE v.session_id = ?
+      FROM resource_metadata_values v
+      JOIN resource_metadata_definitions d
+        ON d.resource_type = v.resource_type
+       AND d.key = v.metadata_key
+      WHERE v.resource_type = ?
+        AND v.resource_id = ?
       ORDER BY d.label COLLATE NOCASE ASC, v.metadata_key COLLATE NOCASE ASC
     `),
 
-    upsertSessionMetadataValue: db.prepare(`
-      INSERT INTO session_metadata_values (
-        session_id,
+    upsertResourceMetadataValue: db.prepare(`
+      INSERT INTO resource_metadata_values (
+        resource_type,
+        resource_id,
         metadata_key,
         value,
         created_at,
         updated_at
       )
       VALUES (
-        @session_id,
+        @resource_type,
+        @resource_id,
         @metadata_key,
         @value,
         @created_at,
         @updated_at
       )
-      ON CONFLICT(session_id, metadata_key) DO UPDATE SET
+      ON CONFLICT(resource_type, resource_id, metadata_key) DO UPDATE SET
         value = excluded.value,
         updated_at = excluded.updated_at
     `),
 
-    deleteSessionMetadataValue: db.prepare(
-      "DELETE FROM session_metadata_values WHERE session_id = ? AND metadata_key = ?"
+    deleteResourceMetadataValue: db.prepare(
+      "DELETE FROM resource_metadata_values WHERE resource_type = ? AND resource_id = ? AND metadata_key = ?"
     ),
 
-    deleteSessionMetadataValues: db.prepare(
-      "DELETE FROM session_metadata_values WHERE session_id = ?"
+    deleteResourceMetadataValuesByResource: db.prepare(
+      "DELETE FROM resource_metadata_values WHERE resource_type = ? AND resource_id = ?"
+    ),
+
+    deleteResourceMetadataValuesByKey: db.prepare(
+      "DELETE FROM resource_metadata_values WHERE resource_type = ? AND metadata_key = ?"
+    ),
+
+    deleteResourceMetadataDefinition: db.prepare(
+      "DELETE FROM resource_metadata_definitions WHERE resource_type = ? AND key = ?"
     ),
 
     sessionCount: db.prepare("SELECT COUNT(*) as count FROM sessions"),
@@ -864,6 +1094,65 @@ function ensureRelationshipColumns(db: Database.Database): void {
   if (!relationshipColumnNames.has("teammate_name")) {
     db.exec("ALTER TABLE session_relationships ADD COLUMN teammate_name TEXT");
   }
+}
+
+function migrateLegacySessionMetadata(db: Database.Database): void {
+  const legacyDefinitionsExist = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='session_metadata_definitions'"
+    )
+    .get() as { name: string } | undefined;
+  const legacyValuesExist = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='session_metadata_values'"
+    )
+    .get() as { name: string } | undefined;
+
+  if (!legacyDefinitionsExist || !legacyValuesExist) {
+    return;
+  }
+
+  db.exec(`
+    INSERT OR IGNORE INTO resource_metadata_definitions (
+      resource_type,
+      key,
+      label,
+      description,
+      value_type,
+      searchable,
+      filterable,
+      created_at,
+      updated_at
+    )
+    SELECT
+      '${SESSION_RESOURCE_TYPE}',
+      key,
+      label,
+      description,
+      value_type,
+      searchable,
+      filterable,
+      created_at,
+      updated_at
+    FROM session_metadata_definitions;
+
+    INSERT OR IGNORE INTO resource_metadata_values (
+      resource_type,
+      resource_id,
+      metadata_key,
+      value,
+      created_at,
+      updated_at
+    )
+    SELECT
+      '${SESSION_RESOURCE_TYPE}',
+      session_id,
+      metadata_key,
+      value,
+      created_at,
+      updated_at
+    FROM session_metadata_values;
+  `);
 }
 
 function ensureSessionsFtsSchema(db: Database.Database): void {

@@ -160,6 +160,39 @@ describe("HTTP Hook Server (E2E)", () => {
     eventBus.off("SessionStart", handler);
   });
 
+  it("should accept InstructionsLoaded and dispatch it to listeners", async () => {
+    const handler = vi.fn();
+    eventBus.on("InstructionsLoaded", handler);
+
+    const payload = {
+      session_id: "test-session",
+      cwd: "/tmp/test",
+      hook_event_name: "InstructionsLoaded",
+      transcript_path: "/tmp/test-transcript.jsonl",
+      permission_mode: "default",
+    };
+
+    const resp = await fetch(`${baseUrl}/hooks/InstructionsLoaded`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body).toEqual({});
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hook_event_name: "InstructionsLoaded",
+        transcript_path: "/tmp/test-transcript.jsonl",
+        permission_mode: "default",
+      })
+    );
+
+    eventBus.off("InstructionsLoaded", handler);
+  });
+
   it("should handle unknown event type gracefully", async () => {
     const resp = await fetch(`${baseUrl}/hooks/UnknownEvent`, {
       method: "POST",

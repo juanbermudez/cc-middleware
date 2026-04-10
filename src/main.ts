@@ -29,11 +29,21 @@ import { createAskUserQuestionManager } from "./permissions/ask-user.js";
 import { createAgentRegistry } from "./agents/registry.js";
 import { createTeamManager } from "./agents/teams.js";
 import { createMiddlewareServer } from "./api/server.js";
+import {
+  createAnalyticsDatabase,
+  createDuckDbLiveAnalyticsSink,
+  type LiveAnalyticsSink,
+  setLiveAnalyticsSink,
+} from "./analytics/index.js";
 import { createStore } from "./store/db.js";
 import { SessionIndexer } from "./store/indexer.js";
 import { SessionWatcher } from "./sync/session-watcher.js";
 import { ConfigWatcher } from "./sync/config-watcher.js";
 import { AutoIndexer } from "./sync/auto-indexer.js";
+import { createDispatchStore } from "./dispatch/store.js";
+import { createDispatchExecutor } from "./dispatch/executor.js";
+import { attachDispatchCueBridge } from "./dispatch/cues.js";
+import { createDispatchWorker } from "./dispatch/worker.js";
 
 /** Parse a boolean env var (default: true) */
 function envBool(name: string, defaultValue = true): boolean {
@@ -80,6 +90,38 @@ async function main() {
   const sessionStore = await createStore();
   sessionStore.migrate();
   const sessionIndexer = new SessionIndexer({ store: sessionStore });
+  const dispatchStore = createDispatchStore(sessionStore.db);
+  dispatchStore.migrate();
+  const dispatchExecutor = createDispatchExecutor({
+    sessionManager,
+    eventBus,
+    blockingRegistry,
+    policyEngine,
+    permissionManager,
+  });
+  const dispatchWorker = createDispatchWorker({
+    store: dispatchStore,
+    executor: dispatchExecutor,
+    sessionManager,
+    permissionManager,
+    askUserManager,
+  });
+
+  // --- Analytics warehouse (best-effort) ---
+  let analyticsDatabase: Awaited<ReturnType<typeof createAnalyticsDatabase>> | undefined;
+  let analyticsSink: LiveAnalyticsSink | undefined;
+  try {
+    analyticsDatabase = await createAnalyticsDatabase({
+      dbPath: process.env.CC_MIDDLEWARE_ANALYTICS_DB_PATH,
+    });
+    analyticsSink = createDuckDbLiveAnalyticsSink(analyticsDatabase);
+    setLiveAnalyticsSink(analyticsSink);
+    console.log(`Analytics warehouse: ready at ${analyticsDatabase.dbPath}`);
+  } catch (error) {
+    setLiveAnalyticsSink();
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Analytics warehouse unavailable, continuing without live capture: ${message}`);
+  }
 
   // --- API server ---
   const server = await createMiddlewareServer({
@@ -95,7 +137,84 @@ async function main() {
     askUserManager,
     sessionStore,
     sessionIndexer,
+    analytics: analyticsDatabase
+      ? {
+          database: analyticsDatabase,
+        }
+      : undefined,
+    dispatchStore,
     projectDir,
+  });
+
+  const detachCueBridge = attachDispatchCueBridge({
+    eventBus,
+    store: dispatchStore,
+    onCueTriggered: (cue, jobId, eventType) => {
+      const job = dispatchStore.getJob(jobId);
+      if (job) {
+        server.wsBroadcaster.broadcast("dispatch:*", {
+          type: "dispatch:job-created",
+          job,
+        });
+      }
+
+      server.wsBroadcaster.broadcast("dispatch:*", {
+        type: "dispatch:cue-triggered",
+        cueId: cue.id,
+        jobId,
+        eventType,
+      });
+    },
+  });
+
+  dispatchWorker.on("job:started", (job) => {
+    server.wsBroadcaster.broadcast("dispatch:*", {
+      type: "dispatch:job-started",
+      job,
+    });
+  });
+
+  dispatchWorker.on("job:completed", (job) => {
+    server.wsBroadcaster.broadcast("dispatch:*", {
+      type: "dispatch:job-completed",
+      job,
+    });
+  });
+
+  dispatchWorker.on("job:failed", (job, error) => {
+    server.wsBroadcaster.broadcast("dispatch:*", {
+      type: "dispatch:job-failed",
+      job,
+      error,
+    });
+  });
+
+  dispatchWorker.on("schedule:triggered", (_schedule, jobId) => {
+    const job = dispatchStore.getJob(jobId);
+    if (!job) {
+      return;
+    }
+
+    server.wsBroadcaster.broadcast("dispatch:*", {
+      type: "dispatch:job-created",
+      job,
+    });
+  });
+
+  dispatchWorker.on("heartbeat:triggered", (rule, jobId) => {
+    const job = dispatchStore.getJob(jobId);
+    if (job) {
+      server.wsBroadcaster.broadcast("dispatch:*", {
+        type: "dispatch:job-created",
+        job,
+      });
+    }
+
+    server.wsBroadcaster.broadcast("dispatch:*", {
+      type: "dispatch:heartbeat",
+      ruleId: rule.id,
+      jobId,
+    });
   });
 
   // --- Hook server ---
@@ -288,6 +407,8 @@ async function main() {
   //  so we add a supplementary sync status via /api/v1/sync/status above)
 
   // --- Start both servers ---
+  dispatchWorker.start();
+  await dispatchWorker.drainOnce();
   const apiAddr = await server.start();
   const hookAddr = await hookServer.start();
 
@@ -312,11 +433,25 @@ async function main() {
       await sessionWatcher.stop();
       console.log("Session watcher stopped.");
     }
+    detachCueBridge();
+    await dispatchWorker.stop();
 
     await server.stop();
     await hookServer.stop();
-    sessionStore.close();
     await sessionManager.destroy();
+    if (analyticsSink?.flush) {
+      try {
+        await analyticsSink.flush();
+      } catch {
+        // Best-effort flush before shutdown.
+      }
+    }
+    setLiveAnalyticsSink();
+    if (analyticsDatabase) {
+      analyticsDatabase.close();
+      console.log("Analytics warehouse closed.");
+    }
+    sessionStore.close();
     console.log("Shutdown complete.");
     process.exit(0);
   }

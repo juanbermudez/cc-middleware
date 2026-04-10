@@ -6,6 +6,31 @@
 import type { LaunchOptions, LaunchResult } from "./launcher.js";
 import type { SessionInfo } from "../types/sessions.js";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeLaunchModel(model: string | undefined): string | undefined {
+  if (!model) {
+    return undefined;
+  }
+
+  const trimmed = model.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.toLowerCase() === "synthetic") {
+    return undefined;
+  }
+
+  if (/^<[^>]+>$/.test(trimmed)) {
+    return undefined;
+  }
+
+  return trimmed;
+}
+
 /**
  * Build a LaunchResult from a raw SDK result message.
  */
@@ -42,6 +67,7 @@ export function buildLaunchResult(
  */
 export function buildSDKOptions(options: LaunchOptions): Record<string, unknown> {
   const sdkOptions: Record<string, unknown> = {};
+  const normalizedModel = normalizeLaunchModel(options.model);
 
   if (options.allowedTools) sdkOptions.allowedTools = options.allowedTools;
   if (options.disallowedTools) sdkOptions.disallowedTools = options.disallowedTools;
@@ -62,7 +88,8 @@ export function buildSDKOptions(options: LaunchOptions): Record<string, unknown>
   if (options.env) sdkOptions.env = options.env;
   if (options.cwd) sdkOptions.cwd = options.cwd;
   if (options.agents) sdkOptions.agents = options.agents;
-  if (options.model) sdkOptions.model = options.model;
+  if (options.agent) sdkOptions.agent = options.agent;
+  if (normalizedModel) sdkOptions.model = normalizedModel;
   if (options.canUseTool) sdkOptions.canUseTool = options.canUseTool;
   if (options.mcpServers) sdkOptions.mcpServers = options.mcpServers;
   if (options.plugins) sdkOptions.plugins = options.plugins;
@@ -79,6 +106,49 @@ export function buildSDKOptions(options: LaunchOptions): Record<string, unknown>
   if (options.debugFile) sdkOptions.debugFile = options.debugFile;
   if (options.promptSuggestions) sdkOptions.promptSuggestions = options.promptSuggestions;
   return sdkOptions;
+}
+
+/**
+ * Merge multiple SDK hook maps together.
+ *
+ * When the same hook event exists in multiple maps, array entries are
+ * concatenated so middleware-installed hooks can coexist with caller-supplied
+ * hooks.
+ */
+export function mergeSDKHooks(
+  ...hookMaps: Array<Partial<Record<string, unknown>> | undefined>
+): Record<string, unknown> | undefined {
+  const merged: Record<string, unknown> = {};
+  let hasEntries = false;
+
+  for (const hookMap of hookMaps) {
+    if (!isRecord(hookMap)) {
+      continue;
+    }
+
+    for (const [eventType, value] of Object.entries(hookMap)) {
+      if (value === undefined) {
+        continue;
+      }
+
+      hasEntries = true;
+      const existing = merged[eventType];
+
+      if (Array.isArray(existing) && Array.isArray(value)) {
+        merged[eventType] = [...existing, ...value];
+        continue;
+      }
+
+      if (Array.isArray(value)) {
+        merged[eventType] = [...value];
+        continue;
+      }
+
+      merged[eventType] = value;
+    }
+  }
+
+  return hasEntries ? merged : undefined;
 }
 
 /**

@@ -17,6 +17,7 @@ export interface EventBusEvents {
   PostToolUseFailure: [input: HookInput];
   SessionStart: [input: HookInput];
   SessionEnd: [input: HookInput];
+  InstructionsLoaded: [input: HookInput];
   UserPromptSubmit: [input: HookInput];
   Stop: [input: HookInput];
   StopFailure: [input: HookInput];
@@ -48,6 +49,7 @@ export const ALL_HOOK_EVENT_TYPES: readonly HookEventType[] = [
   "PostToolUseFailure",
   "SessionStart",
   "SessionEnd",
+  "InstructionsLoaded",
   "UserPromptSubmit",
   "Stop",
   "StopFailure",

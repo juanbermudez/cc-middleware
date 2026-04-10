@@ -73,6 +73,43 @@ Base URL: `http://127.0.0.1:3000`
 |--------|------|-------------|
 | GET | `/api/v1/sync/status` | Get real-time sync watcher status (session watcher, config watcher, auto-indexer) |
 
+## Analytics
+
+These routes are backed by the DuckDB analytics system documented in [../architecture/analytics-system.md](../architecture/analytics-system.md) and [../plan/phases/13-analytics-observability.md](../plan/phases/13-analytics-observability.md).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/analytics/status` | Get analytics warehouse and backfill status |
+| GET | `/api/v1/analytics/overview` | High-level totals and summary metrics |
+| GET | `/api/v1/analytics/timeseries` | Time-series metrics for tokens, cost, errors, and keywords |
+| GET | `/api/v1/analytics/traces` | Search and filter synthetic interaction traces |
+| GET | `/api/v1/analytics/traces/:id` | Get one trace / interaction with drilldown data |
+| GET | `/api/v1/analytics/sessions/:id` | Get analytics detail for one session |
+| GET | `/api/v1/analytics/facets` | Get available models, tools, categories, and other facet values |
+| POST | `/api/v1/analytics/backfill` | Trigger transcript backfill and optional telemetry enrichment |
+
+### Analytics Backfill Notes
+
+`POST /api/v1/analytics/backfill` accepts a transcript-first request body:
+
+```json
+{
+  "projectsRoot": "/custom/projects/root",
+  "projectKey": "optional-project-key",
+  "rootSessionId": "optional-session-id",
+  "includeOtel": true,
+  "otelRoot": "/custom/telemetry/root",
+  "includeSensitiveOtelPayload": false
+}
+```
+
+Semantics:
+
+- Transcript import is the primary backfill path.
+- `includeOtel` is optional and defaults to `false`.
+- `otelRoot` defaults to `~/.claude/telemetry` when OTel enrichment is enabled.
+- `includeSensitiveOtelPayload` defaults to `false`, so nested prompt/tool fields are redacted before telemetry payloads are stored.
+
 ## Configuration
 
 ### Settings

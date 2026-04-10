@@ -24,6 +24,43 @@ import type { BlockingHookRegistry } from "./blocking.js";
 import { extractToolName as extractToolNameFromRecord } from "./utils.js";
 
 /**
+ * SDK-supported hook events.
+ *
+ * Keep this list separate from the broader Claude Code hook surface so the
+ * middleware can represent full HTTP hook coverage without assuming every
+ * event should be bridged into the Agent SDK callback layer.
+ */
+export const SDK_HOOK_EVENT_TYPES: readonly HookEventType[] = [
+  "PreToolUse",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "SessionStart",
+  "SessionEnd",
+  "InstructionsLoaded",
+  "UserPromptSubmit",
+  "Stop",
+  "StopFailure",
+  "SubagentStart",
+  "SubagentStop",
+  "TaskCreated",
+  "TaskCompleted",
+  "TeammateIdle",
+  "PermissionRequest",
+  "PermissionDenied",
+  "Notification",
+  "ConfigChange",
+  "CwdChanged",
+  "FileChanged",
+  "WorktreeCreate",
+  "WorktreeRemove",
+  "PreCompact",
+  "PostCompact",
+  "Elicitation",
+  "ElicitationResult",
+  "Setup",
+] as const;
+
+/**
  * Extract tool name from SDK hook input (for PreToolUse, PostToolUse, etc.)
  */
 function extractToolName(input: SDKHookInput): string | undefined {
@@ -96,7 +133,8 @@ export function createSDKHooks(
   const hooks: Partial<Record<HookEvent, HookCallbackMatcher[]>> = {};
 
   // Determine which events to bridge
-  const eventsToRegister = eventTypes ?? getActiveEvents(eventBus, blockingRegistry);
+  const eventsToRegister = (eventTypes ?? getActiveEvents(eventBus, blockingRegistry))
+    .filter((event): event is HookEventType => SDK_HOOK_EVENT_TYPES.includes(event));
 
   for (const eventType of eventsToRegister) {
     const callback = createBridgeCallback(eventType, eventBus, blockingRegistry);
@@ -152,5 +190,5 @@ export function createFullSDKHooks(
   eventBus: HookEventBus,
   blockingRegistry: BlockingHookRegistry
 ): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
-  return createSDKHooks(eventBus, blockingRegistry, [...ALL_HOOK_EVENT_TYPES]);
+  return createSDKHooks(eventBus, blockingRegistry, [...SDK_HOOK_EVENT_TYPES]);
 }

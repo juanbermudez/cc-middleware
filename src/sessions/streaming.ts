@@ -8,6 +8,10 @@ import type { LaunchOptions, LaunchResult } from "./launcher.js";
 import { buildSDKOptions, buildLaunchResult } from "./utils.js";
 import { extractTextContent } from "./messages.js";
 import { toError } from "../utils/errors.js";
+import {
+  normalizeLiveAnalyticsContext,
+  recordLiveSdkMessage,
+} from "../analytics/live/index.js";
 
 /** Normalized stream events from the SDK's SDKMessage types */
 export type SessionStreamEvent =
@@ -37,6 +41,12 @@ export async function launchStreamingSession(
   options: LaunchOptions
 ): Promise<StreamingSession> {
   const abortController = options.abortController ?? new AbortController();
+  const analyticsContext = normalizeLiveAnalyticsContext({
+    ...options.analytics,
+    source: options.analytics?.source ?? "internal",
+    sessionId: options.sessionId ?? options.resume,
+    cwd: options.cwd,
+  });
 
   const sdkOptions = buildSDKOptions({
     ...options,
@@ -62,10 +72,23 @@ export async function launchStreamingSession(
     try {
       for await (const message of q) {
         const msg = message as Record<string, unknown>;
+        const rawSessionId = typeof msg.session_id === "string" ? msg.session_id : undefined;
+        const messageType = typeof msg.type === "string" ? msg.type : "unknown";
+
+        void recordLiveSdkMessage({
+          kind: "sdk_message",
+          ...analyticsContext,
+          sessionId: rawSessionId ?? sessionId ?? analyticsContext.sessionId,
+          phase: "streaming",
+          messageType,
+          message: msg,
+          prompt: options.prompt,
+        });
 
         // Capture session ID
-        if (msg.session_id && typeof msg.session_id === "string") {
-          sessionId = msg.session_id;
+        if (rawSessionId) {
+          sessionId = rawSessionId;
+          options.onSessionId?.(sessionId);
         }
 
         // Handle different message types
@@ -111,6 +134,9 @@ export async function launchStreamingSession(
           };
         } else if (msg.type === "result") {
           const launchResult = buildLaunchResult(msg, sessionId);
+          if (launchResult.sessionId) {
+            options.onSessionId?.(launchResult.sessionId);
+          }
           resolveResult!(launchResult);
           yield { type: "result", data: launchResult };
         } else if (msg.type === "system") {
@@ -167,4 +193,3 @@ export async function launchStreamingSession(
     result: resultPromise,
   };
 }
-

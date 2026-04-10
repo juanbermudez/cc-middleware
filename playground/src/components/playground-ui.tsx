@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Copy,
+  Eye,
   LoaderCircle,
   Search,
   X,
@@ -48,6 +49,7 @@ export function PageBodyWithRail(props: {
   page: PlaygroundPageId;
   activeSection?: string;
   items: Array<{ method: string; path: string; detail: string; sectionId?: string }>;
+  railPanels?: ReactNode;
   exampleGroups?: Array<{
     title: string;
     buttonLabel?: string;
@@ -117,6 +119,8 @@ export function PageBodyWithRail(props: {
             </div>
           ) : null}
 
+          {props.railPanels ? props.railPanels : null}
+
           {sections.length > 0 ? (
             <div className="space-y-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
@@ -167,6 +171,84 @@ export function ToolbarPane(props: {
   );
 }
 
+export function ModalSurface(props: {
+  open: boolean;
+  title: string;
+  description?: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!props.open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        props.onClose();
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [props.open, props.onClose]);
+
+  if (!props.open) {
+    return null;
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        className="analytics-modal-backdrop absolute inset-0 backdrop-blur-[1px]"
+        aria-label="Close modal"
+        onClick={props.onClose}
+      />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="analytics-modal-panel runtime-modal w-full max-w-[560px] rounded-2xl border">
+          <div className="analytics-modal-divider flex items-start justify-between gap-4 border-b px-5 py-4">
+            <div className="space-y-1.5">
+              <div className="text-base font-semibold tracking-tight text-slate-950">
+                {props.title}
+              </div>
+              {props.description ? (
+                <div className="text-sm leading-6 text-slate-500">{props.description}</div>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={props.onClose}
+              className="analytics-modal-close h-8 w-8 shrink-0 rounded-md p-0"
+              aria-label="Close modal"
+            >
+              <X className="h-4 w-4" />
+              </Button>
+          </div>
+
+          <div className="space-y-4 px-5 py-5">{props.children}</div>
+
+          {props.footer ? (
+            <div className="analytics-modal-divider flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
+              {props.footer}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function MethodBadge(props: { method: string }) {
   const tone = props.method === "GET"
     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -213,44 +295,44 @@ export function SidebarSection(props: {
   onToggle: () => void;
   onNavigate: (page: PlaygroundPageId, section?: string) => void;
 }) {
-  const sectionActive = props.currentRoute.page === props.section.id
-    || props.section.children.some((child) => (child.page ?? props.section.id) === props.currentRoute.page);
+  const isSessionDetailRoute = props.currentRoute.page === "session-detail";
 
   return (
     <div className="sidebar-section">
       <div className="flex items-center gap-1.5">
         <button
           type="button"
-          onClick={() => props.onNavigate(props.section.id)}
-          className={`nav-link flex min-w-0 flex-1 items-center rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium ${
-            sectionActive ? "nav-link-active text-slate-950" : "text-slate-700"
-          }`}
+          onClick={props.onToggle}
+          className="nav-link flex min-w-0 flex-1 items-center rounded-md px-2 py-1 text-left text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400"
+          aria-expanded={props.expanded}
+          aria-controls={`sidebar-section-${props.section.id}`}
         >
           <span className="truncate">{props.section.label}</span>
         </button>
         <button
           type="button"
           onClick={props.onToggle}
-          className="sidebar-toggle inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400"
+          className="sidebar-toggle inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400"
           aria-label={`${props.expanded ? "Collapse" : "Expand"} ${props.section.label}`}
         >
           <ChevronRight className={`h-4 w-4 transition-transform ${props.expanded ? "rotate-90" : ""}`} />
         </button>
       </div>
       {props.expanded ? (
-        <div className="mt-0.5 space-y-0.5 pl-3">
+        <div id={`sidebar-section-${props.section.id}`} className="mt-0.5 space-y-0.5 pl-2">
           {props.section.children.map((child) => {
             const childPage = child.page ?? props.section.id;
             const active = props.currentRoute.page === childPage
               && (child.sectionId ? props.currentRoute.section === child.sectionId : true);
+            const sessionSectionActive = childPage === "sessions" && isSessionDetailRoute;
 
             return (
               <button
                 key={child.id}
                 type="button"
                 onClick={() => props.onNavigate(childPage, child.sectionId)}
-                className={`sidebar-child-link block w-full rounded-md px-2.5 py-1 text-left text-[11px] ${
-                  active ? "sidebar-child-link-active text-slate-900" : "text-slate-500"
+                className={`sidebar-child-link block w-full rounded-md px-2 py-1 text-left text-[12px] font-normal ${
+                  active || sessionSectionActive ? "sidebar-child-link-active text-slate-950" : "text-slate-700"
                 }`}
               >
                 {child.label}
@@ -520,15 +602,86 @@ function CompactDataTableMetaList(props: {
 }) {
   return (
     <div className={cn("space-y-3", props.className)}>
-      {props.items.map((item) => (
-        <div key={item.label} className="space-y-1">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-            {item.label}
+      {props.items.map((item) => {
+        const copyable = isCopyableMetaItem(item);
+
+        if (copyable && typeof item.value === "string") {
+          return (
+            <CopyableMetaRow
+              key={item.label}
+              label={item.label}
+              value={item.value}
+            />
+          );
+        }
+
+        return (
+          <div key={item.label} className="space-y-1">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              {item.label}
+            </div>
+            <div className="min-w-0 text-sm leading-6 text-slate-600">
+              {item.value}
+            </div>
           </div>
-          <div className="text-sm leading-6 text-slate-600">{item.value}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
+  );
+}
+
+function isCopyableMetaItem(item: CompactDataTableMetaItem): boolean {
+  if (typeof item.value !== "string") {
+    return false;
+  }
+  const normalizedLabel = item.label.toLowerCase();
+  return /(id|uuid|path|directory)/i.test(normalizedLabel);
+}
+
+function CopyableMetaRow(props: {
+  label: string;
+  value: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setCopied(false), 1200);
+    return () => window.clearTimeout(timeoutId);
+  }, [copied]);
+
+  async function copyValue(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(props.value);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void copyValue()}
+      className="group -mx-2 block w-[calc(100%+16px)] rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
+      aria-label={`Copy ${props.label}`}
+      title={copied ? "Copied" : `Copy ${props.label}`}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        {props.label}
+      </div>
+      <div className="mt-1 flex min-w-0 items-center gap-2 text-sm leading-6 text-slate-600">
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-slate-600">
+          {props.value}
+        </span>
+        <span className="shrink-0 text-slate-400 transition-colors group-hover:text-slate-700 group-focus-visible:text-slate-700">
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+        </span>
+      </div>
+    </button>
   );
 }
 
@@ -550,7 +703,7 @@ function ResourceDetailDrawer(props: {
         aria-label="Close details"
         onClick={props.onClose}
       />
-      <aside className="runtime-detail-drawer absolute inset-y-0 right-0 w-[min(432px,100vw)] border-l border-slate-200 bg-white/98">
+      <aside className="runtime-detail-drawer absolute inset-y-0 right-0 w-[min(560px,100vw)] border-l border-slate-200 bg-white/98">
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
             <div className="min-w-0 space-y-2">
@@ -628,8 +781,10 @@ export function CompactDataTable(props: {
   rows: CompactDataTableRow[];
   emptyTitle: string;
   emptyDetail: string;
+  onRowClick?: (row: CompactDataTableRow) => void;
 }) {
   const hidePreviewTimeoutRef = useRef<number | null>(null);
+  const showPreviewTimeoutRef = useRef<number | null>(null);
   const [activePreview, setActivePreview] = useState<{
     rowId: string;
     rect: DOMRect;
@@ -640,6 +795,9 @@ export function CompactDataTable(props: {
 
   useEffect(() => {
     return () => {
+      if (showPreviewTimeoutRef.current !== null) {
+        window.clearTimeout(showPreviewTimeoutRef.current);
+      }
       if (hidePreviewTimeoutRef.current !== null) {
         window.clearTimeout(hidePreviewTimeoutRef.current);
       }
@@ -695,26 +853,39 @@ export function CompactDataTable(props: {
     }
   }
 
-  function showPreview(rowId: string, element: HTMLElement | null): void {
+  function clearShowPreviewTimeout(): void {
+    if (showPreviewTimeoutRef.current !== null) {
+      window.clearTimeout(showPreviewTimeoutRef.current);
+      showPreviewTimeoutRef.current = null;
+    }
+  }
+
+  function showPreviewSoon(rowId: string, element: HTMLElement | null): void {
     if (!element) {
       return;
     }
 
     clearHidePreviewTimeout();
+    clearShowPreviewTimeout();
 
-    setActivePreview({
-      rowId,
-      rect: element.getBoundingClientRect(),
-    });
+    showPreviewTimeoutRef.current = window.setTimeout(() => {
+      setActivePreview({
+        rowId,
+        rect: element.getBoundingClientRect(),
+      });
+      showPreviewTimeoutRef.current = null;
+    }, 400);
   }
 
   function openDrawer(rowId: string): void {
+    clearShowPreviewTimeout();
     clearHidePreviewTimeout();
     setActivePreview(null);
     setDrawerRowId(rowId);
   }
 
   function hidePreviewSoon(): void {
+    clearShowPreviewTimeout();
     clearHidePreviewTimeout();
 
     hidePreviewTimeoutRef.current = window.setTimeout(() => {
@@ -728,14 +899,12 @@ export function CompactDataTable(props: {
         const width = 336;
         const gap = 10;
         const viewportPadding = 16;
-        let left = activePreview.rect.right + gap;
-
-        if (left + width > window.innerWidth - viewportPadding) {
-          left = Math.max(
-            viewportPadding,
-            activePreview.rect.left - width - gap
-          );
-        }
+        const preferredLeft = activePreview.rect.right + gap;
+        const maxLeft = window.innerWidth - width - viewportPadding;
+        const left = Math.max(
+          viewportPadding,
+          Math.min(preferredLeft, maxLeft)
+        );
 
         const top = Math.max(
           viewportPadding,
@@ -759,43 +928,8 @@ export function CompactDataTable(props: {
       detail={props.emptyDetail}
     />
   );
-  const shouldShowTable = props.loading || props.rows.length > 0;
 
-  if (!shouldShowTable) {
-    return (
-      <div className="space-y-4">
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-900">{props.title}</div>
-            <p className="text-sm leading-6 text-slate-500">{props.description}</p>
-          </div>
-          {(props.search || props.meta) ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {props.search ? (
-                <div className="w-full max-w-sm">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input
-                      className="h-9 pl-9"
-                      value={props.search.value}
-                      onChange={(event) => props.search?.onChange(event.target.value)}
-                      placeholder={props.search.placeholder}
-                    />
-                  </div>
-                </div>
-              ) : <div />}
-              {props.meta ? (
-                <div className="flex flex-wrap gap-2 sm:justify-end">{props.meta}</div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        <div className="border-y border-slate-200 py-6">
-          {stateBlock}
-        </div>
-      </div>
-    );
-  }
+  const columnCount = props.columns.length + 1;
 
   return (
     <div className="space-y-4">
@@ -835,6 +969,9 @@ export function CompactDataTable(props: {
                     {column}
                   </th>
                 ))}
+                <th className="w-10 px-2 py-2.5 text-right font-medium">
+                  <span className="sr-only">Preview</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -846,17 +983,23 @@ export function CompactDataTable(props: {
                     <tr
                       key={row.id}
                       tabIndex={0}
-                      onMouseEnter={(event) => showPreview(row.id, event.currentTarget)}
-                      onFocus={(event) => showPreview(row.id, event.currentTarget)}
-                      onClick={() => openDrawer(row.id)}
+                      onClick={() => {
+                        if (props.onRowClick) {
+                          props.onRowClick(row);
+                          return;
+                        }
+                        openDrawer(row.id);
+                      }}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
+                          if (props.onRowClick) {
+                            props.onRowClick(row);
+                            return;
+                          }
                           openDrawer(row.id);
                         }
                       }}
-                      onMouseLeave={hidePreviewSoon}
-                      onBlur={hidePreviewSoon}
                       className={cn(
                         "cursor-pointer align-top transition-colors outline-none",
                         active ? "bg-slate-50/90" : "hover:bg-slate-50/70"
@@ -867,13 +1010,30 @@ export function CompactDataTable(props: {
                           {cell}
                         </td>
                       ))}
+                      <td className="px-2 py-2.5 align-middle">
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={(event) => event.stopPropagation()}
+                            onMouseEnter={(event) => showPreviewSoon(row.id, event.currentTarget)}
+                            onFocus={(event) => showPreviewSoon(row.id, event.currentTarget)}
+                            onMouseLeave={hidePreviewSoon}
+                            onBlur={hidePreviewSoon}
+                            className="group inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:bg-slate-100 focus-visible:text-slate-700 focus-visible:outline-none"
+                            aria-label={`Preview ${typeof row.previewTitle === "string" ? row.previewTitle : "row details"}`}
+                            title="Preview"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={props.columns.length} className="px-3 py-0">
-                    <div className="h-28" />
+                  <td colSpan={columnCount} className="px-4 py-5">
+                    {stateBlock}
                   </td>
                 </tr>
               )}
@@ -987,17 +1147,27 @@ export function JsonPreview(props: {
   data: unknown;
   emptyMessage: string;
 }) {
+  const content = props.data ? JSON.stringify(props.data, null, 2) : props.emptyMessage;
+  const shouldScroll = Boolean(props.data);
+
   return (
     <div className="space-y-3">
       <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
         {props.title}
       </div>
       <div className="rounded-lg border border-slate-200 bg-slate-50">
-        <ScrollArea className="max-h-[320px]">
-          <pre className="px-4 py-3 text-xs leading-6 text-slate-700">
-            {props.data ? JSON.stringify(props.data, null, 2) : props.emptyMessage}
+        <div className="max-h-[320px] overflow-auto overscroll-contain">
+          <pre
+            className={cn(
+              "px-4 py-3 text-xs leading-6 text-slate-700",
+              shouldScroll
+                ? "min-w-max whitespace-pre"
+                : "min-w-0 whitespace-pre-wrap break-words"
+            )}
+          >
+            {content}
           </pre>
-        </ScrollArea>
+        </div>
       </div>
     </div>
   );
@@ -1015,7 +1185,7 @@ export function CompactStatGrid(props: {
   return (
     <div
       className={cn(
-        "stat-surface grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200/90 md:grid-cols-2 xl:grid-cols-4",
+        "stat-surface grid gap-px overflow-hidden rounded-xl border md:grid-cols-2 xl:grid-cols-4",
         props.className
       )}
     >
@@ -1041,14 +1211,14 @@ function CompactStatTile(props: {
         : "stat-cell-neutral";
 
   return (
-    <div className={`stat-cell space-y-1 px-3 py-2.5 sm:px-3.5 sm:py-3 ${toneClass}`}>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+    <div className={`stat-cell space-y-1.5 px-3 py-2.5 sm:px-3.5 sm:py-3 ${toneClass}`}>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--page-muted-2)]">
         {props.label}
       </div>
-      <div className="text-base font-semibold tracking-tight text-slate-950 sm:text-lg">
+      <div className="text-base font-semibold tracking-tight text-[var(--page-ink)] sm:text-lg">
         {props.value}
       </div>
-      <div className="text-[11px] leading-4 text-slate-500">
+      <div className="text-[11px] leading-4 text-[var(--page-muted)]">
         {props.detail}
       </div>
     </div>

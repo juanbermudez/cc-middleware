@@ -14,6 +14,7 @@ export type HookEventType =
   | "PostToolUseFailure"
   | "SessionStart"
   | "SessionEnd"
+  | "InstructionsLoaded"
   | "UserPromptSubmit"
   | "Stop"
   | "StopFailure"
@@ -110,6 +111,10 @@ export interface BaseHookInput {
   session_id: string;
   cwd: string;
   hook_event_name: string;
+  transcript_path?: string;
+  permission_mode?: string;
+  agent_id?: string;
+  agent_type?: string;
 }
 
 /** PreToolUse hook input */
@@ -145,6 +150,11 @@ export interface SessionEndInput extends BaseHookInput {
   hook_event_name: "SessionEnd";
 }
 
+/** InstructionsLoaded hook input */
+export interface InstructionsLoadedInput extends BaseHookInput {
+  hook_event_name: "InstructionsLoaded";
+}
+
 /** Stop hook input */
 export interface StopInput extends BaseHookInput {
   hook_event_name: "Stop";
@@ -164,6 +174,7 @@ export type HookInput =
   | PostToolUseFailureInput
   | SessionStartInput
   | SessionEndInput
+  | InstructionsLoadedInput
   | StopInput
   | UserPromptSubmitInput
   | BaseHookInput;

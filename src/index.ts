@@ -7,6 +7,23 @@
 export type {
   SessionInfo,
   SessionMessage,
+  SessionTranscriptKind,
+  SessionTranscriptRole,
+  SessionTranscriptToolUse,
+  SessionTranscriptToolResult,
+  SessionDetailFileChange,
+  SessionDetailError,
+  SessionDetailToolSummary,
+  SessionDetailFileSummary,
+  SessionDetailSkillSummary,
+  SessionDetailSubagentSummary,
+  SessionDetailConfiguration,
+  SessionTranscriptMessage,
+  SessionTranscriptTurn,
+  SessionDetailTranscript,
+  SessionDetailInspector,
+  SessionDetailLineage,
+  SessionDetailResponse,
   SessionFilter,
   PermissionMode,
   SessionLaunchOptions,
@@ -32,6 +49,7 @@ export type {
   PostToolUseFailureInput,
   SessionStartInput,
   SessionEndInput,
+  InstructionsLoadedInput,
   StopInput,
   UserPromptSubmitInput,
   HookInput,
@@ -69,6 +87,8 @@ export { discoverSessions, discoverAllProjects } from "./sessions/discovery.js";
 export type { DiscoverSessionsOptions } from "./sessions/discovery.js";
 export { readSessionMessages, extractTextContent, extractToolUses } from "./sessions/messages.js";
 export type { ReadMessagesOptions } from "./sessions/messages.js";
+export { buildSessionDetail } from "./sessions/detail.js";
+export type { BuildSessionDetailOptions } from "./sessions/detail.js";
 export { getSession, updateSessionTitle, updateSessionTag } from "./sessions/info.js";
 export {
   buildSessionCatalog,
@@ -84,6 +104,50 @@ export type {
   BuildSessionCatalogOptions,
   GroupCatalogOptions,
 } from "./sessions/catalog.js";
+
+// === Analytics ===
+export type {
+  AnalyticsContext,
+  AnalyticsBackfillRequest,
+  AnalyticsBackfillResponse,
+  AnalyticsCompactionSummary,
+  AnalyticsErrorSummary,
+  AnalyticsFacetValue,
+  AnalyticsFacetsResponse,
+  AnalyticsKeywordMentionSummary,
+  AnalyticsOverviewKeywordBreakdown,
+  AnalyticsOverviewResponse,
+  AnalyticsOverviewTotals,
+  AnalyticsPermissionDecisionSummary,
+  AnalyticsRawTableCounts,
+  AnalyticsSessionDetailResponse,
+  AnalyticsSessionSubagentSummary,
+  AnalyticsStatusResponse,
+  AnalyticsTimeBucket,
+  AnalyticsToolCallSummary,
+  AnalyticsTraceDetailResponse,
+  AnalyticsTraceRequestSummary,
+  AnalyticsTimeseriesPoint,
+  AnalyticsTimeseriesResponse,
+  AnalyticsTraceSummary,
+  AnalyticsTracesResponse,
+} from "./types/analytics.js";
+export { createAnalyticsDatabase, getDefaultAnalyticsDbPath, listAnalyticsSchemaFiles, migrateAnalyticsDatabase, resolveAnalyticsSchemaDir } from "./analytics/db.js";
+export type {
+  AnalyticsDatabase,
+  AnalyticsDatabaseOptions,
+  AnalyticsMigrationRecord,
+  AnalyticsRawEventKind,
+  AnalyticsSchemaFile,
+} from "./analytics/types.js";
+export { DEFAULT_KEYWORD_TAXONOMY, matchKeywordMentions } from "./analytics/keywords/index.js";
+export type {
+  KeywordCategory,
+  KeywordMatch,
+  KeywordMatchContext,
+  KeywordRule,
+  KeywordTaxonomy,
+} from "./analytics/keywords/index.js";
 
 // === Hooks ===
 export { HookEventBus, createEventBus, ALL_HOOK_EVENT_TYPES } from "./hooks/event-bus.js";
@@ -114,6 +178,42 @@ export type { AgentDefinitionSource, AgentSource, ReadAgentOptions } from "./age
 export { createMiddlewareServer } from "./api/server.js";
 export type { MiddlewareServerOptions, MiddlewareContext, MiddlewareServer } from "./api/server.js";
 
+// === Dispatch ===
+export type {
+  JsonPrimitive,
+  JsonValue,
+  JsonObject,
+  DispatchJobStatus,
+  DispatchSourceType,
+  DispatchTargetType,
+  DispatchRuntimeProfile,
+  DispatchSortField,
+  DispatchSortDirection,
+  DispatchJobInput,
+  DispatchJobInputMeta,
+  CreateDispatchJobInput,
+  DispatchJobListOptions,
+  DispatchJob,
+  DispatchRunStatus,
+  DispatchRun,
+  DispatchRunInput,
+  DispatchCueTrigger,
+  DispatchCueAction,
+  DispatchCue,
+  DispatchSchedule,
+  HeartbeatRule,
+  DispatchStatusSummary,
+} from "./dispatch/types.js";
+export { DispatchStore, createDispatchStore } from "./dispatch/store.js";
+export { DispatchExecutor, createDispatchExecutor } from "./dispatch/executor.js";
+export { DispatchWorker, createDispatchWorker } from "./dispatch/worker.js";
+export { attachDispatchCueBridge } from "./dispatch/cues.js";
+export { computeNextCronRun, materializeDueSchedules } from "./dispatch/scheduler.js";
+export {
+  createHeartbeatSnapshot,
+  materializeDueHeartbeatRules,
+} from "./dispatch/heartbeat.js";
+
 // === Store & Search ===
 export { createStore } from "./store/db.js";
 export type {
@@ -122,6 +222,9 @@ export type {
   IndexedSession,
   IndexedMessage,
   IndexedSessionRelationship,
+  ResourceMetadataDefinition,
+  ResourceMetadataValue,
+  ResourceMetadataEntry,
   SessionMetadataDefinition,
   SessionMetadataValue,
   SessionMetadataEntry,

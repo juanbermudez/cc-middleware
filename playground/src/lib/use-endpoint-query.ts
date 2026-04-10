@@ -1,19 +1,40 @@
 import { useDeferredValue, useEffect, useState } from "react";
 
-export function useEndpointQuery<T>(path: string) {
+export function useEndpointQuery<T>(
+  path: string,
+  options?: {
+    params?: Record<string, string | undefined>;
+    enabled?: boolean;
+  }
+) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(options?.enabled !== false);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const paramEntries = Object.entries(options?.params ?? {})
+    .filter(([, value]) => value != null && value !== "");
+  const paramsKey = JSON.stringify(paramEntries);
 
   useEffect(() => {
+    if (options?.enabled === false) {
+      setLoading(false);
+      setError(null);
+      setData(null);
+      return;
+    }
+
     const controller = new AbortController();
     const trimmedQuery = deferredQuery.trim();
     const params = new URLSearchParams();
     if (trimmedQuery) {
       params.set("q", trimmedQuery);
+    }
+    for (const [key, value] of paramEntries) {
+      if (value) {
+        params.set(key, value);
+      }
     }
 
     const url = params.size > 0 ? `${path}?${params.toString()}` : path;
@@ -45,7 +66,7 @@ export function useEndpointQuery<T>(path: string) {
       });
 
     return () => controller.abort();
-  }, [path, deferredQuery, reloadToken]);
+  }, [path, deferredQuery, reloadToken, paramsKey, options?.enabled]);
 
   return {
     query,

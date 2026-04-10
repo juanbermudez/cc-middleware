@@ -61,6 +61,18 @@ describe("Agent Endpoints (E2E)", () => {
     expect(body.agents.some((a: { name: string }) => a.name === "pre-existing")).toBe(true);
   });
 
+  it("should filter agents by query", async () => {
+    const resp = await fetch(`${baseUrl}/api/v1/agents?q=pre-registered`);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+
+    expect(body.total).toBe(1);
+    expect(body.agents[0]).toMatchObject({
+      name: "pre-existing",
+      source: "runtime",
+    });
+  });
+
   it("should get agent by name", async () => {
     const resp = await fetch(`${baseUrl}/api/v1/agents/pre-existing`);
     expect(resp.status).toBe(200);

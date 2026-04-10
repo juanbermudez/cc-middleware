@@ -4,9 +4,21 @@ export type SessionExplorerSource = "catalog" | "search";
 export type PlaygroundPageId =
   | "overview"
   | "sessions"
+  | "session-detail"
+  | "analytics"
+  | "teams"
+  | "agents"
+  | "config"
+  | "config-settings"
+  | "config-plugins"
+  | "config-skills"
+  | "config-commands"
+  | "config-agents"
+  | "config-mcp"
+  | "config-memory"
   | "imports"
   | "live-feed"
-  | "agents-teams"
+  | "team-tasks"
   | "runtime"
   | "runtime-tools"
   | "runtime-commands"
@@ -23,6 +35,34 @@ export interface PlaygroundRoute {
 
 export interface SessionMetadataDefinition {
   key: string;
+  label: string;
+  description?: string;
+  valueType: "string";
+  searchable: boolean;
+  filterable: boolean;
+  usageCount?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ResourceMetadataDefinition {
+  resourceType: string;
+  key: string;
+  label: string;
+  description?: string;
+  valueType: "string";
+  searchable: boolean;
+  filterable: boolean;
+  usageCount?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ResourceMetadataEntry {
+  resourceType: string;
+  resourceId: string;
+  key: string;
+  value: string;
   label: string;
   description?: string;
   valueType: "string";
@@ -75,6 +115,262 @@ export interface MiddlewareStatusResponse {
   policyRuleCount: number;
 }
 
+export interface AnalyticsRawTableCounts {
+  transcriptEvents: number;
+  middlewareSdkMessages: number;
+  hookEvents: number;
+  permissionEvents: number;
+  otelLogs: number;
+  otelSpans: number;
+}
+
+export interface AnalyticsFilters {
+  traceKinds: Array<"root" | "subagent" | "runtime">;
+  sessionIds: string[];
+  toolNames: string[];
+  errorKinds: string[];
+  keywordCategories: string[];
+}
+
+export interface AnalyticsStatusResponse {
+  available: true;
+  dbPath: string;
+  rawTables: AnalyticsRawTableCounts;
+  lastBackfillAt: string | null;
+  lastBackfillFiles: number | null;
+  lastBackfillEvents: number | null;
+}
+
+export interface AnalyticsOverviewTotals {
+  events: number;
+  traces: number;
+  errors: number;
+  keywordMentions: number;
+  toolUses: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  estimatedCostUsd: number;
+  contextEstimateTokensPeak: number;
+}
+
+export interface AnalyticsOverviewKeywordBreakdown {
+  category: string;
+  term: string;
+  count: number;
+}
+
+export interface AnalyticsOverviewResponse {
+  range: {
+    start: string | null;
+    end: string | null;
+  };
+  totals: AnalyticsOverviewTotals;
+  sourceCounts: AnalyticsRawTableCounts;
+  keywordBreakdown: AnalyticsOverviewKeywordBreakdown[];
+}
+
+export interface AnalyticsTimeseriesPoint {
+  bucket: string;
+  events: number;
+  traces: number;
+  errors: number;
+  keywordMentions: number;
+  toolUses: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  contextEstimateTokensPeak: number;
+}
+
+export interface AnalyticsTimeseriesResponse {
+  bucket: "hour" | "day";
+  range: {
+    start: string | null;
+    end: string | null;
+  };
+  points: AnalyticsTimeseriesPoint[];
+}
+
+export interface AnalyticsToolPerformanceRow {
+  toolName: string;
+  callCount: number;
+  errorCount: number;
+  errorRate: number;
+  sessionCount: number;
+  traceCount: number;
+  topErrorKind?: string;
+  topErrorCount: number;
+  lastSeenAt: string | null;
+}
+
+export interface AnalyticsToolPerformanceResponse {
+  range: {
+    start: string | null;
+    end: string | null;
+  };
+  rows: AnalyticsToolPerformanceRow[];
+}
+
+export interface AnalyticsToolFailureDetail {
+  errorId: string;
+  traceId: string;
+  sessionId: string;
+  errorKind: string;
+  errorCode?: string;
+  message: string;
+  timestamp: string | null;
+}
+
+export interface AnalyticsToolPerformanceDetailResponse {
+  range: {
+    start: string | null;
+    end: string | null;
+  };
+  tool: AnalyticsToolPerformanceRow;
+  errorKinds: AnalyticsFacetValue[];
+  recentFailures: AnalyticsToolFailureDetail[];
+}
+
+export interface AnalyticsTraceSummary {
+  traceId: string;
+  sessionId: string;
+  traceKind: "root" | "subagent" | "runtime";
+  sourceKinds: string[];
+  startedAt: string | null;
+  endedAt: string | null;
+  events: number;
+  errors: number;
+  keywordMentions: number;
+  toolUses: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  contextEstimateTokensPeak: number;
+  summary: string;
+}
+
+export interface AnalyticsTracesResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  range: {
+    start: string | null;
+    end: string | null;
+  };
+  traces: AnalyticsTraceSummary[];
+}
+
+export interface AnalyticsFacetValue {
+  value: string;
+  count: number;
+}
+
+export interface AnalyticsFacetsResponse {
+  range: {
+    start: string | null;
+    end: string | null;
+  };
+  traceKinds: AnalyticsFacetValue[];
+  errorKinds: AnalyticsFacetValue[];
+  toolNames: AnalyticsFacetValue[];
+  keywordCategories: AnalyticsFacetValue[];
+  sessions: AnalyticsFacetValue[];
+}
+
+export interface AnalyticsTraceRequestSummary {
+  requestId: string;
+  timestamp: string | null;
+  model?: string;
+  stopReason?: string;
+  assistantUuid?: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  estimatedCostUsd: number;
+  contextEstimateTokens: number;
+}
+
+export interface AnalyticsToolCallSummary {
+  toolCallId: string;
+  toolUseId?: string;
+  toolName: string;
+  sourceAssistantUuid?: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  isError: boolean;
+  errorMessage?: string;
+}
+
+export interface AnalyticsErrorSummary {
+  errorId: string;
+  errorKind: string;
+  toolName?: string;
+  errorCode?: string;
+  message: string;
+  timestamp: string | null;
+}
+
+export interface AnalyticsKeywordMentionSummary {
+  mentionId: string;
+  speaker: string;
+  category: string;
+  term: string;
+  matchedText: string;
+  severity: number;
+  timestamp: string | null;
+}
+
+export interface AnalyticsCompactionSummary {
+  compactionId: string;
+  compactedAt: string | null;
+  messageCount?: number;
+}
+
+export interface AnalyticsTraceDetailResponse {
+  trace: AnalyticsTraceSummary;
+  requests: AnalyticsTraceRequestSummary[];
+  toolCalls: AnalyticsToolCallSummary[];
+  errors: AnalyticsErrorSummary[];
+  keywordMentions: AnalyticsKeywordMentionSummary[];
+  compactions: AnalyticsCompactionSummary[];
+}
+
+export interface AnalyticsSessionSubagentSummary {
+  sessionId: string;
+  agentId?: string;
+  slug?: string;
+  teamName?: string;
+  teammateName?: string;
+  eventCount: number;
+  requestCount: number;
+  errorCount: number;
+  toolUseCount: number;
+}
+
+export interface AnalyticsPermissionDecisionSummary {
+  decisionId: string;
+  toolName?: string;
+  decision: string;
+  cwd?: string;
+  message?: string;
+  timestamp: string | null;
+}
+
+export interface AnalyticsSessionDetailResponse {
+  sessionId: string;
+  totals: AnalyticsOverviewTotals;
+  traceCount: number;
+  traces: AnalyticsTraceSummary[];
+  subagents: AnalyticsSessionSubagentSummary[];
+  tools: AnalyticsFacetValue[];
+  errorKinds: AnalyticsFacetValue[];
+  keywordCategories: AnalyticsFacetValue[];
+  permissions: AnalyticsPermissionDecisionSummary[];
+}
+
 export interface SessionRelationshipEntry {
   id: string;
   sessionId: string;
@@ -115,6 +411,164 @@ export interface SessionSearchEntry {
   customTitle?: string;
   metadata: SessionMetadataEntry[];
   lineage: SessionCatalogLineage;
+}
+
+export interface SessionDetailConfigurationEntry {
+  key: string;
+  label: string;
+  value: string;
+  description?: string;
+}
+
+export interface SessionDetailFileEntry {
+  path: string;
+  status?: "created" | "edited" | "deleted" | "loaded" | "attached";
+  count?: number;
+  timestamp?: string | null;
+}
+
+export interface SessionDetailToolEntry {
+  toolName: string;
+  callCount: number;
+  errorCount?: number;
+  lastSeenAt?: string | null;
+  description?: string;
+}
+
+export interface SessionDetailErrorEntry {
+  errorId: string;
+  kind: string;
+  message: string;
+  timestamp?: string | null;
+  traceId?: string;
+  toolName?: string;
+  code?: string;
+}
+
+export interface SessionDetailSkillEntry {
+  name: string;
+  scope?: string;
+  path?: string;
+  description?: string;
+  loadedAt?: string | null;
+}
+
+export interface SessionDetailSubagentEntry {
+  sessionId: string;
+  title?: string;
+  agentId?: string;
+  slug?: string;
+  status?: string;
+  startedAt?: string | null;
+  updatedAt?: string | null;
+  toolCount?: number;
+  errorCount?: number;
+  messageCount?: number;
+}
+
+export interface SessionDetailTranscriptField {
+  label: string;
+  value: string;
+}
+
+export interface SessionDetailTranscriptCodeBlock {
+  label?: string;
+  code: string;
+  language?: string;
+  path?: string;
+}
+
+export interface SessionDetailTranscriptTodoItem {
+  content: string;
+  status?: string;
+  activeForm?: string;
+}
+
+export interface SessionDetailTranscriptMessage {
+  id: string;
+  role?: "user" | "assistant" | "system" | "tool" | "error" | "note" | "subagent";
+  variant?:
+    | "user_message"
+    | "assistant_message"
+    | "system_event"
+    | "tool_use"
+    | "tool_result"
+    | "todo_list"
+    | "file_write"
+    | "file_edit"
+    | "command"
+    | "file_read"
+    | "search"
+    | "skill"
+    | "note";
+  kind?: string;
+  timestamp?: string | number | null;
+  text?: string;
+  title?: string;
+  content?: string | Record<string, unknown> | Array<unknown>;
+  toolName?: string;
+  toolUseId?: string;
+  parentToolUseId?: string;
+  subagentSessionId?: string;
+  filePath?: string;
+  files?: string[];
+  status?: string;
+  source?: string;
+  fields?: SessionDetailTranscriptField[];
+  codeBlocks?: SessionDetailTranscriptCodeBlock[];
+  todoItems?: SessionDetailTranscriptTodoItem[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface SessionDetailTranscriptTurn {
+  id: string;
+  role?: "user" | "assistant" | "system" | "tool" | "error" | "note" | "subagent";
+  timestamp?: string | number | null;
+  title?: string;
+  summary?: string;
+  toolNames?: string[];
+  filePaths?: string[];
+  errorCount?: number;
+  skillNames?: string[];
+  content?: string | Record<string, unknown> | Array<unknown>;
+  messages?: SessionDetailTranscriptMessage[];
+}
+
+export interface SessionDetailResponse {
+  sessionId: string;
+  parentSessionId?: string;
+  title?: string;
+  summary?: string;
+  project?: string;
+  cwd?: string;
+  gitBranch?: string;
+  model?: string;
+  status?: string;
+  startedAt?: string | null;
+  updatedAt?: string | null;
+  totals?: {
+    messages?: number;
+    userMessages?: number;
+    assistantMessages?: number;
+    toolMessages?: number;
+    errors?: number;
+    tools?: number;
+    files?: number;
+    skills?: number;
+    subagents?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    estimatedCostUsd?: number;
+  };
+  configuration?: SessionDetailConfigurationEntry[];
+  files?: SessionDetailFileEntry[];
+  tools?: SessionDetailToolEntry[];
+  errors?: SessionDetailErrorEntry[];
+  skills?: SessionDetailSkillEntry[];
+  subagents?: SessionDetailSubagentEntry[];
+  transcript?: SessionDetailTranscriptMessage[];
+  messages?: SessionDetailTranscriptMessage[];
+  turns?: SessionDetailTranscriptTurn[];
 }
 
 export interface SearchResponse {
@@ -196,6 +650,17 @@ export interface SessionMetadataValuesResponse {
   metadata: SessionMetadataEntry[];
 }
 
+export interface ResourceMetadataDefinitionsResponse {
+  resourceType: string;
+  definitions: ResourceMetadataDefinition[];
+}
+
+export interface ResourceMetadataValuesResponse {
+  resourceType: string;
+  resourceId?: string;
+  metadata: ResourceMetadataEntry[];
+}
+
 export interface SessionExplorerEntry {
   id: string;
   sessionId: string;
@@ -245,6 +710,17 @@ export interface AgentsResponse {
   total: number;
 }
 
+export interface AgentDetailResponse {
+  name: string;
+  description: string;
+  prompt: string;
+  source: string;
+  model?: string;
+  tools?: string[];
+  disallowedTools?: string[];
+  maxTurns?: number;
+}
+
 export interface TeamsResponse {
   teams: Array<{
     name: string;
@@ -268,13 +744,19 @@ export interface TeamDetailResponse {
 
 export interface TeamTasksResponse {
   tasks: Array<{
+    resourceId: string;
     id: string;
+    teamName: string;
     description: string;
-    status: "pending" | "in_progress" | "completed";
+    status: "pending" | "in_progress" | "completed" | "failed";
     assignee?: string;
     dependencies: string[];
+    filePath?: string;
+    teamConfigPath: string;
+    taskListPath: string;
   }>;
   total: number;
+  teamName?: string;
 }
 
 export interface RuntimeResponse {
@@ -424,6 +906,98 @@ export interface ConfigPluginsResponse {
   total: number;
 }
 
+export interface GlobalConfigSummaryResponse {
+  path: string;
+  exists: boolean;
+  stats: Record<string, string | number | boolean>;
+  preferences: Record<string, string | number | boolean>;
+  writablePreferences: Array<{
+    key: string;
+    valueType: "boolean" | "string" | "boolean|string";
+    description: string;
+  }>;
+  featureFlagCount: number;
+  userMcpCount: number;
+  trackedProjectCount: number;
+}
+
+export interface TrackedProjectEntry {
+  path: string;
+  exists: boolean;
+  allowedTools: string[];
+  allowedToolsCount: number;
+  mcpServerNames: string[];
+  localMcpCount: number;
+  enabledMcpjsonServers: string[];
+  disabledMcpjsonServers: string[];
+  hasTrustDialogAccepted?: boolean;
+  hasClaudeMdExternalIncludesApproved?: boolean;
+  hasClaudeMdExternalIncludesWarningShown?: boolean;
+  projectOnboardingSeenCount?: number;
+  metrics: Record<string, unknown>;
+}
+
+export interface TrackedProjectsResponse {
+  projects: TrackedProjectEntry[];
+  total: number;
+}
+
+export interface SettingsFileResponse {
+  scope: "managed" | "user" | "project" | "local";
+  path: string;
+  exists: boolean;
+  content: Record<string, unknown>;
+  lastModified?: number;
+}
+
+export interface MergedSettingsResponse {
+  settings: Record<string, unknown>;
+  provenance: Record<string, "managed" | "user" | "project" | "local">;
+  permissions: {
+    allow: string[];
+    deny: string[];
+    ask: string[];
+    defaultMode?: string;
+    additionalDirectories?: string[];
+    sources: Record<string, string>;
+  };
+}
+
+export interface AvailablePluginsCatalogResponse {
+  installed: Array<{
+    id: string;
+    version?: string;
+    scope?: string;
+    enabled?: boolean;
+    installPath?: string;
+    installedAt?: string;
+    lastUpdated?: string;
+    projectPath?: string;
+  }>;
+  available: Array<{
+    pluginId: string;
+    name?: string;
+    description?: string;
+    marketplaceName?: string;
+    version?: string;
+  }>;
+}
+
+export interface MarketplacesResponse {
+  marketplaces: Array<{
+    name: string;
+    exists: boolean;
+    installLocation?: string;
+    lastUpdated?: string;
+    pluginCount: number;
+    installedCount: number;
+    blockedCount: number;
+    pluginsPath?: string;
+    externalPluginsPath?: string;
+  }>;
+  total: number;
+}
+
 export interface ConfigMcpResponse {
   servers: Array<{
     name: string;
@@ -434,6 +1008,53 @@ export interface ConfigMcpResponse {
     url?: string;
     enabled: boolean;
     source: string;
+  }>;
+  total: number;
+}
+
+export interface RulesResponse {
+  rules: Array<{
+    path: string;
+    scope: "project" | "user";
+    paths?: string[];
+    content: string;
+  }>;
+  total: number;
+}
+
+export interface MemorySummaryResponse {
+  projectKey: string;
+  memoryDir: string;
+  hasIndex: boolean;
+  indexContent: string;
+  fileCount: number;
+}
+
+export interface MemoryFilesResponse {
+  files: Array<{
+    name: string;
+    type: "user" | "feedback" | "project" | "reference";
+    description: string;
+    lastModified: number;
+    path: string;
+  }>;
+  total: number;
+}
+
+export interface MemoryProjectsResponse {
+  projects: Array<{
+    projectKey: string;
+    dir: string;
+  }>;
+  total: number;
+}
+
+export interface ClaudeMdResponse {
+  files: Array<{
+    path: string;
+    scope: "user" | "project" | "project-local";
+    content: string;
+    imports: string[];
   }>;
   total: number;
 }
@@ -504,7 +1125,7 @@ export interface NavigationSection {
   children: NavigationChild[];
 }
 
-export const DEFAULT_SEARCH_QUERY = "fibonacci";
+export const DEFAULT_SEARCH_QUERY = "";
 export const DEFAULT_STREAM_PROMPT = "What is 2 + 2? Reply with the answer only.";
 
 export const searchScopeOptions: SearchScopeOption[] = [
@@ -538,17 +1159,40 @@ export const navigationSections: NavigationSection[] = [
     id: "sessions",
     label: "Sessions",
     children: [
-      { id: "explorer", label: "Explorer", sectionId: "sessions-explorer" },
-      { id: "groups", label: "Directory groups", sectionId: "sessions-groups" },
-      { id: "metadata", label: "Metadata schema", sectionId: "sessions-metadata" },
+      { id: "sessions", label: "Sessions", page: "sessions", sectionId: "sessions-explorer" },
+      { id: "teams", label: "Teams", page: "teams", sectionId: "teams-table" },
+      { id: "agents", label: "Agents", page: "agents", sectionId: "agents-table" },
+      { id: "tasks", label: "Tasks", page: "team-tasks", sectionId: "team-tasks-table" },
+      { id: "tools", label: "Tools", page: "runtime-tools", sectionId: "runtime-tools-table" },
     ],
   },
   {
-    id: "imports",
-    label: "Imports",
+    id: "runtime",
+    label: "Runtime",
     children: [
-      { id: "status", label: "Import status", sectionId: "imports-status" },
-      { id: "examples", label: "Examples", sectionId: "imports-examples" },
+      { id: "summary", label: "Summary", sectionId: "runtime-summary" },
+      { id: "tools", label: "Tools", page: "runtime-tools", sectionId: "runtime-tools-table" },
+      { id: "commands", label: "Commands", page: "runtime-commands", sectionId: "runtime-commands-table" },
+      { id: "skills", label: "Skills", page: "runtime-skills", sectionId: "runtime-skills-table" },
+      { id: "plugins", label: "Plugins", page: "runtime-plugins", sectionId: "runtime-plugins-table" },
+      { id: "mcp", label: "MCP", page: "runtime-mcp", sectionId: "runtime-mcp-table" },
+      { id: "agents", label: "Agents", page: "runtime-agents", sectionId: "runtime-agents-table" },
+      { id: "models", label: "Models", page: "runtime-models", sectionId: "runtime-models-table" },
+      { id: "payload", label: "Payload", sectionId: "runtime-payload" },
+    ],
+  },
+  {
+    id: "config",
+    label: "Configuration",
+    children: [
+      { id: "summary", label: "Overview", sectionId: "config-summary" },
+      { id: "settings", label: "Settings", page: "config-settings", sectionId: "config-settings-global" },
+      { id: "plugins", label: "Plugins", page: "config-plugins", sectionId: "config-plugins-installed" },
+      { id: "skills", label: "Skills", page: "config-skills", sectionId: "config-skills-table" },
+      { id: "commands", label: "Commands", page: "config-commands", sectionId: "config-commands-table" },
+      { id: "agents", label: "Agents", page: "config-agents", sectionId: "config-agents-table" },
+      { id: "mcp", label: "MCP", page: "config-mcp", sectionId: "config-mcp-table" },
+      { id: "memory", label: "Memory", page: "config-memory", sectionId: "config-memory-summary" },
     ],
   },
   {
@@ -561,26 +1205,22 @@ export const navigationSections: NavigationSection[] = [
     ],
   },
   {
-    id: "agents-teams",
-    label: "Agents and teams",
+    id: "analytics",
+    label: "Analytics",
     children: [
-      { id: "workspace", label: "Team workspace", sectionId: "agents-teams-roster" },
-      { id: "registry", label: "Agent registry", sectionId: "agents-registry" },
+      { id: "summary", label: "Summary", sectionId: "analytics-summary" },
+      { id: "trends", label: "Trends", sectionId: "analytics-trends" },
+      { id: "facets", label: "Facets", sectionId: "analytics-facets" },
+      { id: "tools", label: "Tools", sectionId: "analytics-tools" },
+      { id: "traces", label: "Traces", sectionId: "analytics-traces" },
     ],
   },
   {
-    id: "runtime",
-    label: "Runtime",
+    id: "imports",
+    label: "Imports",
     children: [
-      { id: "summary", label: "Summary", sectionId: "runtime-summary" },
-      { id: "tools", label: "Runtime tools", page: "runtime-tools", sectionId: "runtime-tools-table" },
-      { id: "commands", label: "Supported commands", page: "runtime-commands", sectionId: "runtime-commands-table" },
-      { id: "skills", label: "Skills", page: "runtime-skills", sectionId: "runtime-skills-loaded" },
-      { id: "plugins", label: "Plugins", page: "runtime-plugins", sectionId: "runtime-plugins-runtime" },
-      { id: "mcp", label: "MCP servers", page: "runtime-mcp", sectionId: "runtime-mcp-runtime" },
-      { id: "agents", label: "Agents", page: "runtime-agents", sectionId: "runtime-agents-runtime" },
-      { id: "models", label: "Models", page: "runtime-models", sectionId: "runtime-models-table" },
-      { id: "payload", label: "Payload preview", sectionId: "runtime-payload" },
+      { id: "status", label: "Status", sectionId: "imports-status" },
+      { id: "examples", label: "Examples", sectionId: "imports-examples" },
     ],
   },
 ];
@@ -718,7 +1358,7 @@ export function buildPlaygroundHash(
   page: PlaygroundPageId,
   section?: string
 ): string {
-  return `#/${page}${section ? `/${section}` : ""}`;
+  return `#/${page}${section ? `/${encodeURIComponent(section)}` : ""}`;
 }
 
 export function parsePlaygroundHash(hash: string): PlaygroundRoute {
@@ -730,12 +1370,13 @@ export function parsePlaygroundHash(hash: string): PlaygroundRoute {
   const [pageCandidate, section] = value.split("/");
   return {
     page: isPlaygroundPageId(pageCandidate) ? pageCandidate : "overview",
-    section: section || undefined,
+    section: section ? decodeURIComponent(section) : undefined,
   };
 }
 
 function isPlaygroundPageId(value: string): value is PlaygroundPageId {
-  return navigationSections.some((section) =>
-    section.id === value || section.children.some((child) => child.page === value)
-  );
+  return value === "session-detail"
+    || navigationSections.some((section) =>
+      section.id === value || section.children.some((child) => child.page === value)
+    );
 }

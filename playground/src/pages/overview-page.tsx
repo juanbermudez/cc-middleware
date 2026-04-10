@@ -13,10 +13,8 @@ import type {
 import { formatNumber } from "../lib/utils";
 import {
   CompactStatGrid,
-  InlineState,
   PageBodyWithRail,
   SectionIntro,
-  ToolbarPane,
 } from "../components/playground-ui";
 
 export function OverviewPage(props: {
@@ -136,36 +134,25 @@ export function OverviewPage(props: {
         activeSection={props.activeSection}
         items={operations}
         sections={sections}
+        railPanels={(
+          <div className="space-y-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Workspace
+            </div>
+            <div className="space-y-2 rounded-xl border border-slate-200 bg-white/82 p-3">
+              <Button variant="secondary" size="sm" onClick={props.onRefresh} className="w-full justify-center">
+                Refresh workspace
+              </Button>
+              <Badge variant="outline" className="flex w-full justify-center font-mono text-[11px]">
+                API http://127.0.0.1:3000
+              </Badge>
+              <Badge variant="outline" className="flex w-full justify-center font-mono text-[11px]">
+                UI http://127.0.0.1:4173
+              </Badge>
+            </div>
+          </div>
+        )}
       >
-        <ToolbarPane
-          title="Workspace"
-          description="Refresh the live middleware snapshot and keep the key operating notes nearby."
-        >
-          <div className="flex flex-wrap gap-3">
-            <Button variant="secondary" onClick={props.onRefresh}>
-              Refresh workspace
-            </Button>
-            <Badge variant="outline" className="font-mono">
-              API http://127.0.0.1:3000
-            </Badge>
-            <Badge variant="outline" className="font-mono">
-              UI http://127.0.0.1:4173
-            </Badge>
-          </div>
-          <div className="grid gap-2 lg:grid-cols-2">
-            <InlineState
-              variant="neutral"
-              title="Session behavior"
-              detail="Sessions appear from disk immediately. Search only covers what has been indexed into SQLite."
-            />
-            <InlineState
-              variant="neutral"
-              title="Layout model"
-              detail="Controls stay in the page content, while the right rail only carries endpoint navigation."
-            />
-          </div>
-        </ToolbarPane>
-
         <div id="overview-status" className="space-y-4">
           <div>
             <div className="text-sm font-medium text-slate-900">Status</div>

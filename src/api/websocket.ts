@@ -15,6 +15,10 @@ import type { HookEventType, HookInput } from "../types/hooks.js";
 import type { LaunchResult } from "../sessions/launcher.js";
 import type { TrackedSession } from "../sessions/manager.js";
 import type { SessionStreamEvent } from "../sessions/streaming.js";
+import { createCanUseTool } from "../permissions/handler.js";
+import { mergeSDKHooks } from "../sessions/utils.js";
+import { createFullSDKHooks } from "../hooks/sdk-bridge.js";
+import type { DispatchJob } from "../dispatch/types.js";
 
 /** Client -> Server messages */
 export type WSClientMessage =
@@ -36,6 +40,11 @@ export type WSClientMessage =
         model?: string;
         agent?: string;
         persistSession?: boolean;
+        analytics?: {
+          captureRawMessages?: boolean;
+          label?: string;
+          source?: "api" | "websocket" | "plugin" | "cli" | "internal";
+        };
       };
     }
   | {
@@ -43,7 +52,13 @@ export type WSClientMessage =
       sessionId: string;
       prompt: string;
       maxTurns?: number;
+      agent?: string;
       model?: string;
+      analytics?: {
+        captureRawMessages?: boolean;
+        label?: string;
+        source?: "api" | "websocket" | "plugin" | "cli" | "internal";
+      };
     };
 
 export type WSSessionStreamEvent =
@@ -75,6 +90,12 @@ export type WSServerMessage =
   | { type: "team:created"; teamName: string; timestamp: number }
   | { type: "team:updated"; teamName: string; timestamp: number }
   | { type: "team:task-updated"; path: string; timestamp: number }
+  | { type: "dispatch:job-created"; job: DispatchJob }
+  | { type: "dispatch:job-started"; job: DispatchJob }
+  | { type: "dispatch:job-completed"; job: DispatchJob }
+  | { type: "dispatch:job-failed"; job: DispatchJob; error: string }
+  | { type: "dispatch:cue-triggered"; cueId: string; jobId: string; eventType: string }
+  | { type: "dispatch:heartbeat"; ruleId: string; jobId: string }
   | { type: "hook:event"; eventType: string; input: HookInput }
   | { type: "pong" }
   | { type: "error"; message: string };
@@ -100,13 +121,28 @@ const LaunchSessionSchema = z.object({
   model: z.string().optional(),
   agent: z.string().optional(),
   persistSession: z.boolean().optional(),
+  analytics: z
+    .object({
+      captureRawMessages: z.boolean().optional(),
+      label: z.string().optional(),
+      source: z.enum(["api", "websocket", "plugin", "cli", "internal"]).optional(),
+    })
+    .optional(),
 });
 
 const ResumeSessionSchema = z.object({
   sessionId: z.string().min(1),
   prompt: z.string().min(1),
   maxTurns: z.number().int().positive().optional(),
+  agent: z.string().optional(),
   model: z.string().optional(),
+  analytics: z
+    .object({
+      captureRawMessages: z.boolean().optional(),
+      label: z.string().optional(),
+      source: z.enum(["api", "websocket", "plugin", "cli", "internal"]).optional(),
+    })
+    .optional(),
 });
 
 /** A handle to the WebSocket broadcast system */
@@ -125,6 +161,37 @@ export function registerWebSocketRoutes(
   ctx: MiddlewareContext
 ): WebSocketBroadcaster {
   const clients = new Set<WSClient>();
+
+  function buildPermissionLaunchOptions(options: {
+    source: "websocket";
+    cwd?: string;
+    initialSessionId?: string;
+  }) {
+    let currentSessionId = options.initialSessionId;
+    const { canUseTool } = createCanUseTool({
+      policyEngine: ctx.policyEngine,
+      eventBus: ctx.eventBus,
+      permissionManager: ctx.permissionManager,
+      getContext: () => ({
+        sessionId: currentSessionId,
+        cwd: options.cwd,
+      }),
+      analytics: {
+        source: options.source,
+        cwd: options.cwd,
+        sessionId: currentSessionId,
+      },
+    });
+    const hooks = mergeSDKHooks(createFullSDKHooks(ctx.eventBus, ctx.blockingRegistry));
+
+    return {
+      canUseTool,
+      hooks,
+      onSessionId: (sessionId: string) => {
+        currentSessionId = sessionId;
+      },
+    };
+  }
 
   // Helper: send a message to a client
   function sendToClient(client: WSClient, message: WSServerMessage): void {
@@ -229,7 +296,13 @@ export function registerWebSocketRoutes(
               break;
             }
 
-            void startStreamingSession(parsed.data);
+            void startStreamingSession({
+              ...parsed.data,
+              analytics: {
+                ...parsed.data.analytics,
+                source: "websocket",
+              },
+            });
             break;
           }
 
@@ -238,7 +311,9 @@ export function registerWebSocketRoutes(
               sessionId: msg.sessionId,
               prompt: msg.prompt,
               maxTurns: msg.maxTurns,
+              agent: msg.agent,
               model: msg.model,
+              analytics: msg.analytics,
             });
             if (!parsed.success) {
               sendToClient(client, {
@@ -252,7 +327,12 @@ export function registerWebSocketRoutes(
               prompt: parsed.data.prompt,
               resume: parsed.data.sessionId,
               maxTurns: parsed.data.maxTurns,
+              agent: parsed.data.agent,
               model: parsed.data.model,
+              analytics: {
+                ...parsed.data.analytics,
+                source: "websocket",
+              },
             }, parsed.data.sessionId);
             break;
           }
@@ -285,7 +365,17 @@ export function registerWebSocketRoutes(
     resumeSessionId?: string
   ): Promise<void> {
     try {
-      const streamingSession = await ctx.sessionManager.launchStreaming(options);
+      const permissionLaunch = buildPermissionLaunchOptions({
+        source: "websocket",
+        cwd: options.cwd,
+        initialSessionId: resumeSessionId,
+      });
+      const streamingSession = await ctx.sessionManager.launchStreaming({
+        ...options,
+        canUseTool: permissionLaunch.canUseTool,
+        hooks: permissionLaunch.hooks,
+        onSessionId: permissionLaunch.onSessionId,
+      });
 
       for await (const event of streamingSession.events) {
         const sessionId = streamingSession.sessionId || resumeSessionId || "pending";

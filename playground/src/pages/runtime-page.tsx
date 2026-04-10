@@ -156,31 +156,31 @@ export function RuntimePage(props: {
     {
       href: buildPlaygroundHash("runtime-commands", "runtime-commands-table"),
       label: "Supported commands",
-      detail: "Structured runtime commands plus discovered legacy command files.",
+      detail: "Structured runtime commands Claude reports after runtime init.",
       count: props.runtime?.commands.length ?? 0,
     },
     {
-      href: buildPlaygroundHash("runtime-skills", "runtime-skills-loaded"),
+      href: buildPlaygroundHash("runtime-skills", "runtime-skills-table"),
       label: "Skills",
-      detail: "Loaded runtime skills and discovered filesystem skills.",
+      detail: "Loaded runtime skills for the current project.",
       count: props.runtime?.skills.length ?? 0,
     },
     {
-      href: buildPlaygroundHash("runtime-plugins", "runtime-plugins-runtime"),
+      href: buildPlaygroundHash("runtime-plugins", "runtime-plugins-table"),
       label: "Plugins",
-      detail: "Runtime-loaded plugins compared against installed plugin discovery.",
+      detail: "Runtime-loaded plugins for the current project context.",
       count: props.runtime?.plugins.length ?? 0,
     },
     {
-      href: buildPlaygroundHash("runtime-mcp", "runtime-mcp-runtime"),
+      href: buildPlaygroundHash("runtime-mcp", "runtime-mcp-table"),
       label: "MCP servers",
-      detail: "Runtime MCP status compared against discovered MCP configuration.",
+      detail: "Runtime MCP status reported by Claude for this project.",
       count: props.runtime?.mcpServers.length ?? 0,
     },
     {
-      href: buildPlaygroundHash("runtime-agents", "runtime-agents-runtime"),
+      href: buildPlaygroundHash("runtime-agents", "runtime-agents-table"),
       label: "Agents",
-      detail: "Runtime agent details compared against discovered agent files.",
+      detail: "Runtime agent details surfaced by the active Claude runtime.",
       count: props.runtime?.agentDetails.length ?? 0,
     },
     {
@@ -196,7 +196,7 @@ export function RuntimePage(props: {
       <SectionIntro
         eyebrow="Runtime"
         title="Effective Claude runtime"
-        description="This overview keeps the runtime surface small: summary counts here, focused searchable inventories on their own pages. Use it to confirm the current project runtime, then drop into the specific resource page you want to validate."
+        description="This overview is now strictly runtime-only: what Claude actually loaded, exposed, or reported for the current project. The Configuration section separately covers settings, files, registries, and other discoverable source surfaces."
       />
 
       <PageBodyWithRail

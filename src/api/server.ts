@@ -17,7 +17,9 @@ import type { AgentRegistry } from "../agents/registry.js";
 import type { TeamManager } from "../agents/teams.js";
 import type { PermissionManager } from "../permissions/handler.js";
 import type { AskUserQuestionManager } from "../permissions/ask-user.js";
+import type { AnalyticsContext } from "../types/analytics.js";
 import { registerSessionRoutes } from "./routes/sessions.js";
+import { registerAnalyticsRoutes } from "./routes/analytics.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerAgentRoutes } from "./routes/agents.js";
 import { registerPermissionRoutes } from "./routes/permissions.js";
@@ -25,10 +27,13 @@ import { registerWebSocketRoutes } from "./websocket.js";
 import type { WebSocketBroadcaster } from "./websocket.js";
 import { registerSearchRoutes } from "./routes/search.js";
 import { registerConfigRoutes } from "./routes/config.js";
+import { registerMetadataRoutes } from "./routes/metadata.js";
+import { registerDispatchRoutes } from "./routes/dispatch.js";
 import type { SearchContext } from "./routes/search.js";
 import type { ConfigContext } from "./routes/config.js";
 import type { SessionStore } from "../store/db.js";
 import type { SessionIndexer } from "../store/indexer.js";
+import type { DispatchStore } from "../dispatch/store.js";
 
 /** Options for creating the middleware API server */
 export interface MiddlewareServerOptions {
@@ -46,6 +51,10 @@ export interface MiddlewareServerOptions {
   sessionStore?: SessionStore;
   /** Optional: session indexer for search (Phase 9) */
   sessionIndexer?: SessionIndexer;
+  /** Optional: analytics warehouse and backfill context (Phase 13) */
+  analytics?: AnalyticsContext;
+  /** Optional: dispatch store for queued work */
+  dispatchStore?: DispatchStore;
   /** Optional: project directory for config (Phase 10) */
   projectDir?: string;
 }
@@ -61,6 +70,8 @@ export interface MiddlewareContext {
   permissionManager: PermissionManager;
   askUserManager: AskUserQuestionManager;
   sessionStore?: SessionStore;
+  analytics?: AnalyticsContext;
+  dispatchStore?: DispatchStore;
 }
 
 /** The middleware server instance */
@@ -99,6 +110,8 @@ export async function createMiddlewareServer(
     permissionManager: options.permissionManager,
     askUserManager: options.askUserManager,
     sessionStore: options.sessionStore,
+    analytics: options.analytics,
+    dispatchStore: options.dispatchStore,
   };
 
   // Decorate Fastify with context so routes can access it
@@ -141,6 +154,9 @@ export async function createMiddlewareServer(
 
   // Register route modules
   registerSessionRoutes(app, ctx);
+  registerAnalyticsRoutes(app, ctx);
+  registerDispatchRoutes(app, ctx);
+  registerMetadataRoutes(app, ctx);
   registerEventRoutes(app, ctx);
   registerAgentRoutes(app, ctx);
   registerPermissionRoutes(app, ctx);
@@ -172,6 +188,7 @@ export async function createMiddlewareServer(
       pendingPermissions: ctx.permissionManager.getPendingPermissions().length,
       pendingQuestions: ctx.askUserManager.getPendingQuestions().length,
       policyRuleCount: ctx.policyEngine.getRules().length,
+      dispatchSummary: ctx.dispatchStore?.getSummary(),
     };
   });
 

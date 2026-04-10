@@ -50,11 +50,6 @@ export function SessionDirectorySection(props: { group: SessionExplorerGroup }) 
 function SessionParentRow(props: { session: SessionExplorerEntry }) {
   const [showSubagents, setShowSubagents] = useState(false);
   const relationships = props.session.lineage.relationships;
-  const metadataSummary = props.session.metadata.length > 0
-    ? props.session.metadata
-      .map((entry) => `${entry.label}: ${entry.value}`)
-      .join(" · ")
-    : "No custom metadata";
   const metaRows = [
     { label: "Branch", value: props.session.gitBranch ?? "No branch captured" },
     {
@@ -69,10 +64,6 @@ function SessionParentRow(props: { session: SessionExplorerEntry }) {
       value: props.session.lineage.teamNames.length > 0
         ? props.session.lineage.teamNames.join(", ")
         : "No team lineage",
-    },
-    {
-      label: "Metadata",
-      value: metadataSummary,
     },
   ];
 
@@ -118,6 +109,13 @@ function SessionParentRow(props: { session: SessionExplorerEntry }) {
       </div>
 
       <SessionMetadataGrid rows={metaRows} columnsClassName="sm:grid-cols-2 xl:grid-cols-3" compact />
+
+      {props.session.metadata.length > 0 ? (
+        <SessionMetadataTable
+          title="Metadata fields"
+          entries={props.session.metadata}
+        />
+      ) : null}
 
       {relationships.length > 0 ? (
         <div className="space-y-3 border-t border-slate-200/80 pt-3">
@@ -192,6 +190,43 @@ function SessionParentRow(props: { session: SessionExplorerEntry }) {
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function SessionMetadataTable(props: {
+  title: string;
+  entries: SessionExplorerEntry["metadata"];
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white/80">
+      <div className="border-b border-slate-200 bg-slate-50/80 px-3 py-2">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          {props.title}
+        </div>
+      </div>
+      <table className="w-full text-left">
+        <thead className="border-b border-slate-200 bg-white/60">
+          <tr className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
+            <th className="px-3 py-2 font-medium">Field</th>
+            <th className="px-3 py-2 font-medium">Value</th>
+            <th className="px-3 py-2 font-medium">Updated</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200">
+          {props.entries.map((entry) => (
+            <tr key={`${entry.sessionId}-${entry.key}`} className="align-top">
+              <td className="px-3 py-2 text-sm font-medium text-slate-900">
+                {entry.label}
+              </td>
+              <td className="px-3 py-2 text-sm text-slate-600">{entry.value}</td>
+              <td className="px-3 py-2 text-xs text-slate-500">
+                {formatTimestamp(entry.updatedAt)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

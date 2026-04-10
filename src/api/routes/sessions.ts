@@ -11,10 +11,14 @@ import {
   buildTeamMemberships,
   groupSessionCatalogByDirectory,
 } from "../../sessions/catalog.js";
+import { buildSessionDetail } from "../../sessions/detail.js";
 import { readSessionMessages } from "../../sessions/messages.js";
 import { getSession, updateSessionTitle, updateSessionTag } from "../../sessions/info.js";
+import { createCanUseTool } from "../../permissions/handler.js";
+import { mergeSDKHooks } from "../../sessions/utils.js";
 import type { MiddlewareContext } from "../server.js";
 import { toError } from "../../utils/errors.js";
+import { createFullSDKHooks } from "../../hooks/sdk-bridge.js";
 
 /** Request schemas */
 const LaunchSessionSchema = z.object({
@@ -31,12 +35,27 @@ const LaunchSessionSchema = z.object({
   effort: z.enum(["low", "medium", "high", "max"]).optional(),
   model: z.string().optional(),
   agent: z.string().optional(),
+  analytics: z
+    .object({
+      captureRawMessages: z.boolean().optional(),
+      label: z.string().optional(),
+      source: z.enum(["api", "websocket", "plugin", "cli", "internal"]).optional(),
+    })
+    .optional(),
 });
 
 const ResumeSessionSchema = z.object({
   prompt: z.string().min(1),
   maxTurns: z.number().int().positive().optional(),
+  agent: z.string().optional(),
   model: z.string().optional(),
+  analytics: z
+    .object({
+      captureRawMessages: z.boolean().optional(),
+      label: z.string().optional(),
+      source: z.enum(["api", "websocket", "plugin", "cli", "internal"]).optional(),
+    })
+    .optional(),
 });
 
 const UpdateSessionSchema = z.object({
@@ -47,6 +66,10 @@ const UpdateSessionSchema = z.object({
 const PaginationSchema = z.object({
   limit: z.coerce.number().int().positive().default(20),
   offset: z.coerce.number().int().nonnegative().default(0),
+});
+
+const SessionDetailQuerySchema = z.object({
+  rootSessionId: z.string().min(1).optional(),
 });
 
 const ListSessionsQuerySchema = z.object({
@@ -87,6 +110,37 @@ const UpsertSessionMetadataValueSchema = z.object({
  * Register session routes on the Fastify instance.
  */
 export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareContext): void {
+  function buildPermissionLaunchOptions(options: {
+    source: "api";
+    cwd?: string;
+    initialSessionId?: string;
+  }) {
+    let currentSessionId = options.initialSessionId;
+    const { canUseTool } = createCanUseTool({
+      policyEngine: ctx.policyEngine,
+      eventBus: ctx.eventBus,
+      permissionManager: ctx.permissionManager,
+      getContext: () => ({
+        sessionId: currentSessionId,
+        cwd: options.cwd,
+      }),
+      analytics: {
+        source: options.source,
+        cwd: options.cwd,
+        sessionId: currentSessionId,
+      },
+    });
+    const hooks = mergeSDKHooks(createFullSDKHooks(ctx.eventBus, ctx.blockingRegistry));
+
+    return {
+      canUseTool,
+      hooks,
+      onSessionId: (sessionId: string) => {
+        currentSessionId = sessionId;
+      },
+    };
+  }
+
   // GET /api/v1/sessions/metadata/definitions - list searchable metadata definitions
   app.get("/api/v1/sessions/metadata/definitions", async (_request, reply) => {
     if (!ctx.sessionStore) {
@@ -144,6 +198,36 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
 
     return reply.status(existing ? 200 : 201).send({
       definition: ctx.sessionStore.getSessionMetadataDefinition(definition.key),
+    });
+  });
+
+  // DELETE /api/v1/sessions/metadata/definitions/:key - remove a metadata definition and its values
+  app.delete<{
+    Params: { key: string };
+  }>("/api/v1/sessions/metadata/definitions/:key", async (request, reply) => {
+    if (!ctx.sessionStore) {
+      return reply.status(501).send({
+        error: {
+          code: "SESSION_STORE_UNAVAILABLE",
+          message: "Session metadata requires an indexed session store",
+        },
+      });
+    }
+
+    const existing = ctx.sessionStore.getSessionMetadataDefinition(request.params.key);
+    if (!existing) {
+      return reply.status(404).send({
+        error: {
+          code: "SESSION_METADATA_DEFINITION_NOT_FOUND",
+          message: `Metadata definition ${request.params.key} not found`,
+        },
+      });
+    }
+
+    ctx.sessionStore.deleteSessionMetadataDefinition(request.params.key);
+
+    return reply.send({
+      definitions: ctx.sessionStore.listSessionMetadataDefinitions(),
     });
   });
 
@@ -357,6 +441,38 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
     }
   });
 
+  // GET /api/v1/sessions/:id/detail - Get a source-of-truth session detail view
+  app.get<{
+    Params: { id: string };
+    Querystring: { rootSessionId?: string };
+  }>("/api/v1/sessions/:id/detail", async (request, reply) => {
+    const { id } = request.params;
+    const query = SessionDetailQuerySchema.parse(request.query);
+
+    try {
+      const detail = await buildSessionDetail(id, {
+        rootSessionId: query.rootSessionId,
+        metadata: ctx.sessionStore?.listSessionMetadataValues(id),
+      });
+
+      if (!detail) {
+        return reply.status(404).send({
+          error: { code: "SESSION_NOT_FOUND", message: `Session ${id} not found` },
+        });
+      }
+
+      return reply.send(detail);
+    } catch (error) {
+      const err = toError(error);
+      if (err.message.includes("not found") || err.message.includes("ENOENT")) {
+        return reply.status(404).send({
+          error: { code: "SESSION_NOT_FOUND", message: `Session ${id} not found` },
+        });
+      }
+      throw error;
+    }
+  });
+
   // POST /api/v1/sessions - Launch new session
   app.post<{
     Body: unknown;
@@ -375,6 +491,10 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
     const body = parseResult.data;
 
     try {
+      const permissionLaunch = buildPermissionLaunchOptions({
+        source: "api",
+        cwd: body.cwd,
+      });
       const result = await ctx.sessionManager.launch({
         prompt: body.prompt,
         allowedTools: body.allowedTools,
@@ -385,7 +505,15 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
         systemPrompt: body.systemPrompt,
         cwd: body.cwd,
         effort: body.effort,
+        agent: body.agent,
         model: body.model,
+        canUseTool: permissionLaunch.canUseTool,
+        hooks: permissionLaunch.hooks,
+        onSessionId: permissionLaunch.onSessionId,
+        analytics: {
+          ...body.analytics,
+          source: "api",
+        },
       });
 
       return reply.status(201).send(result);
@@ -420,11 +548,23 @@ export function registerSessionRoutes(app: FastifyInstance, ctx: MiddlewareConte
     const body = parseResult.data;
 
     try {
+      const permissionLaunch = buildPermissionLaunchOptions({
+        source: "api",
+        initialSessionId: id,
+      });
       const result = await ctx.sessionManager.launch({
         prompt: body.prompt,
         resume: id,
         maxTurns: body.maxTurns,
+        agent: body.agent,
         model: body.model,
+        canUseTool: permissionLaunch.canUseTool,
+        hooks: permissionLaunch.hooks,
+        onSessionId: permissionLaunch.onSessionId,
+        analytics: {
+          ...body.analytics,
+          source: "api",
+        },
       });
 
       return reply.send(result);

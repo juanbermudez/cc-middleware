@@ -15,11 +15,13 @@ import { TeamManager } from "../../src/agents/teams.js";
 import { PermissionManager } from "../../src/permissions/handler.js";
 import { AskUserQuestionManager } from "../../src/permissions/ask-user.js";
 import { launchSession } from "../../src/sessions/launcher.js";
+import type { HookInput } from "../../src/types/hooks.js";
 import type { MiddlewareServer } from "../../src/api/server.js";
 
 let server: MiddlewareServer;
 let baseUrl: string;
 let testSessionId: string;
+let eventBus: HookEventBus;
 
 beforeAll(async () => {
   // Launch a session first so we have one to query
@@ -35,7 +37,7 @@ beforeAll(async () => {
     port,
     host: "127.0.0.1",
     sessionManager: new SessionManager(),
-    eventBus: new HookEventBus(),
+    eventBus: (eventBus = new HookEventBus()),
     blockingRegistry: new BlockingHookRegistry(),
     policyEngine: new PolicyEngine({ rules: [], defaultBehavior: "allow" }),
     agentRegistry: new AgentRegistry(),
@@ -157,4 +159,50 @@ describe("Session REST Endpoints (E2E)", () => {
     const body = await resp.json();
     expect(body.error.code).toBe("SESSION_NOT_FOUND");
   });
+
+  it("should bridge hook events during an API-launched session", async () => {
+    const preToolEvents: string[] = [];
+    const postToolEvents: string[] = [];
+
+    const preListener = (input: HookInput) => {
+      const toolName = (input as Record<string, unknown>).tool_name;
+      if (typeof toolName === "string") {
+        preToolEvents.push(toolName);
+      }
+    };
+    const postListener = (input: HookInput) => {
+      const toolName = (input as Record<string, unknown>).tool_name;
+      if (typeof toolName === "string") {
+        postToolEvents.push(toolName);
+      }
+    };
+
+    eventBus.on("PreToolUse", preListener);
+    eventBus.on("PostToolUse", postListener);
+
+    try {
+      const resp = await fetch(`${baseUrl}/api/v1/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: "Read the file package.json and tell me the project name.",
+          allowedTools: ["Read"],
+          maxTurns: 3,
+          permissionMode: "plan",
+        }),
+      });
+
+      expect(resp.status).toBe(201);
+
+      const body = await resp.json();
+      expect(body.sessionId).toBeDefined();
+      expect(preToolEvents.length).toBeGreaterThan(0);
+      expect(postToolEvents.length).toBeGreaterThan(0);
+      expect(preToolEvents).toContain("Read");
+      expect(postToolEvents).toContain("Read");
+    } finally {
+      eventBus.off("PreToolUse", preListener);
+      eventBus.off("PostToolUse", postListener);
+    }
+  }, 90000);
 });

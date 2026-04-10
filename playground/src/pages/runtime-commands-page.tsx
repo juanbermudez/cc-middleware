@@ -1,6 +1,4 @@
-import type { ReactNode } from "react";
 import type {
-  ConfigCommandsResponse,
   PlaygroundPageId,
   RuntimeCommandsResponse,
 } from "../lib/playground";
@@ -13,7 +11,7 @@ import {
   SectionIntro,
   TableMetaBadges,
 } from "../components/playground-ui";
-import { truncate } from "../lib/utils";
+import { ResourceMetadataWorkspace } from "../components/resource-metadata-workspace";
 
 function formatArgumentHint(value: string | string[] | undefined): string {
   if (!value) {
@@ -27,7 +25,6 @@ export function RuntimeCommandsPage(props: {
 }) {
   const page: PlaygroundPageId = "runtime-commands";
   const runtimeCommands = useEndpointQuery<RuntimeCommandsResponse>("/api/v1/config/runtime/commands");
-  const discoveredCommands = useEndpointQuery<ConfigCommandsResponse>("/api/v1/config/commands");
   const operations = [
     {
       method: "GET",
@@ -37,14 +34,20 @@ export function RuntimeCommandsPage(props: {
     },
     {
       method: "GET",
-      path: "/api/v1/config/commands",
-      detail: "List and search discovered legacy slash command files.",
-      sectionId: "runtime-commands-discovered",
+      path: "/api/v1/metadata/definitions/runtime-command",
+      detail: "Manage metadata fields for runtime commands.",
+      sectionId: "runtime-commands-metadata",
+    },
+    {
+      method: "PUT",
+      path: "/api/v1/metadata/values/runtime-command/:resourceId",
+      detail: "Write metadata onto a specific runtime command.",
+      sectionId: "runtime-commands-metadata",
     },
   ];
   const sections = [
-    { id: "runtime-commands-table", label: "Supported commands" },
-    { id: "runtime-commands-discovered", label: "Discovered command files" },
+    { id: "runtime-commands-table", label: "Runtime commands" },
+    { id: "runtime-commands-metadata", label: "Metadata" },
     { id: "runtime-commands-payload", label: "Payload preview" },
   ];
   const exampleGroups = [
@@ -57,23 +60,14 @@ export function RuntimeCommandsPage(props: {
         { label: "New app", detail: "Search runtime commands for app creation flows.", action: () => runtimeCommands.setQuery("new") },
       ],
     },
-    {
-      title: "Discovered files",
-      buttonLabel: "Apply",
-      items: [
-        { label: "All files", detail: "Reset the discovered command search.", action: () => discoveredCommands.setQuery("") },
-        { label: "SDK", detail: "Search discovered command files for SDK commands.", action: () => discoveredCommands.setQuery("sdk") },
-        { label: "Plugin", detail: "Search discovered command files by plugin source.", action: () => discoveredCommands.setQuery("plugin") },
-      ],
-    },
   ];
 
   return (
     <section className="space-y-8">
       <SectionIntro
         eyebrow="Runtime Commands"
-        title="Supported command inventory"
-        description="Structured runtime commands and discovered legacy slash command files live on separate surfaces. This page keeps both searchable through the middleware so we can validate what Claude loads versus what the filesystem readers find."
+        title="Supported runtime commands"
+        description="This page is runtime-only. It shows the structured commands Claude reports after runtime initialization, while the Configuration section owns discovered legacy command files."
       />
 
       <PageBodyWithRail
@@ -85,21 +79,14 @@ export function RuntimeCommandsPage(props: {
       >
         <div id="runtime-commands-table">
           <CompactDataTable
-            title="Supported commands"
+            title="Runtime commands"
             description="Structured command definitions returned by the runtime command endpoint."
             search={{
               value: runtimeCommands.query,
               onChange: runtimeCommands.setQuery,
               placeholder: "Search runtime commands",
             }}
-            meta={
-              <TableMetaBadges
-                total={runtimeCommands.data?.total}
-                noun="commands"
-                loading={runtimeCommands.loading}
-                query={runtimeCommands.query}
-              />
-            }
+            meta={<TableMetaBadges total={runtimeCommands.data?.total} noun="commands" loading={runtimeCommands.loading} query={runtimeCommands.query} />}
             loading={runtimeCommands.loading}
             error={runtimeCommands.error}
             columns={["Command", "Args", "Source"]}
@@ -107,101 +94,44 @@ export function RuntimeCommandsPage(props: {
               id: command.name,
               cells: [
                 <span className="font-medium text-slate-900">/{command.name}</span>,
-                <span className="font-mono text-xs text-slate-500">
-                  {formatArgumentHint(command.argumentHint)}
-                </span>,
+                <span className="font-mono text-xs text-slate-500">{formatArgumentHint(command.argumentHint)}</span>,
                 <Badge variant="outline">Runtime</Badge>,
               ],
               previewEyebrow: "Runtime Command",
               previewTitle: `/${command.name}`,
               previewDescription: command.description || "No description",
-              previewBadges: [
-                <Badge variant="info">Runtime</Badge>,
-                <Badge variant="outline">Command</Badge>,
-              ],
               previewMeta: [
-                {
-                  label: "Argument hint",
-                  value: (
-                    <span className="font-mono text-xs text-slate-600">
-                      {formatArgumentHint(command.argumentHint)}
-                    </span>
-                  ),
-                },
+                { label: "Argument hint", value: formatArgumentHint(command.argumentHint) },
                 { label: "Endpoint", value: "/api/v1/config/runtime/commands" },
               ],
             }))}
-            emptyTitle="No commands matched"
+            emptyTitle="No runtime commands matched"
             emptyDetail="The middleware runtime command route did not return any commands for this query."
           />
         </div>
 
-        <div id="runtime-commands-discovered">
-          <CompactDataTable
-            title="Discovered command files"
-            description="Legacy slash command markdown files discovered by the middleware."
-            search={{
-              value: discoveredCommands.query,
-              onChange: discoveredCommands.setQuery,
-              placeholder: "Search discovered command files",
-            }}
-            meta={
-              <TableMetaBadges
-                total={discoveredCommands.data?.total}
-                noun="files"
-                loading={discoveredCommands.loading}
-                query={discoveredCommands.query}
-              />
-            }
-            loading={discoveredCommands.loading}
-            error={discoveredCommands.error}
-            columns={["Command", "Scope", "Source"]}
-            rows={(discoveredCommands.data?.commands ?? []).map((command) => {
-              const badges: ReactNode[] = [<Badge variant="outline">{command.scope}</Badge>];
-              if (command.pluginName) {
-                badges.push(<Badge variant="info">{command.pluginName}</Badge>);
-              }
-
-              return {
-                id: command.path,
-                cells: [
-                  <span className="font-medium text-slate-900">
-                    /{command.qualifiedName ?? command.name}
-                  </span>,
-                  <Badge variant="outline">{command.scope}</Badge>,
-                  <span className="text-xs text-slate-500">
-                    {command.pluginName ?? "Filesystem"}
-                  </span>,
-                ],
-                previewEyebrow: "Command File",
-                previewTitle: `/${command.qualifiedName ?? command.name}`,
-                previewDescription: command.description || "No description",
-                previewBadges: badges,
-                previewMeta: [
-                  {
-                    label: "Argument hint",
-                    value: (
-                      <span className="font-mono text-xs text-slate-600">
-                        {formatArgumentHint(command.argumentHint)}
-                      </span>
-                    ),
-                  },
-                  { label: "Path", value: truncate(command.path, 108) },
-                ],
-              };
-            })}
-            emptyTitle="No discovered command files matched"
-            emptyDetail="The discovered command route did not return any files for this query."
+        <div id="runtime-commands-metadata">
+          <ResourceMetadataWorkspace
+            title="Runtime command metadata"
+            description="Keep internal labels, ownership, or rollout notes attached to runtime commands."
+            inventories={[
+              {
+                label: "Runtime commands",
+                resourceType: "runtime-command",
+                items: (runtimeCommands.data?.commands ?? []).map((command) => ({
+                  id: command.name,
+                  label: `/${command.name}`,
+                  detail: command.description || "Runtime command",
+                })),
+              },
+            ]}
           />
         </div>
 
         <div id="runtime-commands-payload">
           <JsonPreview
             title="Runtime commands payload"
-            data={{
-              runtime: runtimeCommands.data,
-              discovered: discoveredCommands.data,
-            }}
+            data={runtimeCommands.data}
             emptyMessage="Runtime command payload is not available yet."
           />
         </div>

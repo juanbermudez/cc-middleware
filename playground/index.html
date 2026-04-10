@@ -4,6 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CC-Middleware Playground</title>
+    <script>
+      (() => {
+        const storageKey = "cc-middleware.playground.theme";
+        let mode = "light";
+
+        try {
+          const saved = window.localStorage.getItem(storageKey);
+          if (saved === "light" || saved === "dark") {
+            mode = saved;
+          } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            mode = "dark";
+          }
+        } catch {
+          if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            mode = "dark";
+          }
+        }
+
+        document.documentElement.dataset.theme = mode;
+        document.documentElement.style.colorScheme = mode;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

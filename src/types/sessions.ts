@@ -25,9 +25,202 @@ export interface SessionMessage {
   session_id: string;
   /** Raw message payload from the transcript (opaque, must be parsed) */
   message: unknown;
-  parent_tool_use_id: null;
+  parent_tool_use_id: string | null;
   /** Optional ISO timestamp when available in the source transcript */
   timestamp?: string;
+}
+
+/** Transcript source kind for a session file. */
+export type SessionTranscriptKind = "root" | "subagent";
+
+/** Normalized role used by transcript and timeline surfaces. */
+export type SessionTranscriptRole = "user" | "assistant" | "system" | "runtime";
+
+/** Normalized tool use extracted from a transcript message. */
+export interface SessionTranscriptToolUse {
+  id: string;
+  name: string;
+  input: unknown;
+}
+
+/** Normalized tool result extracted from a transcript message. */
+export interface SessionTranscriptToolResult {
+  toolUseId: string;
+  isError: boolean;
+  content: string;
+}
+
+/** File change inferred from tool usage or transcript payloads. */
+export interface SessionDetailFileChange {
+  path: string;
+  action: "write" | "edit" | "multi_edit" | "notebook_edit";
+  toolName: string;
+  toolUseId?: string;
+  timestamp: number;
+}
+
+/** Normalized error entry for a session transcript. */
+export interface SessionDetailError {
+  id: string;
+  kind: "api_error" | "tool_error" | "system_error" | "unknown";
+  message: string;
+  timestamp: number;
+  toolName?: string;
+  toolUseId?: string;
+  eventType: string;
+  eventSubtype?: string;
+  sourceDedupeKey: string;
+}
+
+/** Summary row for a tool family used in a session. */
+export interface SessionDetailToolSummary {
+  toolName: string;
+  callCount: number;
+  errorCount: number;
+  lastSeenAt: number;
+  sessionIds: string[];
+}
+
+/** Summary row for inferred file changes. */
+export interface SessionDetailFileSummary {
+  path: string;
+  action: "write" | "edit" | "multi_edit" | "notebook_edit";
+  toolName: string;
+  toolUseId?: string;
+  count: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
+  sessionIds: string[];
+}
+
+/** Summary row for inferred skill usage. */
+export interface SessionDetailSkillSummary {
+  name: string;
+  count: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
+  sessionIds: string[];
+}
+
+/** Session/subagent lineage summary for the detail page. */
+export interface SessionDetailSubagentSummary {
+  sessionId: string;
+  rootSessionId: string;
+  transcriptKind: SessionTranscriptKind;
+  agentId?: string;
+  slug?: string;
+  teamName?: string;
+  teammateName?: string;
+  sourceToolAssistantUUID?: string;
+  transcriptPath?: string;
+  messageCount: number;
+  startedAt: number;
+  lastModified: number;
+}
+
+/** Session configuration snapshot used by the detail page. */
+export interface SessionDetailConfiguration {
+  cwd?: string;
+  projectKey?: string;
+  customTitle?: string;
+  tag?: string;
+  firstPrompt?: string;
+  model?: string;
+  agentId?: string;
+  slug?: string;
+  teamName?: string;
+  teammateName?: string;
+  rootSessionId: string;
+  transcriptKind: SessionTranscriptKind;
+  transcriptPath: string;
+  transcriptPaths: string[];
+  firstSeenAt: number;
+  lastSeenAt: number;
+}
+
+/** Detailed normalized message for a session transcript timeline. */
+export interface SessionTranscriptMessage {
+  id: string;
+  sessionId: string;
+  rootSessionId: string;
+  transcriptKind: SessionTranscriptKind;
+  interactionId: string;
+  role: SessionTranscriptRole;
+  eventType: string;
+  eventSubtype?: string;
+  timestamp: number;
+  text: string;
+  raw: Record<string, unknown>;
+  toolUses: SessionTranscriptToolUse[];
+  toolResults: SessionTranscriptToolResult[];
+  fileChanges: SessionDetailFileChange[];
+  errors: SessionDetailError[];
+  skillNames: string[];
+  agentId?: string;
+  slug?: string;
+  sourceToolAssistantUUID?: string;
+  teamName?: string;
+  teammateName?: string;
+  isPromptLikeUserEvent: boolean;
+}
+
+/** Turn/interaction grouping for the transcript timeline. */
+export interface SessionTranscriptTurn {
+  id: string;
+  interactionId: string;
+  sessionId: string;
+  rootSessionId: string;
+  transcriptKind: SessionTranscriptKind;
+  startedAt: number;
+  endedAt: number;
+  messageIds: string[];
+  messageCount: number;
+  role: SessionTranscriptRole;
+  title: string;
+  summary: string;
+  text: string;
+  messages: SessionTranscriptMessage[];
+  toolNames: string[];
+  filePaths: string[];
+  errorCount: number;
+  skillNames: string[];
+}
+
+/** Transcript payload for the detail page. */
+export interface SessionDetailTranscript {
+  messages: SessionTranscriptMessage[];
+  turns: SessionTranscriptTurn[];
+}
+
+/** Inspector payload for the detail page. */
+export interface SessionDetailInspector {
+  files: SessionDetailFileSummary[];
+  tools: SessionDetailToolSummary[];
+  errors: SessionDetailError[];
+  skills: SessionDetailSkillSummary[];
+  configuration: SessionDetailConfiguration;
+  subagents: SessionDetailSubagentSummary[];
+  metadata: import("../store/db.js").SessionMetadataEntry[];
+}
+
+/** Lineage payload for the detail page. */
+export interface SessionDetailLineage {
+  kind: SessionTranscriptKind;
+  sessionId: string;
+  rootSessionId: string;
+  parentSessionId?: string;
+  subagentCount: number;
+  subagents: SessionDetailSubagentSummary[];
+}
+
+/** Response payload for GET /api/v1/sessions/:id/detail. */
+export interface SessionDetailResponse {
+  sessionId: string;
+  rootSessionId: string;
+  session: SessionInfo;
+  transcript: SessionDetailTranscript;
+  inspector: SessionDetailInspector;
+  lineage: SessionDetailLineage;
 }
 
 /** Filters for listing sessions */

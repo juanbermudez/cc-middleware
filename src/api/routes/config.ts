@@ -206,8 +206,22 @@ export function registerConfigRoutes(
   });
 
   // GET /api/v1/config/projects - List tracked projects from ~/.claude.json
-  app.get("/api/v1/config/projects", async () => {
-    const projects = await listTrackedProjects();
+  app.get<{ Querystring: { q?: string } }>("/api/v1/config/projects", async (request) => {
+    const query = parseSearchQuery(request.query);
+    const projects = filterByQuery(
+      await listTrackedProjects(),
+      query,
+      (project) => [
+        project.path,
+        project.allowedTools,
+        project.mcpServerNames,
+        project.enabledMcpjsonServers,
+        project.disabledMcpjsonServers,
+        project.hasTrustDialogAccepted,
+        project.hasClaudeMdExternalIncludesApproved,
+        project.hasClaudeMdExternalIncludesWarningShown,
+      ]
+    );
     return { projects, total: projects.length };
   });
 
@@ -414,13 +428,50 @@ export function registerConfigRoutes(
   });
 
   // GET /api/v1/config/plugins/available - List installable plugins from Claude CLI
-  app.get("/api/v1/config/plugins/available", async () => {
-    return listAvailablePluginsViaCli();
+  app.get<{ Querystring: { q?: string } }>("/api/v1/config/plugins/available", async (request) => {
+    const query = parseSearchQuery(request.query);
+    const catalog = await listAvailablePluginsViaCli();
+    const installed = filterByQuery(
+      catalog.installed,
+      query,
+      (plugin) => [
+        plugin.id,
+        plugin.version,
+        plugin.scope,
+        plugin.installPath,
+        plugin.projectPath,
+      ]
+    );
+    const available = filterByQuery(
+      catalog.available,
+      query,
+      (plugin) => [
+        plugin.pluginId,
+        plugin.name,
+        plugin.description,
+        plugin.marketplaceName,
+        plugin.version,
+      ]
+    );
+    return { installed, available };
   });
 
   // GET /api/v1/config/marketplaces - List known plugin marketplaces
-  app.get("/api/v1/config/marketplaces", async () => {
-    const marketplaces = await listKnownMarketplaces(projectDir);
+  app.get<{ Querystring: { q?: string } }>("/api/v1/config/marketplaces", async (request) => {
+    const query = parseSearchQuery(request.query);
+    const marketplaces = filterByQuery(
+      await listKnownMarketplaces(projectDir),
+      query,
+      (marketplace) => [
+        marketplace.name,
+        marketplace.installLocation,
+        marketplace.pluginsPath,
+        marketplace.externalPluginsPath,
+        marketplace.pluginCount,
+        marketplace.installedCount,
+        marketplace.blockedCount,
+      ]
+    );
     return { marketplaces, total: marketplaces.length };
   });
 
@@ -791,8 +842,13 @@ export function registerConfigRoutes(
   });
 
   // GET /api/v1/config/rules - List all rules
-  app.get("/api/v1/config/rules", async () => {
-    const rules = await discoverRules({ projectDir });
+  app.get<{ Querystring: { q?: string } }>("/api/v1/config/rules", async (request) => {
+    const query = parseSearchQuery(request.query);
+    const rules = filterByQuery(
+      await discoverRules({ projectDir }),
+      query,
+      (rule) => [rule.path, rule.scope, rule.paths, rule.content]
+    );
     return { rules, total: rules.length };
   });
 
@@ -919,17 +975,23 @@ export function registerConfigRoutes(
   });
 
   // GET /api/v1/config/memory/files - List memory files
-  app.get("/api/v1/config/memory/files", async () => {
+  app.get<{ Querystring: { q?: string } }>("/api/v1/config/memory/files", async (request) => {
+    const query = parseSearchQuery(request.query);
     const memory = await readProjectMemory(projectDir);
+    const files = filterByQuery(
+      memory.files,
+      query,
+      (file) => [file.name, file.type, file.description, file.path, file.content]
+    );
     return {
-      files: memory.files.map((f) => ({
+      files: files.map((f) => ({
         name: f.name,
         type: f.type,
         description: f.description,
         lastModified: f.lastModified,
         path: f.path,
       })),
-      total: memory.files.length,
+      total: files.length,
     };
   });
 
@@ -948,16 +1010,26 @@ export function registerConfigRoutes(
   });
 
   // GET /api/v1/config/memory/projects - List all project memories
-  app.get("/api/v1/config/memory/projects", async () => {
-    const memories = await listAllProjectMemories();
+  app.get<{ Querystring: { q?: string } }>("/api/v1/config/memory/projects", async (request) => {
+    const query = parseSearchQuery(request.query);
+    const memories = filterByQuery(
+      await listAllProjectMemories(),
+      query,
+      (memory) => [memory.projectKey, memory.dir]
+    );
     return { projects: memories, total: memories.length };
   });
 
   // ========== CLAUDE.md ==========
 
   // GET /api/v1/config/claude-md - List all CLAUDE.md files
-  app.get("/api/v1/config/claude-md", async () => {
-    const files = await discoverClaudeMd({ projectDir });
+  app.get<{ Querystring: { q?: string } }>("/api/v1/config/claude-md", async (request) => {
+    const query = parseSearchQuery(request.query);
+    const files = filterByQuery(
+      await discoverClaudeMd({ projectDir }),
+      query,
+      (file) => [file.path, file.scope, file.imports, file.content]
+    );
     return { files, total: files.length };
   });
 }

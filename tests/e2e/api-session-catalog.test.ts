@@ -44,6 +44,23 @@ describe("session catalog API", () => {
         ],
       })
     );
+    writeFileSync(
+      join(tasksDir, "delivery", "task-1.json"),
+      JSON.stringify({
+        id: "task-1",
+        description: "Review indexed delivery session",
+        status: "pending",
+        assignee: "reviewer",
+        dependencies: [],
+      })
+    );
+
+    const agentRegistry = new AgentRegistry();
+    agentRegistry.register("agent-reviewer", {
+      description: "Reviews delivery work",
+      prompt: "You review delivery sessions",
+      tools: ["Read"],
+    });
 
     store = await createStore({ dbPath: join(tempDir, "catalog.db") });
     store.migrate();
@@ -55,7 +72,7 @@ describe("session catalog API", () => {
       eventBus: new HookEventBus(),
       blockingRegistry: new BlockingHookRegistry(),
       policyEngine: new PolicyEngine({ rules: [], defaultBehavior: "allow" }),
-      agentRegistry: new AgentRegistry(),
+      agentRegistry,
       teamManager: new TeamManager({ teamsDir, tasksDir }),
       permissionManager: new PermissionManager(),
       askUserManager: new AskUserQuestionManager(),
@@ -98,6 +115,8 @@ describe("session catalog API", () => {
     store.db.exec(`
       DELETE FROM session_metadata_values;
       DELETE FROM session_metadata_definitions;
+      DELETE FROM resource_metadata_values;
+      DELETE FROM resource_metadata_definitions;
       DELETE FROM session_relationships;
       DELETE FROM messages;
       DELETE FROM sessions;
@@ -224,6 +243,55 @@ describe("session catalog API", () => {
     });
   });
 
+  it("filters teams, tasks, and agents by session id scope", async () => {
+    const [teamsResponse, tasksResponse, agentsResponse] = await Promise.all([
+      server.app.inject({
+        method: "GET",
+        url: "/api/v1/teams?sessionIds=session-1,session-2",
+      }),
+      server.app.inject({
+        method: "GET",
+        url: "/api/v1/tasks?sessionId=session-1",
+      }),
+      server.app.inject({
+        method: "GET",
+        url: "/api/v1/agents?sessionId=session-1",
+      }),
+    ]);
+
+    expect(teamsResponse.statusCode).toBe(200);
+    expect(teamsResponse.json()).toMatchObject({
+      total: 1,
+      teams: [
+        expect.objectContaining({
+          name: "delivery",
+        }),
+      ],
+    });
+
+    expect(tasksResponse.statusCode).toBe(200);
+    expect(tasksResponse.json()).toMatchObject({
+      total: 1,
+      tasks: [
+        expect.objectContaining({
+          id: "task-1",
+          teamName: "delivery",
+        }),
+      ],
+    });
+
+    expect(agentsResponse.statusCode).toBe(200);
+    expect(agentsResponse.json()).toMatchObject({
+      total: 1,
+      agents: [
+        expect.objectContaining({
+          name: "agent-reviewer",
+          source: "runtime",
+        }),
+      ],
+    });
+  });
+
   it("lists and updates metadata definitions and values through the sessions API", async () => {
     const definitionsResponse = await server.app.inject({
       method: "GET",
@@ -271,5 +339,127 @@ describe("session catalog API", () => {
         value: "platform",
       }),
     ]);
+
+    const deleteDefinitionResponse = await server.app.inject({
+      method: "DELETE",
+      url: "/api/v1/sessions/metadata/definitions/owner",
+    });
+
+    expect(deleteDefinitionResponse.statusCode).toBe(200);
+    expect(
+      deleteDefinitionResponse.json().definitions.some(
+        (definition: { key: string }) => definition.key === "owner"
+      )
+    ).toBe(false);
+
+    const metadataAfterDeleteResponse = await server.app.inject({
+      method: "GET",
+      url: "/api/v1/sessions/session-2/metadata",
+    });
+
+    expect(metadataAfterDeleteResponse.statusCode).toBe(200);
+    expect(metadataAfterDeleteResponse.json().metadata).toEqual([]);
+  });
+
+  it("lists and updates metadata definitions and values through the generic resource metadata API", async () => {
+    const definitionsResponse = await server.app.inject({
+      method: "GET",
+      url: "/api/v1/metadata/definitions/runtime-tool",
+    });
+
+    expect(definitionsResponse.statusCode).toBe(200);
+    expect(definitionsResponse.json()).toEqual({
+      resourceType: "runtime-tool",
+      definitions: [],
+    });
+
+    const createDefinitionResponse = await server.app.inject({
+      method: "POST",
+      url: "/api/v1/metadata/definitions/runtime-tool",
+      payload: {
+        key: "owner",
+        label: "Owner",
+        searchable: true,
+        filterable: true,
+      },
+    });
+
+    expect(createDefinitionResponse.statusCode).toBe(201);
+    expect(createDefinitionResponse.json().definition).toMatchObject({
+      resourceType: "runtime-tool",
+      key: "owner",
+      label: "Owner",
+    });
+
+    const filteredDefinitionsResponse = await server.app.inject({
+      method: "GET",
+      url: "/api/v1/metadata/definitions/runtime-tool?q=own",
+    });
+
+    expect(filteredDefinitionsResponse.statusCode).toBe(200);
+    expect(filteredDefinitionsResponse.json().definitions).toEqual([
+      expect.objectContaining({
+        key: "owner",
+        label: "Owner",
+      }),
+    ]);
+
+    const setValueResponse = await server.app.inject({
+      method: "PUT",
+      url: "/api/v1/metadata/values/runtime-tool/Read",
+      payload: {
+        key: "owner",
+        value: "platform",
+      },
+    });
+
+    expect(setValueResponse.statusCode).toBe(200);
+    expect(setValueResponse.json().metadata).toEqual([
+      expect.objectContaining({
+        resourceType: "runtime-tool",
+        resourceId: "Read",
+        key: "owner",
+        value: "platform",
+      }),
+    ]);
+
+    const filteredValuesResponse = await server.app.inject({
+      method: "GET",
+      url: "/api/v1/metadata/values/runtime-tool/Read?q=platform",
+    });
+
+    expect(filteredValuesResponse.statusCode).toBe(200);
+    expect(filteredValuesResponse.json().metadata).toEqual([
+      expect.objectContaining({
+        key: "owner",
+        value: "platform",
+      }),
+    ]);
+
+    const aggregateValuesResponse = await server.app.inject({
+      method: "GET",
+      url: "/api/v1/metadata/values/runtime-tool?resourceId=Read&q=platform",
+    });
+
+    expect(aggregateValuesResponse.statusCode).toBe(200);
+    expect(aggregateValuesResponse.json()).toEqual({
+      resourceType: "runtime-tool",
+      resourceId: "Read",
+      metadata: [
+        expect.objectContaining({
+          key: "owner",
+          value: "platform",
+          resourceId: "Read",
+        }),
+      ],
+    });
+
+    const deleteValueResponse = await server.app.inject({
+      method: "DELETE",
+      url: "/api/v1/metadata/values/runtime-tool/Read/owner",
+    });
+
+    expect(deleteValueResponse.statusCode).toBe(200);
+    expect(deleteValueResponse.json().metadata).toEqual([]);
   });
 });

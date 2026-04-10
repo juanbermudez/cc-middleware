@@ -4,7 +4,11 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { HookEventBus, createEventBus, ALL_HOOK_EVENT_TYPES } from "../../src/hooks/event-bus.js";
-import type { HookInput, PreToolUseInput, SessionStartInput } from "../../src/types/hooks.js";
+import type {
+  InstructionsLoadedInput,
+  PreToolUseInput,
+  SessionStartInput,
+} from "../../src/types/hooks.js";
 
 function makePreToolUseInput(toolName = "Read"): PreToolUseInput {
   return {
@@ -21,6 +25,16 @@ function makeSessionStartInput(): SessionStartInput {
     session_id: "test-session",
     cwd: "/tmp/test",
     hook_event_name: "SessionStart",
+  };
+}
+
+function makeInstructionsLoadedInput(): InstructionsLoadedInput {
+  return {
+    session_id: "test-session",
+    cwd: "/tmp/test",
+    hook_event_name: "InstructionsLoaded",
+    transcript_path: "/tmp/test-transcript.jsonl",
+    permission_mode: "default",
   };
 }
 
@@ -157,13 +171,31 @@ describe("HookEventBus", () => {
     expect(wildcardHandler).toHaveBeenCalledTimes(1);
   });
 
+  it("should support InstructionsLoaded in the hook surface", () => {
+    const bus = createEventBus();
+    const handler = vi.fn();
+
+    bus.on("InstructionsLoaded", handler);
+    bus.dispatch("InstructionsLoaded", makeInstructionsLoadedInput());
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hook_event_name: "InstructionsLoaded",
+        transcript_path: "/tmp/test-transcript.jsonl",
+        permission_mode: "default",
+      })
+    );
+  });
+
   it("should include all expected event types in ALL_HOOK_EVENT_TYPES", () => {
     expect(ALL_HOOK_EVENT_TYPES).toContain("PreToolUse");
     expect(ALL_HOOK_EVENT_TYPES).toContain("PostToolUse");
     expect(ALL_HOOK_EVENT_TYPES).toContain("SessionStart");
     expect(ALL_HOOK_EVENT_TYPES).toContain("SessionEnd");
+    expect(ALL_HOOK_EVENT_TYPES).toContain("InstructionsLoaded");
     expect(ALL_HOOK_EVENT_TYPES).toContain("Stop");
     expect(ALL_HOOK_EVENT_TYPES).toContain("Setup");
-    expect(ALL_HOOK_EVENT_TYPES.length).toBe(26);
+    expect(ALL_HOOK_EVENT_TYPES.length).toBe(27);
   });
 });

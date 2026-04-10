@@ -12,6 +12,12 @@
 import type { PolicyEngine } from "./policy.js";
 import type { HookEventBus } from "../hooks/event-bus.js";
 import { generateId } from "../utils/id.js";
+import {
+  normalizeLiveAnalyticsContext,
+  recordLiveHookEvent,
+  recordLivePermissionEvent,
+} from "../analytics/live/index.js";
+import type { LiveAnalyticsCaptureOptions } from "../analytics/live/index.js";
 
 /** Result type matching the SDK's PermissionResult */
 export type PermissionResult =
@@ -55,6 +61,15 @@ export interface PendingPermission {
 export interface PermissionHandlerOptions {
   policyEngine: PolicyEngine;
   eventBus?: HookEventBus;
+  /** Optional shared manager so callers can reuse one permission queue across sessions. */
+  permissionManager?: PermissionManager;
+  /** Optional resolver for the current session/cwd context. */
+  getContext?: () => {
+    sessionId?: string;
+    cwd?: string;
+  } | undefined;
+  /** Optional live analytics metadata. */
+  analytics?: LiveAnalyticsCaptureOptions;
   /** Called when a permission request needs external resolution */
   onPendingPermission?: (request: PendingPermission) => void;
   /** Timeout for external approval (ms). Default: 30000 */
@@ -108,17 +123,36 @@ export function createCanUseTool(
 ): { canUseTool: CanUseTool; permissionManager: PermissionManager } {
   const { policyEngine, eventBus, onPendingPermission } = options;
   const approvalTimeout = options.approvalTimeout ?? 30000;
-  const permissionManager = new PermissionManager();
+  const permissionManager = options.permissionManager ?? new PermissionManager();
 
   const canUseTool: CanUseTool = async (
     toolName,
     input,
     callOptions
   ) => {
+    const context = options.getContext?.() ?? {};
+    const liveContext = normalizeLiveAnalyticsContext({
+      ...options.analytics,
+      source: options.analytics?.source ?? "internal",
+      runId: callOptions.toolUseID,
+      sessionId: context.sessionId,
+      cwd: context.cwd ?? process.cwd(),
+    });
+
     // 1. Evaluate against policy engine
     const decision = policyEngine.evaluate(toolName, input);
 
     if (decision.decision === "allow") {
+      void recordLivePermissionEvent({
+        kind: "permission_event",
+        ...liveContext,
+        decision: "allow",
+        toolName,
+        input,
+        toolUseID: callOptions.toolUseID,
+        agentID: callOptions.agentID,
+        message: "Policy allowed tool use",
+      });
       return { behavior: "allow", toolUseID: callOptions.toolUseID };
     }
 
@@ -126,6 +160,16 @@ export function createCanUseTool(
       const reason = decision.matchedRule
         ? `Blocked by policy rule: ${decision.matchedRule.id}`
         : "Blocked by default policy";
+      void recordLivePermissionEvent({
+        kind: "permission_event",
+        ...liveContext,
+        decision: "deny",
+        toolName,
+        input,
+        toolUseID: callOptions.toolUseID,
+        agentID: callOptions.agentID,
+        message: reason,
+      });
       return {
         behavior: "deny",
         message: reason,
@@ -135,14 +179,33 @@ export function createCanUseTool(
 
     // 3. Decision is "ask" - emit event and/or create pending permission
     if (eventBus) {
-      eventBus.dispatch("PermissionRequest", {
-        session_id: "",
-        cwd: "",
+      const hookInput = {
+        session_id: liveContext.sessionId ?? "",
+        cwd: liveContext.cwd ?? process.cwd(),
         hook_event_name: "PermissionRequest",
         tool_name: toolName,
         tool_input: input,
-      } as unknown as import("../types/hooks.js").HookInput);
+      } as import("../types/hooks.js").HookInput;
+
+      eventBus.dispatch("PermissionRequest", hookInput);
+      void recordLiveHookEvent({
+        kind: "hook_event",
+        ...liveContext,
+        eventType: "PermissionRequest",
+        input: hookInput,
+      });
     }
+
+    void recordLivePermissionEvent({
+      kind: "permission_event",
+      ...liveContext,
+      decision: "request",
+      toolName,
+      input,
+      toolUseID: callOptions.toolUseID,
+      agentID: callOptions.agentID,
+      message: "Permission request pending external resolution",
+    });
 
     // Create pending permission for external resolution
     return new Promise<PermissionResult>((resolve) => {
@@ -168,6 +231,19 @@ export function createCanUseTool(
         resolve: (result) => {
           clearTimeout(timeoutId);
           permissionManager.removePending(id);
+          void recordLivePermissionEvent({
+            kind: "permission_event",
+            ...liveContext,
+            decision: result.behavior,
+            toolName,
+            input,
+            toolUseID: result.toolUseID ?? callOptions.toolUseID,
+            agentID: callOptions.agentID,
+            message:
+              result.behavior === "deny"
+                ? result.message
+                : "Permission resolved externally",
+          });
           resolve(result);
         },
       };

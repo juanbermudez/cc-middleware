@@ -27,6 +27,7 @@ graph TD
     API --> PM["Permission Manager<br/>+ Policy"]
     API --> AR["Agent Registry<br/>+ Teams"]
     API --> RS["Real-Time Sync"]
+    API --> AW["Analytics Warehouse<br/>DuckDB + rollups"]
 
     EB --> HookHTTP["Hook HTTP Server"]
     PM --> AskUser["Ask User Mgr"]
@@ -40,11 +41,14 @@ graph TD
     SW -->|"session:discovered<br/>session:updated<br/>session:removed"| WS
     CW -->|"config:changed<br/>config:mcp-changed<br/>team:updated<br/>..."| WS
     AI --> Store["SQLite Store"]
+    AI --> AW
 
     SM --> SDK["Agent SDK (@anthropic-ai/claude-agent-sdk)<br/>query() | listSessions() | getSessionMessages() | hooks"]
     AR --> SDK
 
     SDK --> CC["Claude Code Runtime<br/>Sessions | Tools | Agents"]
+    SDK --> AW
+    HookHTTP --> AW
 ```
 
 ## Component Details
@@ -85,6 +89,13 @@ graph TD
 - SQLite session index with FTS5 search
 - Session indexer (full and incremental)
 - Search API with filters and highlights
+
+### Analytics Layer (`src/analytics/`)
+- [Analytics System](analytics-system.md)
+- Local DuckDB warehouse for transcript backfill and derived metrics
+- Raw event ingestion from transcripts and middleware-launched sessions
+- Derived facts for tools, errors, keywords, compactions, costs, and subagents
+- Optional Claude Code OTel enrichment without depending on it for correctness
 
 ### Real-Time Sync (`src/sync/`)
 - **Session Watcher** (`session-watcher.ts`): Watches `~/.claude/projects/` for new/modified `.jsonl` session files using chokidar with polling fallback. Emits `session:discovered`, `session:updated`, `session:removed` events.

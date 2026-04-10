@@ -28,9 +28,10 @@ export interface TeamMemberInfo {
 export interface TeamTaskInfo {
   id: string;
   description: string;
-  status: "pending" | "in_progress" | "completed";
+  status: "pending" | "in_progress" | "completed" | "failed";
   assignee?: string;
   dependencies: string[];
+  filePath?: string;
 }
 
 /**
@@ -100,6 +101,7 @@ export class TeamManager {
                 (data.status as TeamTaskInfo["status"]) ?? "pending",
               assignee: data.assignee as string | undefined,
               dependencies: (data.dependencies as string[]) ?? [],
+              filePath: join(taskDir, entry.name),
             });
           } catch {
             // Skip invalid task files

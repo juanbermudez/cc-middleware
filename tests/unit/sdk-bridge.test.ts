@@ -5,8 +5,12 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createSDKHooks, createFullSDKHooks } from "../../src/hooks/sdk-bridge.js";
-import { createEventBus, ALL_HOOK_EVENT_TYPES } from "../../src/hooks/event-bus.js";
+import {
+  createSDKHooks,
+  createFullSDKHooks,
+  SDK_HOOK_EVENT_TYPES,
+} from "../../src/hooks/sdk-bridge.js";
+import { createEventBus } from "../../src/hooks/event-bus.js";
 import { createBlockingRegistry } from "../../src/hooks/blocking.js";
 import type { HookEventType } from "../../src/types/hooks.js";
 
@@ -69,6 +73,21 @@ describe("SDK Hook Bridge", () => {
     expect(hooks.PostToolUse).toBeDefined();
     expect(hooks.SessionStart).toBeDefined();
     expect(hooks.Stop).toBeUndefined();
+  });
+
+  it("should ignore non-SDK hook names when filtering the bridge surface", () => {
+    const bus = createEventBus();
+    const registry = createBlockingRegistry();
+
+    const hooks = createSDKHooks(
+      bus,
+      registry,
+      ["PreToolUse", "NotARealHook"] as unknown as HookEventType[]
+    );
+
+    expect(hooks.PreToolUse).toBeDefined();
+    expect(Object.keys(hooks)).toEqual(["PreToolUse"]);
+    expect(SDK_HOOK_EVENT_TYPES).toContain("InstructionsLoaded");
   });
 
   it("should dispatch events to the event bus when callback fires", async () => {
@@ -181,7 +200,7 @@ describe("SDK Hook Bridge", () => {
     const hooks = createFullSDKHooks(bus, registry);
 
     // Should have an entry for every hook event type
-    for (const eventType of ALL_HOOK_EVENT_TYPES) {
+    for (const eventType of SDK_HOOK_EVENT_TYPES) {
       expect(hooks[eventType as keyof typeof hooks]).toBeDefined();
     }
   });

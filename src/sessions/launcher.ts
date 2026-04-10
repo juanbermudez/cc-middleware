@@ -5,6 +5,12 @@
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { buildSDKOptions, buildLaunchResult } from "./utils.js";
+import type { CanUseTool } from "../permissions/handler.js";
+import {
+  normalizeLiveAnalyticsContext,
+  recordLiveSdkMessage,
+} from "../analytics/live/index.js";
+import type { LiveAnalyticsCaptureOptions } from "../analytics/live/index.js";
 
 /** Options for launching a session */
 export interface LaunchOptions {
@@ -53,12 +59,14 @@ export interface LaunchOptions {
   env?: Record<string, string | undefined>;
   /** Agent definitions for sub-agents */
   agents?: Record<string, unknown>;
+  /** Agent to run the main thread */
+  agent?: string;
   /** Model to use */
   model?: string;
   /** Fallback model */
   fallbackModel?: string;
   /** canUseTool callback for permission handling */
-  canUseTool?: (toolName: string, input: Record<string, unknown>, options: Record<string, unknown>) => Promise<unknown>;
+  canUseTool?: CanUseTool;
   /** MCP server configurations */
   mcpServers?: Record<string, unknown>;
   /** Plugin configurations */
@@ -85,6 +93,10 @@ export interface LaunchOptions {
   debugFile?: string;
   /** Enable prompt suggestions */
   promptSuggestions?: boolean;
+  /** Optional live analytics metadata */
+  analytics?: LiveAnalyticsCaptureOptions;
+  /** Internal callback invoked when the SDK reveals the real session ID */
+  onSessionId?: (sessionId: string) => void;
 }
 
 /** Result of a completed session */
@@ -122,6 +134,12 @@ export async function launchSession(
   options: LaunchOptions
 ): Promise<LaunchResult> {
   const sdkOptions = buildSDKOptions(options);
+  const analyticsContext = normalizeLiveAnalyticsContext({
+    ...options.analytics,
+    source: options.analytics?.source ?? "internal",
+    sessionId: options.sessionId ?? options.resume,
+    cwd: options.cwd,
+  });
 
   let sessionId = "";
   let result: LaunchResult | undefined;
@@ -133,15 +151,31 @@ export async function launchSession(
 
   for await (const message of q) {
     const msg = message as Record<string, unknown>;
+    const rawSessionId = typeof msg.session_id === "string" ? msg.session_id : undefined;
+    const messageType = typeof msg.type === "string" ? msg.type : "unknown";
+
+    void recordLiveSdkMessage({
+      kind: "sdk_message",
+      ...analyticsContext,
+      sessionId: rawSessionId ?? sessionId ?? analyticsContext.sessionId,
+      phase: "launch",
+      messageType,
+      message: msg,
+      prompt: options.prompt,
+    });
 
     // Capture session ID from init or system message
-    if (msg.type === "system" && msg.session_id) {
-      sessionId = msg.session_id as string;
+    if (msg.type === "system" && rawSessionId) {
+      sessionId = rawSessionId;
+      options.onSessionId?.(sessionId);
     }
 
     // Capture result from final message
     if (msg.type === "result") {
       sessionId = (msg.session_id as string) ?? sessionId;
+      if (sessionId) {
+        options.onSessionId?.(sessionId);
+      }
       result = buildLaunchResult(msg, sessionId);
     }
   }
